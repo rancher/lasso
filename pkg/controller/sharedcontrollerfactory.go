@@ -15,6 +15,7 @@ import (
 )
 
 type SharedControllerFactory interface {
+	ForObject(obj runtime.Object) (SharedController, error)
 	ForKind(gvk schema.GroupVersionKind) (SharedController, error)
 	SharedCacheFactory() cache.SharedCacheFactory
 	Start(ctx context.Context, workers int) error
@@ -101,6 +102,14 @@ func (s *sharedControllerFactory) Start(ctx context.Context, defaultWorkers int)
 	}()
 
 	return nil
+}
+
+func (s *sharedControllerFactory) ForObject(obj runtime.Object) (SharedController, error) {
+	gvk, err := s.sharedCacheFactory.SharedClientFactory().GVK(obj)
+	if err != nil {
+		return nil, err
+	}
+	return s.ForKind(gvk)
 }
 
 func (s *sharedControllerFactory) ForKind(gvk schema.GroupVersionKind) (SharedController, error) {

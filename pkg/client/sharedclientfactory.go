@@ -1,6 +1,7 @@
 package client
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/rancher/lasso/pkg/mapper"
@@ -21,6 +22,7 @@ type SharedClientFactory interface {
 	ForKind(gvk schema.GroupVersionKind) (*Client, error)
 	ForResource(gvr schema.GroupVersionResource) (*Client, error)
 	NewObjects(gvk schema.GroupVersionKind) (runtime.Object, runtime.Object, error)
+	GVK(obj runtime.Object) (schema.GroupVersionKind, error)
 }
 
 type sharedClientFactory struct {
@@ -74,6 +76,17 @@ func applyDefaults(config *rest.Config, opts *SharedClientFactoryOptions) (*Shar
 	}
 
 	return &newOpts, nil
+}
+
+func (s *sharedClientFactory) GVK(obj runtime.Object) (schema.GroupVersionKind, error) {
+	gvks, _, err := s.Scheme.ObjectKinds(obj)
+	if err != nil {
+		return schema.GroupVersionKind{}, err
+	}
+	if len(gvks) == 0 {
+		return schema.GroupVersionKind{}, fmt.Errorf("failed to find schema.GroupVersionKind for %T", obj)
+	}
+	return gvks[0], nil
 }
 
 func (s *sharedClientFactory) NewObjects(gvk schema.GroupVersionKind) (runtime.Object, runtime.Object, error) {
