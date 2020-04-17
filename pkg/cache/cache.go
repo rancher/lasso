@@ -19,10 +19,10 @@ type Options struct {
 }
 
 func NewCache(obj, listObj runtime.Object, client *client.Client, opts *Options) cache.SharedIndexInformer {
-	var indexers cache.Indexers
+	indexers := cache.Indexers{}
 
 	if client.Namespaced {
-		indexers = cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}
+		indexers[cache.NamespaceIndex] = cache.MetaNamespaceIndexFunc
 	}
 
 	opts = applyDefaultCacheOptions(opts)
