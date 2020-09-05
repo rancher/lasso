@@ -1,7 +1,7 @@
 Lasso
 =====
 
-Core controller framework used by [Wrangler](http://github.com/rancher/wrangler).
+Core controller framework used by [Wrangler](http://github.com/rancher/wrangler) and [Norman](http://github.com/rancher/norman).
 
 This framework is a bit raw, but can be used directly. The intention is try to standardize some boilerplate
 of building controllers.
@@ -62,7 +62,7 @@ func MyController(ctx context.Context, config *rest.Config) error {
 			return obj, nil
 		}
 
-		// Don't some stuff ...
+		// Do some stuff ...
 
 		// Get stuff from the cache
 		sharedController.Informer().GetStore().Get(key)
