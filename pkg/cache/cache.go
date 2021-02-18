@@ -13,9 +13,10 @@ import (
 )
 
 type Options struct {
-	Namespace string
-	Resync    time.Duration
-	TweakList TweakListOptionsFunc
+	Namespace   string
+	Resync      time.Duration
+	TweakList   TweakListOptionsFunc
+	HealthCheck func(stopCh <-chan struct{}) error
 }
 
 func NewCache(obj, listObj runtime.Object, client *client.Client, opts *Options) cache.SharedIndexInformer {
@@ -28,10 +29,11 @@ func NewCache(obj, listObj runtime.Object, client *client.Client, opts *Options)
 	opts = applyDefaultCacheOptions(opts)
 
 	lw := &deferredListWatcher{
-		client:    client,
-		tweakList: opts.TweakList,
-		namespace: opts.Namespace,
-		listObj:   listObj,
+		client:      client,
+		tweakList:   opts.TweakList,
+		namespace:   opts.Namespace,
+		listObj:     listObj,
+		healthcheck: opts.HealthCheck,
 	}
 
 	return &deferredCache{
@@ -65,11 +67,12 @@ type deferredCache struct {
 }
 
 type deferredListWatcher struct {
-	lw        cache.ListerWatcher
-	client    *client.Client
-	tweakList TweakListOptionsFunc
-	namespace string
-	listObj   runtime.Object
+	lw          cache.ListerWatcher
+	client      *client.Client
+	tweakList   TweakListOptionsFunc
+	namespace   string
+	listObj     runtime.Object
+	healthcheck func(stopCh <-chan struct{}) error
 }
 
 func (d *deferredListWatcher) List(options metav1.ListOptions) (runtime.Object, error) {
@@ -95,6 +98,12 @@ func (d *deferredListWatcher) run(stopCh <-chan struct{}) {
 
 	d.lw = &cache.ListWatch{
 		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+			if d.healthcheck != nil {
+				err := d.healthcheck(stopCh)
+				if err != nil {
+					return nil, err
+				}
+			}
 			d.tweakList(&options)
 			// If ResourceVersion is set to 0 then the Limit is ignored on the API side. Usually
 			// that's not a problem, but with very large counts of a single object type the client will
