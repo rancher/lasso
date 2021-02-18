@@ -27,6 +27,7 @@ type SharedClientFactory interface {
 	NewObjects(gvk schema.GroupVersionKind) (runtime.Object, runtime.Object, error)
 	GVKForObject(obj runtime.Object) (schema.GroupVersionKind, error)
 	GVKForResource(gvr schema.GroupVersionResource) (schema.GroupVersionKind, error)
+	IsNamespaced(gvk schema.GroupVersionKind) (bool, error)
 	ResourceForGVK(gvk schema.GroupVersionKind) (schema.GroupVersionResource, bool, error)
 }
 
@@ -88,6 +89,15 @@ func applyDefaults(config *rest.Config, opts *SharedClientFactoryOptions) (*Shar
 
 func (s *sharedClientFactory) GVKForResource(gvr schema.GroupVersionResource) (schema.GroupVersionKind, error) {
 	return s.Mapper.KindFor(gvr)
+}
+
+func (s *sharedClientFactory) IsNamespaced(gvk schema.GroupVersionKind) (bool, error) {
+	mapping, err := s.Mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+	if err != nil {
+		return false, err
+	}
+
+	return IsNamespaced(mapping.Resource, s.Mapper)
 }
 
 func (s *sharedClientFactory) ResourceForGVK(gvk schema.GroupVersionKind) (schema.GroupVersionResource, bool, error) {
