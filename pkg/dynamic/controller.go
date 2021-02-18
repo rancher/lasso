@@ -89,7 +89,7 @@ func (c *Controller) OnChange(ctx context.Context, name string, matcher GVKMatch
 	})
 }
 
-func (c *Controller) getCache(ctx context.Context, gvk schema.GroupVersionKind) (cache.SharedIndexInformer, bool, error) {
+func (c *Controller) GetCache(ctx context.Context, gvk schema.GroupVersionKind) (cache.SharedIndexInformer, bool, error) {
 	if c.cacheFactory.WaitForCacheSync(ctx)[gvk] {
 		cache, err := c.cacheFactory.ForKind(gvk)
 		return cache, true, err
@@ -133,7 +133,7 @@ func (c *Controller) setGVKs(gvkList []schema.GroupVersionKind, additionalValidG
 			continue
 		}
 
-		cache, shared, err := c.getCache(timeoutCtx, gvk)
+		cache, shared, err := c.GetCache(timeoutCtx, gvk)
 		if err != nil {
 			klog.Errorf("Failed to get shared cache for %v: %v", gvk, err)
 			delete(gvks, gvk)
