@@ -1,4 +1,4 @@
-module github.com/rancher/lasso/controllerruntime
+module github.com/rancher/lasso/controller-runtime
 
 go 1.15
 
