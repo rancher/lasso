@@ -195,7 +195,7 @@ func (f *sharedCacheFactory) ForResourceKind(gvr schema.GroupVersionResource, ki
 		Namespace:   namespace,
 		Resync:      resyncPeriod,
 		TweakList:   tweakList,
-		HealthCheck: f.healthcheck.check,
+		WaitHealthy: f.healthcheck.ensureHealthy,
 	})
 	f.caches[gvk] = cache
 
