@@ -118,6 +118,7 @@ func (c *Controller) setGVKs(gvkList []schema.GroupVersionKind, additionalValidG
 	var (
 		gvks               = map[schema.GroupVersionKind]bool{}
 		toWait             []*watcher
+		errs               []error
 		timeoutCtx, cancel = context.WithTimeout(c.ctx, 15*time.Minute)
 	)
 	defer cancel()
@@ -135,6 +136,7 @@ func (c *Controller) setGVKs(gvkList []schema.GroupVersionKind, additionalValidG
 
 		cache, shared, err := c.GetCache(timeoutCtx, gvk)
 		if err != nil {
+			errs = append(errs, err)
 			klog.Errorf("Failed to get shared cache for %v: %v", gvk, err)
 			delete(gvks, gvk)
 			continue
@@ -171,6 +173,7 @@ func (c *Controller) setGVKs(gvkList []schema.GroupVersionKind, additionalValidG
 
 	for _, w := range toWait {
 		if !cache.WaitForCacheSync(timeoutCtx.Done(), w.informer.HasSynced) {
+			errs = append(errs, fmt.Errorf("failed to sync cache for %v", w.gvk))
 			klog.Errorf("failed to sync cache for %v", w.gvk)
 			cancel()
 			w.cancel()
@@ -181,10 +184,15 @@ func (c *Controller) setGVKs(gvkList []schema.GroupVersionKind, additionalValidG
 
 	for _, w := range toWait {
 		if err := w.controller.Start(w.ctx, 5); err != nil {
+			errs = append(errs, err)
 			klog.Errorf("failed to start controller for %v: %v", w.gvk, err)
 			w.cancel()
 			delete(c.watchers, w.gvk)
 		}
+	}
+
+	if len(errs) > 0 {
+		return errs[0]
 	}
 
 	return nil
