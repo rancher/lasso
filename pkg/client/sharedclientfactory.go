@@ -14,7 +14,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
 
@@ -62,7 +61,7 @@ func NewSharedClientFactory(config *rest.Config, opts *SharedClientFactoryOption
 		return nil, err
 	}
 
-	k8s, err := kubernetes.NewForConfig(config)
+	discovery, err := discovery.NewDiscoveryClientForConfig(config)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +72,7 @@ func NewSharedClientFactory(config *rest.Config, opts *SharedClientFactoryOption
 		Scheme:    opts.Scheme,
 		Mapper:    opts.Mapper,
 		rest:      rest,
-		discovery: k8s.Discovery(),
+		discovery: discovery,
 	}, nil
 }
 
