@@ -9,6 +9,7 @@ import (
 	lcache "github.com/rancher/lasso/pkg/cache"
 	"github.com/rancher/lasso/pkg/client"
 	"github.com/rancher/lasso/pkg/controller"
+	"github.com/rancher/lasso/pkg/log"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -17,7 +18,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/klog"
 )
 
 type Handler func(obj runtime.Object) (runtime.Object, error)
@@ -137,7 +137,7 @@ func (c *Controller) setGVKs(gvkList []schema.GroupVersionKind, additionalValidG
 		cache, shared, err := c.GetCache(timeoutCtx, gvk)
 		if err != nil {
 			errs = append(errs, err)
-			klog.Errorf("Failed to get shared cache for %v: %v", gvk, err)
+			log.Errorf("Failed to get shared cache for %v: %v", gvk, err)
 			delete(gvks, gvk)
 			continue
 		}
@@ -158,14 +158,14 @@ func (c *Controller) setGVKs(gvkList []schema.GroupVersionKind, additionalValidG
 		toWait = append(toWait, w)
 
 		if !shared {
-			klog.V(0).Infof("Watching metadata for %s", w.gvk)
+			log.Infof("Watching metadata for %s", w.gvk)
 			go w.informer.Run(w.ctx.Done())
 		}
 	}
 
 	for gvk, w := range c.watchers {
 		if !gvks[gvk] {
-			klog.V(0).Infof("Stopping metadata watch on %s", gvk)
+			log.Infof("Stopping metadata watch on %s", gvk)
 			w.cancel()
 			delete(c.watchers, gvk)
 		}
@@ -174,7 +174,7 @@ func (c *Controller) setGVKs(gvkList []schema.GroupVersionKind, additionalValidG
 	for _, w := range toWait {
 		if !cache.WaitForCacheSync(timeoutCtx.Done(), w.informer.HasSynced) {
 			errs = append(errs, fmt.Errorf("failed to sync cache for %v", w.gvk))
-			klog.Errorf("failed to sync cache for %v", w.gvk)
+			log.Errorf("failed to sync cache for %v", w.gvk)
 			cancel()
 			w.cancel()
 			delete(c.watchers, w.gvk)
@@ -185,7 +185,7 @@ func (c *Controller) setGVKs(gvkList []schema.GroupVersionKind, additionalValidG
 	for _, w := range toWait {
 		if err := w.controller.Start(w.ctx, 5); err != nil {
 			errs = append(errs, err)
-			klog.Errorf("failed to start controller for %v: %v", w.gvk, err)
+			log.Errorf("failed to start controller for %v: %v", w.gvk, err)
 			w.cancel()
 			delete(c.watchers, w.gvk)
 		}
