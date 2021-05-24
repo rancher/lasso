@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/rancher/lasso/pkg/log"
-	"golang.org/x/time/rate"
+	rqueue "github.com/rancher/lasso/pkg/workqueue"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -17,6 +17,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
+
+const maxTimeout2min = 2 * time.Minute
 
 type Handler interface {
 	OnChange(key string, obj runtime.Object) error
@@ -87,11 +89,12 @@ func applyDefaultOptions(opts *Options) *Options {
 		newOpts = *opts
 	}
 	if newOpts.RateLimiter == nil {
+		// 10 qps, 100 bucket size.  This is only for retry speed and its only the overall factor (not per item)
+		bucket := rqueue.NewBucketRateLimiterWithMaxTimeout(10, 100, maxTimeout2min)
 		newOpts.RateLimiter = workqueue.NewMaxOfRateLimiter(
-			workqueue.NewItemFastSlowRateLimiter(time.Millisecond, 2*time.Minute, 30),
+			workqueue.NewItemFastSlowRateLimiter(time.Millisecond, maxTimeout2min, 30),
 			workqueue.NewItemExponentialFailureRateLimiter(5*time.Millisecond, 30*time.Second),
-			// 10 qps, 100 bucket size.  This is only for retry speed and its only the overall factor (not per item)
-			&workqueue.BucketRateLimiter{Limiter: rate.NewLimiter(rate.Limit(10), 100)},
+			bucket,
 		)
 	}
 	return &newOpts
