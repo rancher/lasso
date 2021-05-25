@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/rancher/lasso/pkg/log"
-	rqueue "github.com/rancher/lasso/pkg/workqueue"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -89,12 +88,9 @@ func applyDefaultOptions(opts *Options) *Options {
 		newOpts = *opts
 	}
 	if newOpts.RateLimiter == nil {
-		// 10 qps, 100 bucket size.  This is only for retry speed and its only the overall factor (not per item)
-		bucket := rqueue.NewBucketRateLimiterWithMaxTimeout(10, 100, maxTimeout2min)
 		newOpts.RateLimiter = workqueue.NewMaxOfRateLimiter(
 			workqueue.NewItemFastSlowRateLimiter(time.Millisecond, maxTimeout2min, 30),
 			workqueue.NewItemExponentialFailureRateLimiter(5*time.Millisecond, 30*time.Second),
-			bucket,
 		)
 	}
 	return &newOpts
