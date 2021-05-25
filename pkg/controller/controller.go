@@ -86,7 +86,10 @@ func applyDefaultOptions(opts *Options) *Options {
 		newOpts = *opts
 	}
 	if newOpts.RateLimiter == nil {
-		newOpts.RateLimiter = workqueue.DefaultControllerRateLimiter()
+		newOpts.RateLimiter = workqueue.NewMaxOfRateLimiter(
+			workqueue.NewItemFastSlowRateLimiter(time.Millisecond, 2*time.Minute, 30),
+			workqueue.NewItemExponentialFailureRateLimiter(5*time.Millisecond, 30*time.Second),
+		)
 	}
 	return &newOpts
 }
