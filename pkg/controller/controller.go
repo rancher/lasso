@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/rancher/lasso/pkg/log"
-	"golang.org/x/time/rate"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -90,8 +89,6 @@ func applyDefaultOptions(opts *Options) *Options {
 		newOpts.RateLimiter = workqueue.NewMaxOfRateLimiter(
 			workqueue.NewItemFastSlowRateLimiter(time.Millisecond, 2*time.Minute, 30),
 			workqueue.NewItemExponentialFailureRateLimiter(5*time.Millisecond, 30*time.Second),
-			// 10 qps, 100 bucket size.  This is only for retry speed and its only the overall factor (not per item)
-			&workqueue.BucketRateLimiter{Limiter: rate.NewLimiter(rate.Limit(10), 100)},
 		)
 	}
 	return &newOpts
