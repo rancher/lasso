@@ -62,9 +62,10 @@ func (h *SharedHandler) OnChange(key string, obj runtime.Object) error {
 		errs errorList
 	)
 	h.lock.RLock()
-	defer h.lock.RUnlock()
+	handlers := h.handlers
+	h.lock.RUnlock()
 
-	for _, handler := range h.handlers {
+	for _, handler := range handlers {
 		newObj, err := handler.handler.OnChange(key, obj)
 		if err != nil && !errors.Is(err, ErrIgnore) {
 			errs = append(errs, &handlerError{
