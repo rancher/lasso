@@ -91,6 +91,16 @@ func (c *Controller) AddIndexer(name string, matcher GVKMatcher, indexer func(ob
 		name:    name,
 		indexer: indexer,
 	})
+
+	for gvk, watcher := range c.watchers {
+		if matcher(gvk) {
+			watcher.informer.AddIndexers(cache.Indexers{
+				name: func(obj interface{}) ([]string, error) {
+					return indexer(obj.(runtime.Object))
+				},
+			})
+		}
+	}
 }
 
 func (c *Controller) OnChange(ctx context.Context, name string, matcher GVKMatcher, handler Handler) {
