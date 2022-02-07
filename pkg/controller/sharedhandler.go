@@ -10,10 +10,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/rancher/lasso/pkg/metrics"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
-
-	"github.com/rancher/lasso/pkg/metrics"
 )
 
 var (
@@ -28,7 +27,8 @@ type handlerEntry struct {
 
 type SharedHandler struct {
 	// keep first because arm32 needs atomic.AddInt64 target to be mem aligned
-	idCounter int64
+	idCounter     int64
+	controllerGVR string
 
 	lock     sync.RWMutex
 	handlers []handlerEntry
@@ -69,23 +69,20 @@ func (h *SharedHandler) OnChange(key string, obj runtime.Object) error {
 	h.lock.RUnlock()
 
 	for _, handler := range handlers {
-		handlerName := handler.name
+		var hasError bool
 		reconcileStartTS := time.Now()
 
 		newObj, err := handler.handler.OnChange(key, obj)
-		if err == nil {
-			metrics.ReportReconcileTotal(handlerName, metrics.ReconcileResultSuccess)
-		} else if errors.Is(err, ErrIgnore) {
-			metrics.ReportReconcileTotal(handlerName, metrics.ReconcileResultErrorIgnore)
-		} else {
+		if err != nil && !errors.Is(err, ErrIgnore) {
 			errs = append(errs, &handlerError{
 				HandlerName: handler.name,
 				Err:         err,
 			})
-			metrics.ReportReconcileTotal(handlerName, metrics.ReconcileResultError)
+			hasError = true
 		}
+		metrics.IncTotalHandlerExecutions(h.controllerGVR, handler.name, hasError)
 		reconcileTime := time.Since(reconcileStartTS)
-		metrics.ReportReconcileTime(reconcileTime.Seconds(), handlerName)
+		metrics.ReportReconcileTime(h.controllerGVR, handler.name, hasError, reconcileTime.Seconds())
 
 		if newObj != nil && !reflect.ValueOf(newObj).IsNil() {
 			meta, err := meta.Accessor(newObj)
