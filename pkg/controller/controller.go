@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/rancher/lasso/pkg/log"
+	"github.com/rancher/lasso/pkg/metrics"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -209,6 +210,7 @@ func (c *controller) processSingleItem(obj interface{}) error {
 func (c *controller) syncHandler(key string) error {
 	obj, exists, err := c.informer.GetStore().GetByKey(key)
 	if err != nil {
+		metrics.IncTotalHandlerExecutions(c.name, "", true)
 		return err
 	}
 	if !exists {
