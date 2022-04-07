@@ -21,6 +21,10 @@ type Handler interface {
 	OnChange(key string, obj runtime.Object) error
 }
 
+type ResourceVersionGetter interface{
+	GetResourceVersion() string
+}
+
 type HandlerFunc func(key string, obj runtime.Object) error
 
 func (h HandlerFunc) OnChange(key string, obj runtime.Object) error {
@@ -72,6 +76,9 @@ func New(name string, informer cache.SharedIndexInformer, startCache func(contex
 	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: controller.handleObject,
 		UpdateFunc: func(old, new interface{}) {
+			if old.(ResourceVersionGetter).GetResourceVersion() == new.(ResourceVersionGetter).GetResourceVersion() {
+				return
+			}
 			controller.handleObject(new)
 		},
 		DeleteFunc: controller.handleObject,
