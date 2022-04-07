@@ -24,6 +24,10 @@ type Handler interface {
 	OnChange(key string, obj runtime.Object) error
 }
 
+type ResourceVersionGetter interface{
+	GetResourceVersion() string
+}
+
 type HandlerFunc func(key string, obj runtime.Object) error
 
 func (h HandlerFunc) OnChange(key string, obj runtime.Object) error {
@@ -58,7 +62,8 @@ type startKey struct {
 }
 
 type Options struct {
-	RateLimiter workqueue.RateLimiter
+	RateLimiter            workqueue.RateLimiter
+	SyncOnlyChangedObjects bool
 }
 
 func New(name string, informer cache.SharedIndexInformer, startCache func(context.Context) error, handler Handler, opts *Options) Controller {
@@ -75,7 +80,11 @@ func New(name string, informer cache.SharedIndexInformer, startCache func(contex
 	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: controller.handleObject,
 		UpdateFunc: func(old, new interface{}) {
-			controller.handleObject(new)
+			if !opts.SyncOnlyChangedObjects || old.(ResourceVersionGetter).GetResourceVersion() != new.(ResourceVersionGetter).GetResourceVersion() {
+				// If syncOnlyChangedObjects is disabled, objects will be handled regardless of whether an update actually took place.
+				// Otherwise, objects will only be handled if they have changed
+				controller.handleObject(new)
+			}
 		},
 		DeleteFunc: controller.handleObject,
 	})
