@@ -1,3 +1,7 @@
+/*
+Package controller contains interfaces, structs, and functions that can be used to create shared controllers for
+managing clients, caches, and handlers for multiple types aka GroupVersionKinds.
+*/
 package controller
 
 import (
@@ -24,7 +28,7 @@ type Handler interface {
 	OnChange(key string, obj runtime.Object) error
 }
 
-type ResourceVersionGetter interface{
+type ResourceVersionGetter interface {
 	GetResourceVersion() string
 }
 
