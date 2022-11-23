@@ -42,7 +42,7 @@ func NewNewCacheFunc(cacheFactory lcache.SharedCacheFactory, dynamic *dynamic.Co
 	}
 }
 
-func (c *Cache) Get(ctx context.Context, key client.ObjectKey, out client.Object) error {
+func (c *Cache) Get(ctx context.Context, key client.ObjectKey, out client.Object, opts ...client.GetOption) error {
 	gvk, err := apiutil.GVKForObject(out, c.schema)
 	if err != nil {
 		return err
