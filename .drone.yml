@@ -12,3 +12,16 @@ steps:
     when:
       instance:
         - drone-publish.rancher.io
+---
+kind: pipeline
+name: test
+
+steps:
+  - name: test
+    image: registry.suse.com/bci/golang:1.19
+    commands:
+      - make test
+    when:
+      event:
+        - push
+        - pull_request

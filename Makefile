@@ -6,3 +6,5 @@ validate:
 
 build:
 	go build ./...
+test:
+	bash scripts/test.sh
