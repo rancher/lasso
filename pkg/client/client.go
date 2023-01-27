@@ -116,26 +116,27 @@ func (c *Client) setupCtx(ctx context.Context) (context.Context, func()) {
 // Get will then attempt to unmarshal the response into the provide result object.
 // If the returned response object is of type Status and has .Status != StatusSuccess, the
 // additional information in Status will be used to enrich the error.
-func (c *Client) Get(ctx context.Context, namespace, name string, result runtime.Object, options metav1.GetOptions) (err error) {
+func (c *Client) Get(ctx context.Context, namespace, name string, result runtime.Object, opts GetOptions) error {
 	defer c.setKind(result)
 	ctx, cancel := c.setupCtx(ctx)
 	defer cancel()
-	err = c.RESTClient.Get().
+	req := c.RESTClient.Get().
 		Prefix(c.prefix...).
 		NamespaceIfScoped(namespace, c.Namespaced).
 		Resource(c.resource).
 		Name(name).
-		VersionedParams(&options, metav1.ParameterCodec).
-		Do(ctx).
-		Into(result)
-	return
+		VersionedParams(&opts.GetOptions, metav1.ParameterCodec)
+
+	opts.apply(req)
+
+	return req.Do(ctx).Into(result)
 }
 
 // List will attempt to find resources in the given namespace (if client.Namespaced is set to true).
 // List will then attempt to unmarshal the response into the provide result object.
 // If the returned response object is of type Status and has .Status != StatusSuccess, the
 // additional information in Status will be used to enrich the error.
-func (c *Client) List(ctx context.Context, namespace string, result runtime.Object, opts metav1.ListOptions) (err error) {
+func (c *Client) List(ctx context.Context, namespace string, result runtime.Object, opts ListOptions) error {
 	ctx, cancel := c.setupCtx(ctx)
 	defer cancel()
 	var timeout time.Duration
@@ -146,56 +147,61 @@ func (c *Client) List(ctx context.Context, namespace string, result runtime.Obje
 	if namespace != "" {
 		r = r.NamespaceIfScoped(namespace, c.Namespaced)
 	}
-	err = r.Resource(c.resource).
+	req := r.Resource(c.resource).
 		Prefix(c.prefix...).
-		VersionedParams(&opts, metav1.ParameterCodec).
-		Timeout(timeout).
-		Do(ctx).
-		Into(result)
-	return
+		VersionedParams(&opts.ListOptions, metav1.ParameterCodec).
+		Timeout(timeout)
+
+	opts.apply(req)
+
+	return req.Do(ctx).Into(result)
 }
 
 // Watch will attempt to start a watch request with the kube-apiserver for resources in the given namespace (if client.Namespaced is set to true).
 // Results will be streamed too the returned watch.Interface.
-func (c *Client) Watch(ctx context.Context, namespace string, opts metav1.ListOptions) (watch.Interface, error) {
+func (c *Client) Watch(ctx context.Context, namespace string, opts ListOptions) (watch.Interface, error) {
 	var timeout time.Duration
 	if opts.TimeoutSeconds != nil {
 		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
 	}
 	opts.Watch = true
-	return c.injectKind(c.RESTClient.Get().
+	req := c.RESTClient.Get().
 		Prefix(c.prefix...).
 		NamespaceIfScoped(namespace, c.Namespaced).
 		Resource(c.resource).
-		VersionedParams(&opts, metav1.ParameterCodec).
-		Timeout(timeout).
-		Watch(ctx))
+		VersionedParams(&opts.ListOptions, metav1.ParameterCodec).
+		Timeout(timeout)
+
+	opts.apply(req)
+
+	return c.injectKind(req.Watch(ctx))
 }
 
 // Create will attempt create the provided object in the given namespace (if client.Namespaced is set to true).
 // Create will then attempt to unmarshal the created object from the response into the provide result object.
 // If the returned response object is of type Status and has .Status != StatusSuccess, the
 // additional information in Status will be used to enrich the error.
-func (c *Client) Create(ctx context.Context, namespace string, obj, result runtime.Object, opts metav1.CreateOptions) (err error) {
+func (c *Client) Create(ctx context.Context, namespace string, obj, result runtime.Object, opts CreateOptions) error {
 	defer c.setKind(result)
 	ctx, cancel := c.setupCtx(ctx)
 	defer cancel()
-	err = c.RESTClient.Post().
+	req := c.RESTClient.Post().
 		Prefix(c.prefix...).
 		NamespaceIfScoped(namespace, c.Namespaced).
 		Resource(c.resource).
-		VersionedParams(&opts, metav1.ParameterCodec).
-		Body(obj).
-		Do(ctx).
-		Into(result)
-	return
+		VersionedParams(&opts.CreateOptions, metav1.ParameterCodec).
+		Body(obj)
+
+	opts.apply(req)
+
+	return req.Do(ctx).Into(result)
 }
 
 // Update will attempt update the provided object in the given namespace (if client.Namespaced is set to true).
 // Update will then attempt to unmarshal the updated object from the response into the provide result object.
 // If the returned response object is of type Status and has .Status != StatusSuccess, the
 // additional information in Status will be used to enrich the error.
-func (c *Client) Update(ctx context.Context, namespace string, obj, result runtime.Object, opts metav1.UpdateOptions) (err error) {
+func (c *Client) Update(ctx context.Context, namespace string, obj, result runtime.Object, opts UpdateOptions) error {
 	defer c.setKind(result)
 	ctx, cancel := c.setupCtx(ctx)
 	defer cancel()
@@ -203,23 +209,24 @@ func (c *Client) Update(ctx context.Context, namespace string, obj, result runti
 	if err != nil {
 		return err
 	}
-	err = c.RESTClient.Put().
+	req := c.RESTClient.Put().
 		Prefix(c.prefix...).
 		NamespaceIfScoped(namespace, c.Namespaced).
 		Resource(c.resource).
 		Name(m.GetName()).
-		VersionedParams(&opts, metav1.ParameterCodec).
-		Body(obj).
-		Do(ctx).
-		Into(result)
-	return
+		VersionedParams(&opts.UpdateOptions, metav1.ParameterCodec).
+		Body(obj)
+
+	opts.apply(req)
+
+	return req.Do(ctx).Into(result)
 }
 
 // UpdateStatus will attempt update the status on the provided object in the given namespace (if client.Namespaced is set to true).
 // UpdateStatus will then attempt to unmarshal the updated object from the response into the provide result object.
 // If the returned response object is of type Status and has .Status != StatusSuccess, the
 // additional information in Status will be used to enrich the error.
-func (c *Client) UpdateStatus(ctx context.Context, namespace string, obj, result runtime.Object, opts metav1.UpdateOptions) (err error) {
+func (c *Client) UpdateStatus(ctx context.Context, namespace string, obj, result runtime.Object, opts UpdateOptions) error {
 	defer c.setKind(result)
 	ctx, cancel := c.setupCtx(ctx)
 	defer cancel()
@@ -227,71 +234,79 @@ func (c *Client) UpdateStatus(ctx context.Context, namespace string, obj, result
 	if err != nil {
 		return err
 	}
-	err = c.RESTClient.Put().
+	req := c.RESTClient.Put().
 		Prefix(c.prefix...).
 		NamespaceIfScoped(namespace, c.Namespaced).
 		Resource(c.resource).
 		Name(m.GetName()).
 		SubResource("status").
-		VersionedParams(&opts, metav1.ParameterCodec).
-		Body(obj).
-		Do(ctx).
-		Into(result)
-	return
+		VersionedParams(&opts.UpdateOptions, metav1.ParameterCodec).
+		Body(obj)
+
+	opts.apply(req)
+
+	return req.Do(ctx).Into(result)
 }
 
 // Delete will attempt to delete the resource with the matching name in the given namespace (if client.Namespaced is set to true).
-func (c *Client) Delete(ctx context.Context, namespace, name string, opts metav1.DeleteOptions) error {
+func (c *Client) Delete(ctx context.Context, namespace, name string, opts DeleteOptions) error {
 	ctx, cancel := c.setupCtx(ctx)
 	defer cancel()
-	return c.RESTClient.Delete().
+	req := c.RESTClient.Delete().
 		Prefix(c.prefix...).
 		NamespaceIfScoped(namespace, c.Namespaced).
 		Resource(c.resource).
 		Name(name).
-		Body(&opts).
-		Do(ctx).
-		Error()
+		Body(&opts.DeleteOptions)
+
+	opts.apply(req)
+
+	return req.Do(ctx).Error()
 }
 
 // DeleteCollection will attempt to delete all resource the given namespace (if client.Namespaced is set to true).
-func (c *Client) DeleteCollection(ctx context.Context, namespace string, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
+// Delete Options take precedent over list options and will be applied last.
+func (c *Client) DeleteCollection(ctx context.Context, namespace string, opts DeleteOptions, listOpts ListOptions) error {
 	ctx, cancel := c.setupCtx(ctx)
 	defer cancel()
 	var timeout time.Duration
 	if listOpts.TimeoutSeconds != nil {
 		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
 	}
-	return c.RESTClient.Delete().
+	req := c.RESTClient.Delete().
 		Prefix(c.prefix...).
 		NamespaceIfScoped(namespace, c.Namespaced).
 		Resource(c.resource).
-		VersionedParams(&listOpts, metav1.ParameterCodec).
+		VersionedParams(&listOpts.ListOptions, metav1.ParameterCodec).
 		Timeout(timeout).
-		Body(&opts).
-		Do(ctx).
-		Error()
+		Body(&opts.DeleteOptions)
+
+	listOpts.apply(req)
+	opts.apply(req)
+
+	return req.Do(ctx).Error()
 }
 
 // Patch attempts to patch the existing resource with the provided data and patchType that matches the given name in the given namespace (if client.Namespaced is set to true).
 // Patch will then attempt to unmarshal the updated object from the response into the provide result object.
 // If the returned response object is of type Status and has .Status != StatusSuccess, the
 // additional information in Status will be used to enrich the error.
-func (c *Client) Patch(ctx context.Context, namespace, name string, pt types.PatchType, data []byte, result runtime.Object, opts metav1.PatchOptions, subresources ...string) (err error) {
+func (c *Client) Patch(ctx context.Context, namespace, name string, pt types.PatchType, data []byte, result runtime.Object, opts PatchOptions, subresources ...string) error {
 	defer c.setKind(result)
 	ctx, cancel := c.setupCtx(ctx)
 	defer cancel()
-	err = c.RESTClient.Patch(pt).
+	req := c.RESTClient.Patch(pt).
 		Prefix(c.prefix...).
 		Namespace(namespace).
 		Resource(c.resource).
 		Name(name).
 		SubResource(subresources...).
-		VersionedParams(&opts, metav1.ParameterCodec).
-		Body(data).
-		Do(ctx).
-		Into(result)
-	return
+		VersionedParams(&opts.PatchOptions, metav1.ParameterCodec).
+		Body(data)
+
+	opts.apply(req)
+
+	return req.Do(ctx).Into(result)
 }
 
 func (c *Client) setKind(obj runtime.Object) {

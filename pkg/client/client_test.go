@@ -168,6 +168,39 @@ func TestClient_Get(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "impersonation test",
+			fields: clientFields{
+				GVR: schema.GroupVersionResource{
+					Group:    "",
+					Version:  "v1",
+					Resource: "pods",
+				},
+				Namespaced: true,
+				Kind:       "Pod",
+			},
+			args: testArgs{
+				obj: &v1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "foo",
+						Namespace: "bar",
+					},
+				},
+				namespace: "bar",
+				result:    &v1.Pod{},
+				desired: &v1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "foo",
+						Namespace:   "bar",
+						Annotations: map[string]string{"superhero": "batman"},
+					},
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "Pod",
+						APIVersion: "v1",
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		test := tt
@@ -178,9 +211,9 @@ func TestClient_Get(t *testing.T) {
 				NegotiatedSerializer: scheme.Codecs.WithoutConversion(),
 			}
 			c := NewClient(test.fields.GVR, test.fields.Kind, test.fields.Namespaced, mockRESTClient, 0)
-			handler := newRequestHandler(c, test.args.desired, test.args.namespace, false, false)
+			handler := newRESTTestRequestHandler(c, test.args.desired, test.args.namespace, false, false)
 			mockRESTClient.Client = fake.CreateHTTPClient(handler)
-			err := c.Get(context.TODO(), test.args.namespace, test.args.obj.GetName(), test.args.result, metav1.GetOptions{})
+			err := c.Get(context.TODO(), test.args.namespace, test.args.obj.GetName(), test.args.result, GetOptions{})
 			if test.wantErr {
 				require.Error(t, err)
 				return
@@ -235,9 +268,9 @@ func TestClient_List(t *testing.T) {
 				NegotiatedSerializer: scheme.Codecs.WithoutConversion(),
 			}
 			c := NewClient(test.fields.GVR, test.fields.Kind, test.fields.Namespaced, mockRESTClient, 0)
-			handler := newRequestHandler(c, test.args.desired, test.args.namespace, true, false)
+			handler := newRESTTestRequestHandler(c, test.args.desired, test.args.namespace, true, false)
 			mockRESTClient.Client = fake.CreateHTTPClient(handler)
-			err := c.List(context.TODO(), test.args.namespace, test.args.result, metav1.ListOptions{})
+			err := c.List(context.TODO(), test.args.namespace, test.args.result, ListOptions{})
 			if test.wantErr {
 				require.Error(t, err)
 				return
@@ -294,9 +327,9 @@ func TestClient_Update(t *testing.T) {
 				NegotiatedSerializer: scheme.Codecs.WithoutConversion(),
 			}
 			c := NewClient(test.fields.GVR, test.fields.Kind, test.fields.Namespaced, mockRESTClient, 0)
-			handler := newRequestHandler(c, test.args.desired, test.args.namespace, false, false)
+			handler := newRESTTestRequestHandler(c, test.args.desired, test.args.namespace, false, false)
 			mockRESTClient.Client = fake.CreateHTTPClient(handler)
-			err := c.Update(context.TODO(), test.args.namespace, test.args.obj, test.args.result, metav1.UpdateOptions{})
+			err := c.Update(context.TODO(), test.args.namespace, test.args.obj, test.args.result, UpdateOptions{})
 			if test.wantErr {
 				require.Error(t, err)
 				return
@@ -356,9 +389,9 @@ func TestClient_UpdateStatus(t *testing.T) {
 				NegotiatedSerializer: scheme.Codecs.WithoutConversion(),
 			}
 			c := NewClient(test.fields.GVR, test.fields.Kind, test.fields.Namespaced, mockRESTClient, 0)
-			handler := newRequestHandler(c, test.args.desired, test.args.namespace, false, true)
+			handler := newRESTTestRequestHandler(c, test.args.desired, test.args.namespace, false, true)
 			mockRESTClient.Client = fake.CreateHTTPClient(handler)
-			err := c.UpdateStatus(context.TODO(), test.args.namespace, test.args.obj, test.args.result, metav1.UpdateOptions{})
+			err := c.UpdateStatus(context.TODO(), test.args.namespace, test.args.obj, test.args.result, UpdateOptions{})
 			if test.wantErr {
 				require.Error(t, err)
 				return
@@ -415,9 +448,9 @@ func TestClient_Create(t *testing.T) {
 				NegotiatedSerializer: scheme.Codecs.WithoutConversion(),
 			}
 			c := NewClient(test.fields.GVR, test.fields.Kind, test.fields.Namespaced, mockRESTClient, 0)
-			handler := newRequestHandler(c, test.args.desired, test.args.namespace, false, false)
+			handler := newRESTTestRequestHandler(c, test.args.desired, test.args.namespace, false, false)
 			mockRESTClient.Client = fake.CreateHTTPClient(handler)
-			err := c.Create(context.TODO(), test.args.namespace, test.args.obj, test.args.result, metav1.CreateOptions{})
+			err := c.Create(context.TODO(), test.args.namespace, test.args.obj, test.args.result, CreateOptions{})
 			if test.wantErr {
 				require.Error(t, err)
 				return
@@ -483,9 +516,9 @@ func TestClient_Delete(t *testing.T) {
 				NegotiatedSerializer: scheme.Codecs.WithoutConversion(),
 			}
 			c := NewClient(test.fields.GVR, test.fields.Kind, test.fields.Namespaced, mockRESTClient, 0)
-			handler := newRequestHandler(c, test.args.obj, test.args.namespace, false, false)
+			handler := newRESTTestRequestHandler(c, test.args.obj, test.args.namespace, false, false)
 			mockRESTClient.Client = fake.CreateHTTPClient(handler)
-			err := c.Delete(context.TODO(), test.args.namespace, test.args.obj.GetName(), metav1.DeleteOptions{})
+			err := c.Delete(context.TODO(), test.args.namespace, test.args.obj.GetName(), DeleteOptions{})
 			if test.wantErr {
 				require.Error(t, err)
 				return
@@ -523,9 +556,9 @@ func TestClient_DeleteCollection(t *testing.T) {
 				NegotiatedSerializer: scheme.Codecs.WithoutConversion(),
 			}
 			c := NewClient(test.fields.GVR, test.fields.Kind, test.fields.Namespaced, mockRESTClient, 0)
-			handler := newRequestHandler(c, test.args.desired, test.args.namespace, true, false)
+			handler := newRESTTestRequestHandler(c, test.args.desired, test.args.namespace, true, false)
 			mockRESTClient.Client = fake.CreateHTTPClient(handler)
-			err := c.DeleteCollection(context.TODO(), test.args.namespace, metav1.DeleteOptions{}, metav1.ListOptions{})
+			err := c.DeleteCollection(context.TODO(), test.args.namespace, DeleteOptions{}, ListOptions{})
 			if test.wantErr {
 				require.Error(t, err)
 				return
@@ -563,9 +596,9 @@ func TestClient_Watch(t *testing.T) {
 				NegotiatedSerializer: scheme.Codecs.WithoutConversion(),
 			}
 			c := NewClient(test.fields.GVR, test.fields.Kind, test.fields.Namespaced, mockRESTClient, 0)
-			handler := newRequestHandler(c, test.args.desired, test.args.namespace, true, false)
+			handler := newRESTTestRequestHandler(c, test.args.desired, test.args.namespace, true, false)
 			mockRESTClient.Client = fake.CreateHTTPClient(handler)
-			_, err := c.Watch(context.TODO(), test.args.namespace, metav1.ListOptions{})
+			_, err := c.Watch(context.TODO(), test.args.namespace, ListOptions{})
 			if test.wantErr {
 				require.Error(t, err)
 				return
@@ -654,9 +687,9 @@ func TestClient_Patch(t *testing.T) {
 				NegotiatedSerializer: scheme.Codecs.WithoutConversion(),
 			}
 			client := NewClient(test.fields.GVR, test.fields.Kind, test.fields.Namespaced, mockRESTClient, 0)
-			handler := newRequestHandler(client, test.args.desired, test.args.namespace, false, false)
+			handler := newRESTTestRequestHandler(client, test.args.desired, test.args.namespace, false, false)
 			mockRESTClient.Client = fake.CreateHTTPClient(handler)
-			err := client.Patch(context.TODO(), test.args.namespace, test.args.obj.GetName(), types.JSONPatchType, nil, test.args.result, metav1.PatchOptions{})
+			err := client.Patch(context.TODO(), test.args.namespace, test.args.obj.GetName(), types.JSONPatchType, nil, test.args.result, PatchOptions{})
 			if test.wantErr {
 				require.Error(t, err)
 				return
@@ -667,7 +700,7 @@ func TestClient_Patch(t *testing.T) {
 	}
 }
 
-func newRequestHandler(client *Client, retObj runtime.Object, namespace string, isCollection, isStatus bool) func(req *http.Request) (*http.Response, error) {
+func newRESTTestRequestHandler(client *Client, retObj runtime.Object, namespace string, isCollection, isStatus bool) func(req *http.Request) (*http.Response, error) {
 	return func(req *http.Request) (*http.Response, error) {
 		// dynamically create expected path
 		expectedPath := path.Join("/", path.Join(client.prefix...))

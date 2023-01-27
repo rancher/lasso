@@ -12,7 +12,6 @@ import (
 	"github.com/rancher/lasso/pkg/log"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -117,7 +116,7 @@ func (c *Controller) getCache(ctx context.Context, gvk schema.GroupVersionKind) 
 		return cache, true, err
 	}
 
-	client, err := c.clientFactory.ForKind(gvk)
+	gvkClient, err := c.clientFactory.ForKind(gvk)
 	if err != nil {
 		return nil, false, err
 	}
@@ -127,7 +126,7 @@ func (c *Controller) getCache(ctx context.Context, gvk schema.GroupVersionKind) 
 		return nil, false, err
 	}
 
-	return lcache.NewCache(obj, objList, client, nil), false, nil
+	return lcache.NewCache(obj, objList, gvkClient, nil), false, nil
 }
 
 func (c *Controller) OnGVKs(gvkList []schema.GroupVersionKind) error {
@@ -311,13 +310,13 @@ func (c *Controller) UpdateStatus(obj runtime.Object) (runtime.Object, error) {
 	}
 
 	gvk := obj.GetObjectKind().GroupVersionKind()
-	client, err := c.clientFactory.ForKind(gvk)
+	gvkClient, err := c.clientFactory.ForKind(gvk)
 	if err != nil {
 		return nil, err
 	}
 
 	result := &unstructured.Unstructured{}
-	return result, client.UpdateStatus(c.ctx, meta.GetNamespace(), obj, result, v1.UpdateOptions{})
+	return result, gvkClient.UpdateStatus(c.ctx, meta.GetNamespace(), obj, result, client.UpdateOptions{})
 }
 
 func (c *Controller) Update(obj runtime.Object) (runtime.Object, error) {
@@ -327,13 +326,13 @@ func (c *Controller) Update(obj runtime.Object) (runtime.Object, error) {
 	}
 
 	gvk := obj.GetObjectKind().GroupVersionKind()
-	client, err := c.clientFactory.ForKind(gvk)
+	gvkClient, err := c.clientFactory.ForKind(gvk)
 	if err != nil {
 		return nil, err
 	}
 
 	result := &unstructured.Unstructured{}
-	return result, client.Update(c.ctx, meta.GetNamespace(), obj, result, v1.UpdateOptions{})
+	return result, gvkClient.Update(c.ctx, meta.GetNamespace(), obj, result, client.UpdateOptions{})
 }
 
 func (c *Controller) Enqueue(gvk schema.GroupVersionKind, namespace, name string) error {

@@ -127,7 +127,7 @@ func (d *deferredListWatcher) run(stopCh <-chan struct{}) {
 				options.ResourceVersion = ""
 			}
 			listObj := d.listObj.DeepCopyObject()
-			err := d.client.List(ctx, d.namespace, listObj, options)
+			err := d.client.List(ctx, d.namespace, listObj, client.ListOptions{ListOptions: options})
 			if err != nil && d.waitHealthy != nil {
 				d.waitHealthy(ctx)
 			}
@@ -135,7 +135,7 @@ func (d *deferredListWatcher) run(stopCh <-chan struct{}) {
 		},
 		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 			d.tweakList(&options)
-			return d.client.Watch(ctx, d.namespace, options)
+			return d.client.Watch(ctx, d.namespace, client.ListOptions{ListOptions: options})
 		},
 	}
 }
