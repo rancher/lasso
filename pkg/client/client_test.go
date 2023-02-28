@@ -11,10 +11,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/client-go/rest"
-
 	"github.com/stretchr/testify/require"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -22,58 +18,22 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/rest/fake"
-	"k8s.io/kubectl/pkg/scheme"
 )
 
-type userAgentRoundTripper struct {
-	expectedUserAgent string
-	t                 *testing.T
-}
-
-func TestWithAgent(t *testing.T) {
-	testUserAgent := "testagent"
-	testConfig := rest.Config{
-		UserAgent: "defaultuseragent",
-		ContentConfig: rest.ContentConfig{
-			NegotiatedSerializer: serializer.WithoutConversionCodecFactory{},
-		},
-		Transport: userAgentRoundTripper{t: t, expectedUserAgent: testUserAgent},
-	}
-
-	testRestClient, err := rest.UnversionedRESTClientFor(&testConfig)
-	assert.Nil(t, err)
-
-	testClient := &Client{
-		RESTClient: testRestClient,
-		Config:     testConfig,
-	}
-
-	testClientWithAgent, err := testClient.WithAgent("testagent")
-	assert.Nil(t, err)
-
-	testRestClientWithAgent := testClientWithAgent.RESTClient.(*rest.RESTClient)
-
-	_, err = testRestClientWithAgent.Client.Transport.RoundTrip(&http.Request{})
-	assert.Nil(t, err)
-
-	// with invalid config
-	testClient = &Client{
-		Config: rest.Config{},
-	}
-
-	testClientWithAgent, err = testClient.WithAgent("testagent")
-	assert.NotNil(t, err)
-	assert.Nil(t, testClientWithAgent)
-}
-
-func (u userAgentRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	assert.Equal(u.t, u.expectedUserAgent, req.Header.Get("User-Agent"))
-	return &http.Response{}, nil
-}
-
 var accessor = meta.NewAccessor()
+var testSchema = runtime.NewScheme()
+var negotiatedSerializer = serializer.NewCodecFactory(testSchema)
+
+func TestMain(m *testing.M) {
+	// Setup Schemas for serializer before we run our test
+	metav1.AddMetaToScheme(testSchema)
+	v1.SchemeBuilder.AddToScheme(testSchema)
+	m.Run()
+}
 
 // Object is generic object to wrap runtime and metav1.
 type Object interface {
@@ -175,7 +135,7 @@ func TestClient_Get(t *testing.T) {
 			t.Parallel()
 			mockRESTClient := &fake.RESTClient{
 				GroupVersion:         test.fields.GVR.GroupVersion(),
-				NegotiatedSerializer: scheme.Codecs.WithoutConversion(),
+				NegotiatedSerializer: negotiatedSerializer,
 			}
 			c := NewClient(test.fields.GVR, test.fields.Kind, test.fields.Namespaced, mockRESTClient, 0)
 			handler := newRequestHandler(c, test.args.desired, test.args.namespace, false, false)
@@ -232,7 +192,7 @@ func TestClient_List(t *testing.T) {
 			t.Parallel()
 			mockRESTClient := &fake.RESTClient{
 				GroupVersion:         test.fields.GVR.GroupVersion(),
-				NegotiatedSerializer: scheme.Codecs.WithoutConversion(),
+				NegotiatedSerializer: negotiatedSerializer,
 			}
 			c := NewClient(test.fields.GVR, test.fields.Kind, test.fields.Namespaced, mockRESTClient, 0)
 			handler := newRequestHandler(c, test.args.desired, test.args.namespace, true, false)
@@ -291,7 +251,7 @@ func TestClient_Update(t *testing.T) {
 			t.Parallel()
 			mockRESTClient := &fake.RESTClient{
 				GroupVersion:         test.fields.GVR.GroupVersion(),
-				NegotiatedSerializer: scheme.Codecs.WithoutConversion(),
+				NegotiatedSerializer: negotiatedSerializer,
 			}
 			c := NewClient(test.fields.GVR, test.fields.Kind, test.fields.Namespaced, mockRESTClient, 0)
 			handler := newRequestHandler(c, test.args.desired, test.args.namespace, false, false)
@@ -353,7 +313,7 @@ func TestClient_UpdateStatus(t *testing.T) {
 			t.Parallel()
 			mockRESTClient := &fake.RESTClient{
 				GroupVersion:         test.fields.GVR.GroupVersion(),
-				NegotiatedSerializer: scheme.Codecs.WithoutConversion(),
+				NegotiatedSerializer: negotiatedSerializer,
 			}
 			c := NewClient(test.fields.GVR, test.fields.Kind, test.fields.Namespaced, mockRESTClient, 0)
 			handler := newRequestHandler(c, test.args.desired, test.args.namespace, false, true)
@@ -412,7 +372,7 @@ func TestClient_Create(t *testing.T) {
 			t.Parallel()
 			mockRESTClient := &fake.RESTClient{
 				GroupVersion:         test.fields.GVR.GroupVersion(),
-				NegotiatedSerializer: scheme.Codecs.WithoutConversion(),
+				NegotiatedSerializer: negotiatedSerializer,
 			}
 			c := NewClient(test.fields.GVR, test.fields.Kind, test.fields.Namespaced, mockRESTClient, 0)
 			handler := newRequestHandler(c, test.args.desired, test.args.namespace, false, false)
@@ -480,7 +440,7 @@ func TestClient_Delete(t *testing.T) {
 			t.Parallel()
 			mockRESTClient := &fake.RESTClient{
 				GroupVersion:         test.fields.GVR.GroupVersion(),
-				NegotiatedSerializer: scheme.Codecs.WithoutConversion(),
+				NegotiatedSerializer: negotiatedSerializer,
 			}
 			c := NewClient(test.fields.GVR, test.fields.Kind, test.fields.Namespaced, mockRESTClient, 0)
 			handler := newRequestHandler(c, test.args.obj, test.args.namespace, false, false)
@@ -520,7 +480,7 @@ func TestClient_DeleteCollection(t *testing.T) {
 			t.Parallel()
 			mockRESTClient := &fake.RESTClient{
 				GroupVersion:         test.fields.GVR.GroupVersion(),
-				NegotiatedSerializer: scheme.Codecs.WithoutConversion(),
+				NegotiatedSerializer: negotiatedSerializer,
 			}
 			c := NewClient(test.fields.GVR, test.fields.Kind, test.fields.Namespaced, mockRESTClient, 0)
 			handler := newRequestHandler(c, test.args.desired, test.args.namespace, true, false)
@@ -560,7 +520,7 @@ func TestClient_Watch(t *testing.T) {
 			t.Parallel()
 			mockRESTClient := &fake.RESTClient{
 				GroupVersion:         test.fields.GVR.GroupVersion(),
-				NegotiatedSerializer: scheme.Codecs.WithoutConversion(),
+				NegotiatedSerializer: negotiatedSerializer,
 			}
 			c := NewClient(test.fields.GVR, test.fields.Kind, test.fields.Namespaced, mockRESTClient, 0)
 			handler := newRequestHandler(c, test.args.desired, test.args.namespace, true, false)
@@ -651,7 +611,7 @@ func TestClient_Patch(t *testing.T) {
 			t.Parallel()
 			mockRESTClient := &fake.RESTClient{
 				GroupVersion:         test.fields.GVR.GroupVersion(),
-				NegotiatedSerializer: scheme.Codecs.WithoutConversion(),
+				NegotiatedSerializer: negotiatedSerializer,
 			}
 			client := NewClient(test.fields.GVR, test.fields.Kind, test.fields.Namespaced, mockRESTClient, 0)
 			handler := newRequestHandler(client, test.args.desired, test.args.namespace, false, false)
@@ -665,6 +625,88 @@ func TestClient_Patch(t *testing.T) {
 			require.Equal(t, test.args.desired, test.args.result)
 		})
 	}
+}
+
+func TestClient_WithAgent(t *testing.T) {
+	gvr := schema.GroupVersionResource{
+		Group:    "",
+		Version:  "v1",
+		Resource: "pods",
+	}
+	const agentName = "test-agent"
+	var testRT fakeRoundTripper
+	testConfig := rest.Config{
+		ContentConfig: rest.ContentConfig{
+			NegotiatedSerializer: serializer.WithoutConversionCodecFactory{},
+		},
+		Transport: &testRT,
+	}
+	testRestClient, err := rest.UnversionedRESTClientFor(&testConfig)
+	require.NoError(t, err)
+	client := NewClient(gvr, "Pod", true, testRestClient, 0)
+	client.Config = testConfig
+	originalConfig := client.Config
+	newClient, err := client.WithAgent(agentName)
+	require.NoError(t, err, "failed to call WithAgent on client.")
+
+	// Verify that the original client was not changed
+	require.NotEqual(t, client, newClient, "WithAgent failed to create a new client")
+	require.Equal(t, originalConfig, client.Config, "WithAgent mutated the original client configuration")
+
+	// Verify that the new client correctly set User-Agent
+	require.Equal(t, newClient.Config.UserAgent, agentName, "WithAgent did not set the correct agent name.")
+	newClient.Config.UserAgent = originalConfig.UserAgent
+	require.Equal(t, originalConfig, newClient.Config, "WithAgent did not persist original configuration")
+	_ = newClient.RESTClient.Get().Do(context.TODO())
+	require.Equal(t, agentName, testRT.lastRequest.Header.Get("User-Agent"), "Client created by WithAgent did not set the header")
+
+	client.Config.NegotiatedSerializer = nil
+	_, err = client.WithAgent(agentName)
+	require.Error(t, err, "expected failure when calling with agent with out a serializer set")
+}
+
+func TestClient_WithImpersonation(t *testing.T) {
+	gvr := schema.GroupVersionResource{
+		Group:    "",
+		Version:  "v1",
+		Resource: "pods",
+	}
+
+	impersonateConfig := rest.ImpersonationConfig{
+		UserName: "Zeus",
+		Groups:   []string{"Greek", "Gods", "Elemental"},
+		Extra:    map[string][]string{"Parents": {"Cronus", "Rhea"}},
+	}
+
+	var testRT fakeRoundTripper
+	testConfig := rest.Config{
+		ContentConfig: rest.ContentConfig{
+			NegotiatedSerializer: serializer.WithoutConversionCodecFactory{},
+		},
+		Transport: &testRT,
+	}
+	testRestClient, err := rest.UnversionedRESTClientFor(&testConfig)
+	require.NoError(t, err)
+	client := NewClient(gvr, "Pod", true, testRestClient, 0)
+	client.Config = testConfig
+	originalConfig := client.Config
+	newClient, err := client.WithImpersonation(impersonateConfig)
+	require.NoError(t, err, "failed to call WithImpersonation on client.")
+
+	// Verify that the original client was not changed
+	require.NotEqual(t, client, newClient, "WithImpersonation failed to create a new client")
+	require.Equal(t, originalConfig, client.Config, "WithImpersonation mutated the original client configuration")
+
+	// Verify that the new client correctly set impersonation
+	require.Equal(t, newClient.Config.Impersonate, impersonateConfig, "WithImpersonation did not set the correct impersonation config.")
+	newClient.Config.Impersonate = originalConfig.Impersonate
+	require.Equal(t, originalConfig, newClient.Config, "WithImpersonation did not persist original configuration")
+	_ = newClient.RESTClient.Get().Do(context.TODO())
+	require.Equal(t, impersonateConfig, getImpersonateFromRequest(testRT.lastRequest), "Client created by WithImpersonation did not set the correct headers")
+
+	client.Config.NegotiatedSerializer = nil
+	_, err = client.WithImpersonation(impersonateConfig)
+	require.Error(t, err, "expected failure when calling with agent with out a serializer set")
 }
 
 func newRequestHandler(client *Client, retObj runtime.Object, namespace string, isCollection, isStatus bool) func(req *http.Request) (*http.Response, error) {

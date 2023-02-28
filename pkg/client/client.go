@@ -61,6 +61,22 @@ func (c *Client) WithAgent(userAgent string) (*Client, error) {
 		return nil, fmt.Errorf("failed to created restClient with userAgent [%s]: %w", userAgent, err)
 	}
 	client.RESTClient = restClient
+	client.Config = config
+	return &client, nil
+}
+
+// WithImpersonation attempts to return a copy of the Client but
+// with a new restClient created with the passed in impersonation configuration.
+func (c *Client) WithImpersonation(impersonate rest.ImpersonationConfig) (*Client, error) {
+	client := *c
+	config := c.Config
+	config.Impersonate = impersonate
+	restClient, err := rest.UnversionedRESTClientFor(&config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to created restClient with impersonation [%v]: %w", impersonate, err)
+	}
+	client.RESTClient = restClient
+	client.Config = config
 	return &client, nil
 }
 
@@ -157,6 +173,7 @@ func (c *Client) List(ctx context.Context, namespace string, result runtime.Obje
 
 // Watch will attempt to start a watch request with the kube-apiserver for resources in the given namespace (if client.Namespaced is set to true).
 // Results will be streamed too the returned watch.Interface.
+// The returned watch.Interface is determine by *("k8s.io/client-go/rest").Request.Watch
 func (c *Client) Watch(ctx context.Context, namespace string, opts metav1.ListOptions) (watch.Interface, error) {
 	var timeout time.Duration
 	if opts.TimeoutSeconds != nil {
