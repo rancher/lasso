@@ -5,7 +5,7 @@ go 1.19
 require (
 	github.com/golang/mock v1.6.0
 	github.com/prometheus/client_golang v1.12.1
-	github.com/stretchr/testify v1.8.1
+	github.com/stretchr/testify v1.8.2
 	k8s.io/apimachinery v0.25.4
 	k8s.io/client-go v0.25.4
 	k8s.io/klog v1.0.0
