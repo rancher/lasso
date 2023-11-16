@@ -1,0 +1,82 @@
+/*
+package sql provides an Informer and Indexer that uses SQLite as a store, instead of an in-memory store like a map.
+*/
+
+package informer
+
+import (
+	"context"
+	"time"
+
+	"github.com/rancher/lasso/pkg/cache/sql/partition"
+	sqlStore "github.com/rancher/lasso/pkg/cache/sql/store"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/tools/cache"
+)
+
+// Informer is a SQLite-backed cache.SharedIndexInformer that can execute queries on listprocessor structs
+type Informer struct {
+	cache.SharedIndexInformer
+	indexer ByOptionsLister
+}
+
+type ByOptionsLister interface {
+	ListByOptions(ctx context.Context, lo ListOptions, partitions []partition.Partition, namespace string) (*unstructured.UnstructuredList, string, error)
+}
+
+// NewInformer returns a new SQLite-backed Informer for the type specified by schema in unstructured.Unstructured form
+// using the specified client
+func NewInformer(client dynamic.ResourceInterface, fields [][]string, gvk schema.GroupVersionKind, db sqlStore.DBClient, shouldEncrypt bool) (*Informer, error) {
+	listWatcher := &cache.ListWatch{
+		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+			a, err := client.List(context.TODO(), options)
+			return a, err
+		},
+		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+			return client.Watch(context.TODO(), options)
+		},
+	}
+
+	example := &unstructured.Unstructured{}
+	example.SetGroupVersionKind(gvk)
+
+	// avoids the informer to periodically resync (re-list) its resources
+	// currently it is a work hypothesis that, when interacting with the UI, this should not be needed
+	resyncPeriod := time.Duration(0)
+
+	sii := cache.NewSharedIndexInformer(listWatcher, example, resyncPeriod, cache.Indexers{})
+
+	name := informerNameFromGVK(gvk)
+
+	s, err := sqlStore.NewStore(example, cache.DeletionHandlingMetaNamespaceKeyFunc, db, shouldEncrypt, name)
+	if err != nil {
+		return nil, err
+	}
+	loi, err := NewListOptionIndexer(fields, s)
+	if err != nil {
+		return nil, err
+	}
+
+	// HACK: replace the default informer's indexer with the SQL based one
+	UnsafeSet(sii, "indexer", loi)
+
+	return &Informer{
+		SharedIndexInformer: sii,
+		indexer:             loi,
+	}, nil
+}
+
+// ListByOptions returns objects according to the specified list options and partitions
+// see ListOptionIndexer.ListByOptions
+func (i *Informer) ListByOptions(ctx context.Context, lo ListOptions, partitions []partition.Partition, namespace string) (*unstructured.UnstructuredList, string, error) {
+	return i.indexer.ListByOptions(ctx, lo, partitions, namespace)
+}
+
+func informerNameFromGVK(gvk schema.GroupVersionKind) string {
+	return gvk.Group + "_" + gvk.Version + "_" + gvk.Kind
+}
