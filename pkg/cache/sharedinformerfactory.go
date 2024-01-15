@@ -24,6 +24,9 @@ type SharedCacheFactoryOptions struct {
 	KindNamespace  map[schema.GroupVersionKind]string
 	KindTweakList  map[schema.GroupVersionKind]TweakListOptionsFunc
 	HealthCallback func(healthy bool)
+
+	IsUserContext bool
+	IsDownstream  bool
 }
 
 type sharedCacheFactory struct {
@@ -40,6 +43,9 @@ type sharedCacheFactory struct {
 
 	caches        map[schema.GroupVersionKind]cache.SharedIndexInformer
 	startedCaches map[schema.GroupVersionKind]bool
+
+	isUserContext bool
+	isDownstream  bool
 }
 
 // NewSharedInformerFactoryWithOptions constructs a new instance of a SharedInformerFactory with additional options.
@@ -60,6 +66,8 @@ func NewSharedCachedFactory(sharedClientFactory client.SharedClientFactory, opts
 		healthcheck: healthcheck{
 			callback: opts.HealthCallback,
 		},
+		isUserContext: opts.IsUserContext,
+		isDownstream:  opts.IsDownstream,
 	}
 
 	return factory
@@ -193,10 +201,12 @@ func (f *sharedCacheFactory) ForResourceKind(gvr schema.GroupVersionResource, ki
 	client := f.sharedClientFactory.ForResourceKind(gvr, kind, namespaced)
 
 	cache := NewCache(obj, objList, client, &Options{
-		Namespace:   namespace,
-		Resync:      resyncPeriod,
-		TweakList:   tweakList,
-		WaitHealthy: f.healthcheck.ensureHealthy,
+		Namespace:     namespace,
+		Resync:        resyncPeriod,
+		TweakList:     tweakList,
+		WaitHealthy:   f.healthcheck.ensureHealthy,
+		isUserContext: f.isUserContext,
+		isDownstream:  f.isDownstream,
 	})
 	f.caches[gvk] = cache
 
