@@ -2,6 +2,7 @@ package cache
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -12,6 +13,19 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
 )
+
+const (
+	contextIDKey          = "cache_context_id"
+	contextClusterNameKey = "cache_context_cluster_name"
+)
+
+func WithContextID(ctx context.Context, id string) context.Context {
+	return context.WithValue(ctx, contextIDKey, id)
+}
+
+func WithClusterName(ctx context.Context, clusterName string) context.Context {
+	return context.WithValue(ctx, contextClusterNameKey, clusterName)
+}
 
 type TweakListOptionsFunc func(*v1.ListOptions)
 
@@ -46,6 +60,7 @@ type sharedCacheFactory struct {
 
 	isUserContext bool
 	isDownstream  bool
+	started       bool
 }
 
 // NewSharedInformerFactoryWithOptions constructs a new instance of a SharedInformerFactory with additional options.
@@ -99,6 +114,31 @@ func (f *sharedCacheFactory) StartGVK(ctx context.Context, gvk schema.GroupVersi
 	return nil
 }
 
+var seenNames = map[string]int{}
+
+func getUniqueName(n string) string {
+	id := seenNames[n]
+	seenNames[n] = id + 1
+	if id == 0 {
+		return n
+	}
+	return fmt.Sprintf("%s_%d", n, id)
+}
+
+func (f *sharedCacheFactory) getContextName(ctx context.Context) string {
+	name := "mgmt_context"
+	if f.isUserContext {
+		name = "user_context"
+	}
+	if id, ok := ctx.Value(contextIDKey).(string); ok {
+		name += "_" + id
+	}
+	if clusterName, ok := ctx.Value(contextClusterNameKey).(string); ok {
+		name += "_" + clusterName
+	}
+	return name
+}
+
 func (f *sharedCacheFactory) Start(ctx context.Context) error {
 	f.lock.Lock()
 	defer f.lock.Unlock()
@@ -112,6 +152,12 @@ func (f *sharedCacheFactory) Start(ctx context.Context) error {
 			go informer.Run(ctx.Done())
 			f.startedCaches[informerType] = true
 		}
+	}
+
+	if !f.started {
+		contextName := getUniqueName(f.getContextName(ctx))
+		startMetricsCollection(ctx, f, contextName)
+		f.started = true
 	}
 
 	return nil

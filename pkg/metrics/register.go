@@ -29,3 +29,9 @@ func init() {
 		workqueue.SetProvider(workqueueMetricsProvider{})
 	}
 }
+
+func Register(cs ...prometheus.Collector) {
+	if prometheusMetrics {
+		prometheus.DefaultRegisterer.MustRegister(cs...)
+	}
+}
