@@ -18,7 +18,7 @@ name: test
 
 steps:
   - name: test
-    image: registry.suse.com/bci/golang:1.19
+    image: registry.suse.com/bci/golang:1.20
     commands:
       - make test
     when:
