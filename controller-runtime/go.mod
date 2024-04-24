@@ -3,7 +3,7 @@ module github.com/rancher/lasso/controller-runtime
 go 1.21
 
 require (
-	github.com/rancher/lasso v0.0.0-20240415182150-5993b260dd08
+	github.com/rancher/lasso v0.0.0-20240424194130-d87ec407d941
 	k8s.io/apimachinery v0.29.3
 	k8s.io/client-go v0.29.3
 	sigs.k8s.io/controller-runtime v0.16.5
