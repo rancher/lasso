@@ -27,11 +27,8 @@ type ListOptionIndexer struct {
 }
 
 var (
-	defaultIndexedFields      = []string{"metadata.name", "metadata.namespace", "metadata.creationTimestamp"}
-	typeSpecificIndexedFields = map[string][]string{
-		"_v1_Namespace": {`metadata.labels["field.cattle.io/projectId"]`},
-	}
-	subfieldRegex = regexp.MustCompile(`([a-zA-Z]+)|(\["[a-zA-Z./]+"])|(\[[0-9]+])`)
+	defaultIndexedFields = []string{"metadata.name", "metadata.namespace", "metadata.creationTimestamp"}
+	subfieldRegex        = regexp.MustCompile(`([a-zA-Z]+)|(\["[a-zA-Z./]+"])|(\[[0-9]+])`)
 )
 
 const (
@@ -62,12 +59,6 @@ func NewListOptionIndexer(fields [][]string, s Store) (*ListOptionIndexer, error
 	}
 	for _, f := range fields {
 		indexedFields = append(indexedFields, toColumnName(f))
-	}
-
-	if _, ok := typeSpecificIndexedFields[i.GetName()]; ok {
-		for _, f := range typeSpecificIndexedFields[i.GetName()] {
-			indexedFields = append(indexedFields, f)
-		}
 	}
 
 	l := &ListOptionIndexer{

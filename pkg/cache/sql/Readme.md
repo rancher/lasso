@@ -144,7 +144,6 @@ The key size used is 256 bits. Data-encryption-keys are stored in the object tab
 Filtering and sorting only work on indexed fields. These fields are defined when using Informer For. Objects will
 have the following indexes by default:
 * Fields in informer.defaultIndexedFields
-* Fields under key match respective type in informer.typeSpecificIndexedFields
 * Fields passed to InformerFor()
 
 ### ListOptions Behavior
