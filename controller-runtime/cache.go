@@ -21,11 +21,12 @@ import (
 )
 
 type Cache struct {
-	startLock    sync.RWMutex
-	started      bool
-	schema       *runtime.Scheme
-	cacheFactory lcache.SharedCacheFactory
-	dynamic      *dynamic.Controller
+	startLock       sync.RWMutex
+	started         bool
+	schema          *runtime.Scheme
+	cacheFactory    lcache.SharedCacheFactory
+	dynamic         *dynamic.Controller
+	informerOptions []cache.InformerGetOption
 }
 
 func NewNewCacheFunc(cacheFactory lcache.SharedCacheFactory, dynamic *dynamic.Controller) cache.NewCacheFunc {
@@ -35,9 +36,10 @@ func NewNewCacheFunc(cacheFactory lcache.SharedCacheFactory, dynamic *dynamic.Co
 			s = scheme.Scheme
 		}
 		return &Cache{
-			schema:       s,
-			cacheFactory: cacheFactory,
-			dynamic:      dynamic,
+			schema:          s,
+			cacheFactory:    cacheFactory,
+			dynamic:         dynamic,
+			informerOptions: []cache.InformerGetOption{},
 		}, nil
 	}
 }
@@ -71,20 +73,20 @@ func (c *Cache) List(ctx context.Context, list client.ObjectList, opts ...client
 	return reader.List(ctx, list, opts...)
 }
 
-func (c *Cache) GetInformer(ctx context.Context, obj client.Object) (cache.Informer, error) {
+func (c *Cache) GetInformer(ctx context.Context, obj client.Object, options ...cache.InformerGetOption) (cache.Informer, error) {
 	gvk, err := apiutil.GVKForObject(obj, c.schema)
 	if err != nil {
 		return nil, err
 	}
-	return c.GetInformerForKind(ctx, gvk)
+	return c.GetInformerForKind(ctx, gvk, options...)
 }
 
-func (c *Cache) GetInformerForKind(ctx context.Context, gvk schema.GroupVersionKind) (cache.Informer, error) {
+func (c *Cache) GetInformerForKind(ctx context.Context, gvk schema.GroupVersionKind, options ...cache.InformerGetOption) (cache.Informer, error) {
 	var (
 		errNotStarted *cache.ErrCacheNotStarted
 	)
 
-	informer, err := c.getInformer(ctx, gvk)
+	informer, err := c.getInformer(ctx, gvk, options...)
 	if errors.As(err, &errNotStarted) {
 		return informer, nil
 	} else if err != nil {
@@ -114,7 +116,7 @@ func (c *Cache) WaitForCacheSync(ctx context.Context) bool {
 }
 
 func (c *Cache) IndexField(ctx context.Context, obj client.Object, field string, extractValue client.IndexerFunc) error {
-	informer, err := c.GetInformer(ctx, obj)
+	informer, err := c.GetInformer(ctx, obj, c.informerOptions...)
 	if err != nil {
 		return err
 	}
@@ -160,7 +162,7 @@ func (c *Cache) getGVK(out interface{}) (schema.GroupVersionKind, error) {
 	return schema.GroupVersionKind{}, fmt.Errorf("unknown kind for %T", out)
 }
 
-func (c *Cache) getInformer(ctx context.Context, gvk schema.GroupVersionKind) (kcache.SharedIndexInformer, error) {
+func (c *Cache) getInformer(ctx context.Context, gvk schema.GroupVersionKind, options ...cache.InformerGetOption) (kcache.SharedIndexInformer, error) {
 	var (
 		informer kcache.SharedIndexInformer
 		err      error
