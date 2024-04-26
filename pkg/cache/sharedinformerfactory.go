@@ -203,6 +203,11 @@ func (f *sharedCacheFactory) ForResourceKind(gvr schema.GroupVersionResource, ki
 	return cache, nil
 }
 
+func (f *sharedCacheFactory) IsCached(kind schema.GroupVersionKind) bool {
+	_, ok := f.startedCaches[kind]
+	return ok
+}
+
 func (f *sharedCacheFactory) SharedClientFactory() client.SharedClientFactory {
 	return f.sharedClientFactory
 }
@@ -215,5 +220,6 @@ type SharedCacheFactory interface {
 	ForResource(gvr schema.GroupVersionResource, namespaced bool) (cache.SharedIndexInformer, error)
 	ForResourceKind(gvr schema.GroupVersionResource, kind string, namespaced bool) (cache.SharedIndexInformer, error)
 	WaitForCacheSync(ctx context.Context) map[schema.GroupVersionKind]bool
+	IsCached(kind schema.GroupVersionKind) bool
 	SharedClientFactory() client.SharedClientFactory
 }
