@@ -13,7 +13,8 @@ import (
 
 // Client provides a way to interact with the underlying sql transaction.
 type Client struct {
-	sqlTx SQLTx
+	sqlTx  SQLTx
+	closed bool
 }
 
 // SQLTx represents a sql transaction
@@ -39,6 +40,7 @@ func NewClient(tx SQLTx) *Client {
 
 // Commit commits the transaction and then unlocks the database.
 func (c *Client) Commit() error {
+	c.closed = true
 	return c.sqlTx.Commit()
 }
 
@@ -47,7 +49,7 @@ func (c *Client) Commit() error {
 func (c *Client) Exec(stmt string, args ...any) error {
 	_, err := c.sqlTx.Exec(stmt, args...)
 	if err != nil {
-		return rollback(c.sqlTx, err)
+		return c.rollback(c.sqlTx, err)
 	}
 	return nil
 }
@@ -64,16 +66,29 @@ func (c *Client) Stmt(stmt *sql.Stmt) Stmt {
 func (c *Client) StmtExec(stmt Stmt, args ...any) error {
 	_, err := stmt.Exec(args...)
 	if err != nil {
-		return rollback(c.sqlTx, err)
+		return c.rollback(c.sqlTx, err)
 	}
 	return nil
 }
 
 // rollback handles rollbacks and wraps errors if needed
-func rollback(tx SQLTx, err error) error {
+func (c *Client) rollback(tx SQLTx, err error) error {
+	c.closed = true
 	rerr := tx.Rollback()
 	if rerr != nil {
 		return errors.Wrapf(err, "Encountered error, then encountered another error while rolling back: %v", rerr)
 	}
 	return errors.Wrapf(err, "Encountered error, successfully rolled back")
+}
+
+// Cancel rollbacks the transaction without wrapping an error. This only needs to be called if Client has not returned
+// an error yet or has not comitted. Otherwise, transaction has already rollbacked, or in the case of Commit() it is too
+// late.
+func (c *Client) Cancel() error {
+	if c.closed {
+		// transaction already done
+		return nil
+	}
+	c.closed = true
+	return c.sqlTx.Rollback()
 }

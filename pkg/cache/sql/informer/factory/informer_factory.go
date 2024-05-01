@@ -5,9 +5,6 @@ package factory
 
 import (
 	"fmt"
-	"os"
-	"sync"
-
 	"github.com/rancher/apiserver/pkg/types"
 	"github.com/rancher/lasso/pkg/cache/sql/attachdriver"
 	db2 "github.com/rancher/lasso/pkg/cache/sql/db"
@@ -18,6 +15,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/tools/cache"
+	"os"
+	"sync"
 )
 
 // InformerFactory builds Informer instances and keeps a cache of instances it created
@@ -34,7 +33,7 @@ type InformerFactory struct {
 	cache map[schema.GroupVersionKind]*informer.Informer
 }
 
-type newInformer func(client dynamic.ResourceInterface, fields [][]string, gvk schema.GroupVersionKind, db sqlStore.DBClient, shouldEncrypt bool) (*informer.Informer, error)
+type newInformer func(client dynamic.ResourceInterface, fields [][]string, gvk schema.GroupVersionKind, db sqlStore.DBClient, shouldEncrypt bool, namespace bool) (*informer.Informer, error)
 
 type DBClient interface {
 	informer.DBClient
@@ -86,7 +85,7 @@ func NewInformerFactory() (*InformerFactory, error) {
 }
 
 // InformerFor returns an informer for given GVK, using sql store indexed with fields, using the specified client
-func (f *InformerFactory) InformerFor(fields [][]string, client dynamic.ResourceInterface, gvk schema.GroupVersionKind) (*informer.Informer, error) {
+func (f *InformerFactory) InformerFor(fields [][]string, client dynamic.ResourceInterface, gvk schema.GroupVersionKind, namespaced bool) (*informer.Informer, error) {
 	f.informerCreateLock.Lock()
 	defer f.informerCreateLock.Unlock()
 
@@ -94,7 +93,7 @@ func (f *InformerFactory) InformerFor(fields [][]string, client dynamic.Resource
 	if !ok {
 		_, encryptResourceAlways := defaultEncryptedResourceTypes[gvk]
 		shouldEncrypt := f.encryptAll || encryptResourceAlways
-		i, err := f.newInformer(client, fields, gvk, f.dbClient, shouldEncrypt)
+		i, err := f.newInformer(client, fields, gvk, f.dbClient, shouldEncrypt, namespaced)
 		if err != nil {
 			return nil, err
 		}
@@ -105,7 +104,7 @@ func (f *InformerFactory) InformerFor(fields [][]string, client dynamic.Resource
 		f.cache[gvk] = i
 		f.wg.StartWithChannel(f.stopCh, i.Run)
 		if !cache.WaitForCacheSync(f.stopCh, i.HasSynced) {
-			return nil, fmt.Errorf("Failed to sync SQLite Informer cache for GVK %v", gvk)
+			return nil, fmt.Errorf("failed to sync SQLite Informer cache for GVK %v", gvk)
 		}
 
 		return i, nil
@@ -121,8 +120,10 @@ func (f *InformerFactory) Reset() error {
 		// nothing to reset
 		return nil
 	}
+
 	f.informerCreateLock.Lock()
 	defer f.informerCreateLock.Unlock()
+
 	close(f.stopCh)
 	f.stopCh = make(chan struct{})
 	f.cache = make(map[schema.GroupVersionKind]*informer.Informer)

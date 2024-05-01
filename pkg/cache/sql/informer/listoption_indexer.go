@@ -21,14 +21,16 @@ import (
 type ListOptionIndexer struct {
 	*Indexer
 
+	namespaced    bool
 	indexedFields []string
 	addField      *sql.Stmt
 	deleteField   *sql.Stmt
 }
 
 var (
-	defaultIndexedFields = []string{"metadata.name", "metadata.namespace", "metadata.creationTimestamp"}
-	subfieldRegex        = regexp.MustCompile(`([a-zA-Z]+)|(\["[a-zA-Z./]+"])|(\[[0-9]+])`)
+	defaultIndexedFields   = []string{"metadata.name", "metadata.creationTimestamp"}
+	defaultIndexNamespaced = "metadata.namespace"
+	subfieldRegex          = regexp.MustCompile(`([a-zA-Z]+)|(\["[a-zA-Z./]+"])|(\[[0-9]+])`)
 )
 
 const (
@@ -39,12 +41,14 @@ const (
             %s
 	   )`
 	createFieldsIndexFmt = `CREATE INDEX db2."%s_%s_index" ON "%s_fields"("%s")`
+
+	failedToGetFromSliceFmt = "[listoption indexer] failed to get subfield [%s] from slice items: %w"
 )
 
 // NewListOptionIndexer returns a SQLite-backed cache.Indexer of unstructured.Unstructured Kubernetes resources of a certain GVK
 // ListOptionIndexer is also able to satisfy ListOption queries on indexed (sub)fields
 // Fields are specified as slices (eg. "metadata.resourceVersion" is ["metadata", "resourceVersion"])
-func NewListOptionIndexer(fields [][]string, s Store) (*ListOptionIndexer, error) {
+func NewListOptionIndexer(fields [][]string, s Store, namespaced bool) (*ListOptionIndexer, error) {
 	// necessary in order to gob/ungob unstructured.Unstructured objects
 	gob.Register(map[string]interface{}{})
 
@@ -57,12 +61,16 @@ func NewListOptionIndexer(fields [][]string, s Store) (*ListOptionIndexer, error
 	for _, f := range defaultIndexedFields {
 		indexedFields = append(indexedFields, f)
 	}
+	if namespaced {
+		indexedFields = append(indexedFields, defaultIndexNamespaced)
+	}
 	for _, f := range fields {
 		indexedFields = append(indexedFields, toColumnName(f))
 	}
 
 	l := &ListOptionIndexer{
 		Indexer:       i,
+		namespaced:    namespaced,
 		indexedFields: indexedFields,
 	}
 	l.RegisterAfterUpsert(l.afterUpsert)
@@ -133,6 +141,11 @@ func (l *ListOptionIndexer) afterUpsert(key string, obj any, tx db.TXClient) err
 	for _, field := range l.indexedFields {
 		value, err := getField(obj, field)
 		if err != nil {
+			logrus.Errorf("cannot index object of type [%s] with key [%s] for indexer [%s]: %w", l.GetType().String(), key, l.GetName(), err)
+			cErr := tx.Cancel()
+			if cErr != nil {
+				return errors.Wrap(err, cErr.Error())
+			}
 			return err
 		}
 		switch typedValue := value.(type) {
@@ -262,7 +275,11 @@ func (l *ListOptionIndexer) ListByOptions(ctx context.Context, lo ListOptions, p
 		stmt += strings.Join(orderByClauses, ", ")
 	} else {
 		// make sure one default order is always picked
-		stmt += "\n  ORDER BY f.\"metadata.namespace\" ASC, f.\"metadata.name\" ASC "
+		if l.namespaced {
+			stmt += "\n  ORDER BY f.\"metadata.namespace\" ASC, f.\"metadata.name\" ASC "
+		} else {
+			stmt += "\n  ORDER BY f.\"metadata.name\" ASC "
+		}
 	}
 
 	// 3- Pagination: LIMIT clause (from lo.Pagination and/or lo.ChunkSize/lo.Resume)
@@ -370,7 +387,7 @@ func getField(a any, field string) (any, error) {
 	var found bool
 	var err error
 	obj = o.Object
-	for _, subField := range subFields {
+	for i, subField := range subFields {
 		switch t := obj.(type) {
 		case map[string]interface{}:
 			subField = strings.TrimSuffix(strings.TrimPrefix(subField, "["), "]")
@@ -379,17 +396,35 @@ func getField(a any, field string) (any, error) {
 				return nil, err
 			}
 			if !found {
-				return nil, nil // fmt.Errorf("[listoption indexer] did not find key [%s] while indexing object", subField)
+				// particularly with labels/annotation indexess, it is totally possible that some objects won't have these,
+				// so either we this is not an error state or it could be an error state with a type that callers can check for
+				return nil, nil
 			}
 		case []interface{}:
-			key, err := strconv.Atoi(strings.TrimSuffix(strings.TrimPrefix(subField, "["), "]"))
-			if err != nil {
-				return nil, fmt.Errorf("[listoption indexer] failed to convert subfield [%s] to int in listoption index: %w", subField, err)
+			if strings.HasPrefix(subField, "[") && strings.HasSuffix(subField, "]") {
+				key, err := strconv.Atoi(strings.TrimSuffix(strings.TrimPrefix(subField, "["), "]"))
+				if err != nil {
+					return nil, fmt.Errorf("[listoption indexer] failed to convert subfield [%s] to int in listoption index: %w", subField, err)
+				}
+				if key >= len(t) {
+					return nil, fmt.Errorf("[listoption indexer] given index is too large for slice of len %d", len(t))
+				}
+				obj = fmt.Sprintf("%v", t[key])
+			} else if i == len(subFields)-1 {
+				result := make([]string, len(t))
+				for index, v := range t {
+					itemVal, ok := v.(map[string]interface{})
+					if !ok {
+						return nil, fmt.Errorf(failedToGetFromSliceFmt, subField, err)
+					}
+					itemStr, ok := itemVal[subField].(string)
+					if !ok {
+						return nil, fmt.Errorf(failedToGetFromSliceFmt, subField, err)
+					}
+					result[index] = itemStr
+				}
+				return result, nil
 			}
-			if key >= len(t) {
-				return nil, fmt.Errorf("[listoption indexer] given index is too large for slice of len %d", len(t))
-			}
-			obj = fmt.Sprintf("%v", t[key])
 		default:
 			return nil, fmt.Errorf("[listoption indexer] failed to parse subfields: %v", subFields)
 		}

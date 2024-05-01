@@ -64,6 +64,7 @@ type TXClient interface {
 	Exec(stmt string, args ...any) error
 	Commit() error
 	Stmt(stmt *sql.Stmt) transaction.Stmt
+	Cancel() error
 }
 
 // Encryptor encrypts a slice of bytes. It is expected to use data-encryption-key (DEK) which it used to encrypt the slice.
