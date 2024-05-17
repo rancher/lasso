@@ -1,7 +1,7 @@
 /*
-package encryption provide a struct, Manager, that generates a key-encryption-key, generates and rotates a
+package encryption provides a struct, Manager, that generates a key-encryption-key, generates and rotates a
 data-encryption-key, and provides functions for encryption and decryption. The key-encryption-key is used so the client
-can store an encrypted version of their data key. This key-hierarchy enable the rotation of data-encryption-keys which
+can store an encrypted version of their data key. This key-hierarchy enables the rotation of data-encryption-keys which
 is intended to protect from cryptanalysis and mitigate impact of leaking a key.
 */
 
@@ -140,7 +140,7 @@ func (m *Manager) isWriteCounterOverMax() bool {
 // fetchUpToDateDataKey returns the current data key if writeCounter has not exceeded maxWriteCount. If it has then the
 // data key is rotated. Before exiting the writesCounter is incremented by 1. This means that one use of the key has
 // been accounted for. This is done so encryption does not block other processes from encrypting. The consequence is a
-// key should only be used once and fetchUpToDateDataKey should be used to ensure an up-to-date key for any proceeding
+// key should only be used once and fetchUpToDateDataKey should be used to ensure an up-to-date key for any subsequent
 // encryption.
 func (m *Manager) fetchUpToDateDataKey() ([]byte, error) {
 	m.lock.Lock()

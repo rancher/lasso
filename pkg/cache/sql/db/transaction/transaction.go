@@ -1,5 +1,5 @@
 /*
-Package transaction provides a client for a live transactions, and interfaces for some relevant sql types. The transaction client automatically performs rollbacks  on failures.
+Package transaction provides a client for a live transaction, and interfaces for some relevant sql types. The transaction client automatically performs rollbacks  on failures.
 The use of this package simplifies testing for callers by making the underlying transaction mock-able.
 */
 package transaction

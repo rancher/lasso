@@ -22,7 +22,7 @@ import (
 // Informer is a SQLite-backed cache.SharedIndexInformer that can execute queries on listprocessor structs
 type Informer struct {
 	cache.SharedIndexInformer
-	indexer ByOptionsLister
+	ByOptionsLister
 }
 
 type ByOptionsLister interface {
@@ -67,14 +67,14 @@ func NewInformer(client dynamic.ResourceInterface, fields [][]string, gvk schema
 
 	return &Informer{
 		SharedIndexInformer: sii,
-		indexer:             loi,
+		ByOptionsLister:     loi,
 	}, nil
 }
 
 // ListByOptions returns objects according to the specified list options and partitions
 // see ListOptionIndexer.ListByOptions
 func (i *Informer) ListByOptions(ctx context.Context, lo ListOptions, partitions []partition.Partition, namespace string) (*unstructured.UnstructuredList, string, error) {
-	return i.indexer.ListByOptions(ctx, lo, partitions, namespace)
+	return i.ByOptionsLister.ListByOptions(ctx, lo, partitions, namespace)
 }
 
 func informerNameFromGVK(gvk schema.GroupVersionKind) string {

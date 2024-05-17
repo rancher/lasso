@@ -114,7 +114,7 @@ func (f *InformerFactory) InformerFor(fields [][]string, client dynamic.Resource
 }
 
 // Reset closes the stopCh which stops any running informers, assigns a new stopCh, resets the GVK-informer cache, and resets
-// the database connection which wipes any current sqlite databse at the default location.
+// the database connection which wipes any current sqlite database at the default location.
 func (f *InformerFactory) Reset() error {
 	if f.dbClient == nil {
 		// nothing to reset

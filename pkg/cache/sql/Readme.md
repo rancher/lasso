@@ -32,7 +32,7 @@ exact (strict) matches. Filters can be OR'd and AND'd with one another. Filters 
 or descending. Default sorting is to sort on metadata.namespace in ascending first and then sort on metadata.name.
 * Page size to specify how many items to include in a response.
 * Page number to specify offset. For example, a page size of 50 and a page number of 2, will return items starting at
-index 50. Index will be dependent on sort.
+index 50. Index will be dependent on sort. Page numbers start at 1.
 
 ### ListOptions Factory
 The ListOptions Factory helps manage multiple ListOption Informers. A user can call Factory.InformerFor(), to create new
@@ -88,7 +88,7 @@ intended to be used as a way of enforcing RBAC.
 		// to next page
 		list, continueToken, err := i.ListByOptions(apiOp.Context(), opts, partitions, namespace)
 		if err != nil {
-			return nil, "", err
+			panic(err)
 		}
 	}
 ```
@@ -117,7 +117,7 @@ There are multiple SQLite drivers that this package could have used. One of the 
 drivers is [mattn/go-sqlite3](https://github.com/mattn/go-sqlite3). This driver is not being used because it requires enabling
 the cgo option when compiling and at the moment lasso's main consumer, rancher, does not compile with cgo. We did not want
 the SQL informer to be the sole driver in switching to using cgo. Instead, modernc's driver which is in pure golang. Side-by-side
-comparisons can be found indicating the cgo version is, as expect, more performant. If in the future it is deemed worthwhile
+comparisons can be found indicating the cgo version is, as expected, more performant. If in the future it is deemed worthwhile
 then the driver can be easily switched following these steps:
 1. Replace empty import in `pkg/cache/sql/store`. Change `_ "modernc.org/sqlite"` to `_ "github.com/mattn/go-sqlite3"`.
 2. In `attachdriver` package, register `SQLDriver` struct from `mattn/gosqlite3` instead of `Driver` from `modernc.org/sqlite`.
@@ -154,7 +154,7 @@ Defaults:
 * Sort.SecondaryOrder: `ASC` (ascending)
 * All filters have partial matching set to false by default
 
-The are some uncommon ways someone could use ListOptions where it would be difficult to predict what the result would be.
+There are some uncommon ways someone could use ListOptions where it would be difficult to predict what the result would be.
 Below is a non-exhaustive list of some of these cases and what the behavior is:
 * Setting Pagination.Page but not Pagination.PageSize will cause Page to be ignored
 * Setting Sort.SecondaryField only will sort as though it was Sort.PrimaryField. Sort.SecondaryOrder will still be applied
@@ -163,5 +163,5 @@ and Sort.PrimaryOrder will be ignored
 ### Troubleshooting SQLite
 A useful tool for troubleshooting the database files is the sqlite command line tool. Another useful tool is the goland
 sqlite plugin. Both of these tools can be used with the database files. If running a database in-memory, there is no option
-for navigating records. In-memory databases are used for the non-object databse when `CATTLE_ENCRYPT_CACHE_ALL` is set to
+for navigating records. In-memory databases are used for the non-object database when `CATTLE_ENCRYPT_CACHE_ALL` is set to
 "true".

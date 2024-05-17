@@ -69,7 +69,7 @@ type TXClient interface {
 
 // Encryptor encrypts a slice of bytes. It is expected to use data-encryption-key (DEK) which it used to encrypt the slice.
 // It should use a key-encryption-key (KEK) to then encrypt the DEK. The encrypted data, nonce used to encrypt the data,
-// encrypted dek, nonce used to decrypt the dek should be returned, in that order. On failure an error should by returned.
+// encrypted dek, nonce used to decrypt the dek should be returned, in that order. On failure an error should be returned.
 type Encryptor interface {
 	Encrypt([]byte) ([]byte, []byte, []byte, []byte, error)
 }
@@ -84,10 +84,10 @@ type Decryptor interface {
 var backoffRetry = wait.Backoff{Duration: 50 * time.Millisecond, Factor: 2, Steps: 10}
 
 // NewClient returns a Client. If the given connection is nil then a default one will be created.
-func NewClient(c Connection, encryptor Encryptor, decrypter Decryptor) (*Client, error) {
+func NewClient(c Connection, encryptor Encryptor, decryptor Decryptor) (*Client, error) {
 	client := &Client{
 		encryptor: encryptor,
-		decryptor: decrypter,
+		decryptor: decryptor,
 	}
 	if c != nil {
 		client.conn = c
@@ -185,22 +185,14 @@ func (c *Client) ReadStrings(rows Rows) ([]string, error) {
 		var key string
 		err := rows.Scan(&key)
 		if err != nil {
-			ce := rows.Close()
-			if ce != nil {
-				return nil, errors.Wrap(ce, "while handling "+err.Error())
-			}
-			return nil, err
+			return nil, closeRowsOnError(rows, err)
 		}
 
 		result = append(result, key)
 	}
 	err := rows.Err()
 	if err != nil {
-		ce := rows.Close()
-		if ce != nil {
-			return nil, errors.Wrap(ce, "while handling "+err.Error())
-		}
-		return nil, err
+		return nil, closeRowsOnError(rows, err)
 	}
 
 	err = rows.Close()
@@ -230,11 +222,11 @@ func (c *Client) decryptScan(rows Rows, shouldDecrypt bool) ([]byte, error) {
 		return nil, err
 	}
 	if c.decryptor != nil && shouldDecrypt {
-		data, err := c.decryptor.Decrypt(data, dataNonce, eDEK, dekNonce)
+		decryptedData, err := c.decryptor.Decrypt(data, dataNonce, eDEK, dekNonce)
 		if err != nil {
 			return nil, err
 		}
-		return data, nil
+		return decryptedData, nil
 	}
 	return data, nil
 }
@@ -275,7 +267,7 @@ func fromBytes(buf sql.RawBytes, typ reflect.Type) (reflect.Value, error) {
 	return singleResult, err
 }
 
-// closeOnError closes the sql.Rows object and wraps errors if needed
+// closeRowsOnError closes the sql.Rows object and wraps errors if needed
 func closeRowsOnError(rows Rows, err error) error {
 	ce := rows.Close()
 	if ce != nil {

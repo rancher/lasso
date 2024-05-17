@@ -8,7 +8,6 @@ import (
 	"database/sql/driver"
 	"fmt"
 
-	"github.com/pkg/errors"
 	"modernc.org/sqlite"
 )
 
@@ -30,13 +29,13 @@ func Register(path string) {
 
 // Open opens a connection from the underlying driver and
 // attaches a database as db2 using the underlying path.
-func (d AttachDriver) Open(name string) (driver.Conn, error) {
-	c, err := d.d.Open(name)
+func (ad AttachDriver) Open(name string) (driver.Conn, error) {
+	c, err := ad.d.Open(name)
 	if err != nil {
 		return nil, err
 	}
 
-	q := fmt.Sprintf(`ATTACH DATABASE '%s' AS db2;`, d.path)
+	q := fmt.Sprintf(`ATTACH DATABASE '%s' AS db2;`, ad.path)
 	stmt, err := c.Prepare(q)
 	if err != nil {
 		return nil, closeConnOnError(c, err)
@@ -45,6 +44,7 @@ func (d AttachDriver) Open(name string) (driver.Conn, error) {
 	_, err = stmt.Exec(nil)
 	if err != nil {
 		stmt.Close()
+		// cannot use defer close because stmt must be close before the following function closes the connection
 		return nil, closeConnOnError(c, err)
 	}
 	stmt.Close()
@@ -53,15 +53,9 @@ func (d AttachDriver) Open(name string) (driver.Conn, error) {
 
 // closeConnOnError closes the sql.Rows object and wraps errors if needed
 func closeConnOnError(c driver.Conn, err error) error {
-	if err == nil {
-		return nil
-	}
 	ce := c.Close()
 	if ce != nil {
-		if err == nil {
-			return ce
-		}
-		return errors.Wrap(ce, "while handling "+err.Error())
+		return fmt.Errorf("failed to connection: %w, while handling error %w", ce, err)
 	}
 
 	return err
