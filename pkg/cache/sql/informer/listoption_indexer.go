@@ -141,7 +141,7 @@ func (l *ListOptionIndexer) afterUpsert(key string, obj any, tx db.TXClient) err
 	for _, field := range l.indexedFields {
 		value, err := getField(obj, field)
 		if err != nil {
-			logrus.Errorf("cannot index object of type [%s] with key [%s] for indexer [%s]: %w", l.GetType().String(), key, l.GetName(), err)
+			logrus.Errorf("cannot index object of type [%s] with key [%s] for indexer [%s]: %v", l.GetType().String(), key, l.GetName(), err)
 			cErr := tx.Cancel()
 			if cErr != nil {
 				return errors.Wrap(err, cErr.Error())

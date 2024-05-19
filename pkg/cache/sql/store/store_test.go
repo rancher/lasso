@@ -316,7 +316,7 @@ func TestList(t *testing.T) {
 		store := SetupStore(t, c, shouldEncrypt)
 		r := &sql.Rows{}
 		c.EXPECT().QueryForRows(context.TODO(), store.listStmt).Return(r, nil)
-		c.EXPECT().QueryObjects(r, reflect.TypeOf(testObject), store.shouldEncrypt).Return([]any{}, nil)
+		c.EXPECT().ReadObjects(r, reflect.TypeOf(testObject), store.shouldEncrypt).Return([]any{}, nil)
 		items := store.List()
 		assert.Len(t, items, 0)
 	},
@@ -327,7 +327,7 @@ func TestList(t *testing.T) {
 		fakeItemsToReturn := []any{"something1", 2, false}
 		r := &sql.Rows{}
 		c.EXPECT().QueryForRows(context.TODO(), store.listStmt).Return(r, nil)
-		c.EXPECT().QueryObjects(r, reflect.TypeOf(testObject), store.shouldEncrypt).Return(fakeItemsToReturn, nil)
+		c.EXPECT().ReadObjects(r, reflect.TypeOf(testObject), store.shouldEncrypt).Return(fakeItemsToReturn, nil)
 		items := store.List()
 		assert.Equal(t, fakeItemsToReturn, items)
 	},
@@ -337,7 +337,7 @@ func TestList(t *testing.T) {
 		store := SetupStore(t, c, shouldEncrypt)
 		r := &sql.Rows{}
 		c.EXPECT().QueryForRows(context.TODO(), store.listStmt).Return(r, nil)
-		c.EXPECT().QueryObjects(r, reflect.TypeOf(testObject), store.shouldEncrypt).Return(nil, fmt.Errorf("error"))
+		c.EXPECT().ReadObjects(r, reflect.TypeOf(testObject), store.shouldEncrypt).Return(nil, fmt.Errorf("error"))
 		defer func() {
 			recover()
 		}()
@@ -366,7 +366,7 @@ func TestListKeys(t *testing.T) {
 		store := SetupStore(t, c, shouldEncrypt)
 		r := &sql.Rows{}
 		c.EXPECT().QueryForRows(context.TODO(), store.listKeysStmt).Return(r, nil)
-		c.EXPECT().QueryStrings(r).Return([]string{"a", "b", "c"}, nil)
+		c.EXPECT().ReadStrings(r).Return([]string{"a", "b", "c"}, nil)
 		keys := store.ListKeys()
 		assert.Len(t, keys, 3)
 	},
@@ -377,7 +377,7 @@ func TestListKeys(t *testing.T) {
 		store := SetupStore(t, c, shouldEncrypt)
 		r := &sql.Rows{}
 		c.EXPECT().QueryForRows(context.TODO(), store.listKeysStmt).Return(r, nil)
-		c.EXPECT().QueryStrings(r).Return(nil, fmt.Errorf("error"))
+		c.EXPECT().ReadStrings(r).Return(nil, fmt.Errorf("error"))
 		keys := store.ListKeys()
 		assert.Len(t, keys, 0)
 	},
@@ -403,7 +403,7 @@ func TestGet(t *testing.T) {
 		store := SetupStore(t, c, shouldEncrypt)
 		r := &sql.Rows{}
 		c.EXPECT().QueryForRows(context.TODO(), store.getStmt, testObject.Id).Return(r, nil)
-		c.EXPECT().QueryObjects(r, reflect.TypeOf(testObject), store.shouldEncrypt).Return([]any{testObject}, nil)
+		c.EXPECT().ReadObjects(r, reflect.TypeOf(testObject), store.shouldEncrypt).Return([]any{testObject}, nil)
 		item, exists, err := store.Get(testObject)
 		assert.Nil(t, err)
 		assert.Equal(t, item, testObject)
@@ -415,7 +415,7 @@ func TestGet(t *testing.T) {
 		store := SetupStore(t, c, shouldEncrypt)
 		r := &sql.Rows{}
 		c.EXPECT().QueryForRows(context.TODO(), store.getStmt, testObject.Id).Return(r, nil)
-		c.EXPECT().QueryObjects(r, reflect.TypeOf(testObject), store.shouldEncrypt).Return([]any{}, nil)
+		c.EXPECT().ReadObjects(r, reflect.TypeOf(testObject), store.shouldEncrypt).Return([]any{}, nil)
 		item, exists, err := store.Get(testObject)
 		assert.Nil(t, err)
 		assert.Equal(t, item, nil)
@@ -427,7 +427,7 @@ func TestGet(t *testing.T) {
 		store := SetupStore(t, c, shouldEncrypt)
 		r := &sql.Rows{}
 		c.EXPECT().QueryForRows(context.TODO(), store.getStmt, testObject.Id).Return(r, nil)
-		c.EXPECT().QueryObjects(r, reflect.TypeOf(testObject), store.shouldEncrypt).Return(nil, fmt.Errorf("error"))
+		c.EXPECT().ReadObjects(r, reflect.TypeOf(testObject), store.shouldEncrypt).Return(nil, fmt.Errorf("error"))
 		_, _, err := store.Get(testObject)
 		assert.NotNil(t, err)
 	},
@@ -453,7 +453,7 @@ func TestGetByKey(t *testing.T) {
 		store := SetupStore(t, c, shouldEncrypt)
 		r := &sql.Rows{}
 		c.EXPECT().QueryForRows(context.TODO(), store.getStmt, testObject.Id).Return(r, nil)
-		c.EXPECT().QueryObjects(r, reflect.TypeOf(testObject), store.shouldEncrypt).Return([]any{testObject}, nil)
+		c.EXPECT().ReadObjects(r, reflect.TypeOf(testObject), store.shouldEncrypt).Return([]any{testObject}, nil)
 		item, exists, err := store.GetByKey(testObject.Id)
 		assert.Nil(t, err)
 		assert.Equal(t, item, testObject)
@@ -465,7 +465,7 @@ func TestGetByKey(t *testing.T) {
 		store := SetupStore(t, c, shouldEncrypt)
 		r := &sql.Rows{}
 		c.EXPECT().QueryForRows(context.TODO(), store.getStmt, testObject.Id).Return(r, nil)
-		c.EXPECT().QueryObjects(r, reflect.TypeOf(testObject), store.shouldEncrypt).Return([]any{}, nil)
+		c.EXPECT().ReadObjects(r, reflect.TypeOf(testObject), store.shouldEncrypt).Return([]any{}, nil)
 		item, exists, err := store.GetByKey(testObject.Id)
 		assert.Nil(t, err)
 		assert.Equal(t, nil, item)
@@ -477,7 +477,7 @@ func TestGetByKey(t *testing.T) {
 		store := SetupStore(t, c, shouldEncrypt)
 		r := &sql.Rows{}
 		c.EXPECT().QueryForRows(context.TODO(), store.getStmt, testObject.Id).Return(r, nil)
-		c.EXPECT().QueryObjects(r, reflect.TypeOf(testObject), store.shouldEncrypt).Return(nil, fmt.Errorf("error"))
+		c.EXPECT().ReadObjects(r, reflect.TypeOf(testObject), store.shouldEncrypt).Return(nil, fmt.Errorf("error"))
 		_, _, err := store.GetByKey(testObject.Id)
 		assert.NotNil(t, err)
 	},
@@ -505,7 +505,7 @@ func TestReplace(t *testing.T) {
 		store := SetupStore(t, c, shouldEncrypt)
 		r := &sql.Rows{}
 		c.EXPECT().QueryForRows(context.TODO(), store.listKeysStmt).Return(r, nil)
-		c.EXPECT().QueryStrings(r).Return([]string{testObject.Id}, nil)
+		c.EXPECT().ReadStrings(r).Return([]string{testObject.Id}, nil)
 		c.EXPECT().Begin().Return(txC, nil)
 		txC.EXPECT().Stmt(store.deleteStmt).Return(store.deleteStmt)
 		txC.EXPECT().StmtExec(store.deleteStmt, testObject.Id)
@@ -520,7 +520,7 @@ func TestReplace(t *testing.T) {
 		store := SetupStore(t, c, shouldEncrypt)
 		r := &sql.Rows{}
 		c.EXPECT().QueryForRows(context.TODO(), store.listKeysStmt).Return(r, nil)
-		c.EXPECT().QueryStrings(r).Return([]string{}, nil)
+		c.EXPECT().ReadStrings(r).Return([]string{}, nil)
 		c.EXPECT().Begin().Return(tx, nil)
 		c.EXPECT().Upsert(tx, store.upsertStmt, testObject.Id, testObject, store.shouldEncrypt)
 		tx.EXPECT().Commit()
@@ -533,7 +533,7 @@ func TestReplace(t *testing.T) {
 		store := SetupStore(t, c, shouldEncrypt)
 		r := &sql.Rows{}
 		c.EXPECT().QueryForRows(context.TODO(), store.listKeysStmt).Return(r, nil)
-		c.EXPECT().QueryStrings(r).Return([]string{}, nil)
+		c.EXPECT().ReadStrings(r).Return([]string{}, nil)
 		c.EXPECT().Begin().Return(nil, fmt.Errorf("error"))
 		err := store.Replace([]any{testObject}, testObject.Id)
 		assert.NotNil(t, err)
@@ -544,7 +544,7 @@ func TestReplace(t *testing.T) {
 		store := SetupStore(t, c, shouldEncrypt)
 		r := &sql.Rows{}
 		c.EXPECT().QueryForRows(context.TODO(), store.listKeysStmt).Return(r, nil)
-		c.EXPECT().QueryStrings(r).Return(nil, fmt.Errorf("error"))
+		c.EXPECT().ReadStrings(r).Return(nil, fmt.Errorf("error"))
 		err := store.Replace([]any{testObject}, testObject.Id)
 		assert.NotNil(t, err)
 	},
@@ -554,7 +554,7 @@ func TestReplace(t *testing.T) {
 		store := SetupStore(t, c, shouldEncrypt)
 		r := &sql.Rows{}
 		c.EXPECT().QueryForRows(context.TODO(), store.listKeysStmt).Return(r, nil)
-		c.EXPECT().QueryStrings(r).Return(nil, fmt.Errorf("error"))
+		c.EXPECT().ReadStrings(r).Return(nil, fmt.Errorf("error"))
 		err := store.Replace([]any{testObject}, testObject.Id)
 		assert.NotNil(t, err)
 	},
@@ -564,7 +564,7 @@ func TestReplace(t *testing.T) {
 		store := SetupStore(t, c, shouldEncrypt)
 		r := &sql.Rows{}
 		c.EXPECT().QueryForRows(context.TODO(), store.listKeysStmt).Return(r, nil)
-		c.EXPECT().QueryStrings(r).Return([]string{testObject.Id}, nil)
+		c.EXPECT().ReadStrings(r).Return([]string{testObject.Id}, nil)
 		c.EXPECT().Begin().Return(txC, nil)
 		txC.EXPECT().Stmt(store.deleteStmt).Return(store.deleteStmt)
 		txC.EXPECT().StmtExec(store.deleteStmt, testObject.Id).Return(fmt.Errorf("error"))
@@ -577,7 +577,7 @@ func TestReplace(t *testing.T) {
 		store := SetupStore(t, c, shouldEncrypt)
 		r := &sql.Rows{}
 		c.EXPECT().QueryForRows(context.TODO(), store.listKeysStmt).Return(r, nil)
-		c.EXPECT().QueryStrings(r).Return([]string{testObject.Id}, nil)
+		c.EXPECT().ReadStrings(r).Return([]string{testObject.Id}, nil)
 		c.EXPECT().Begin().Return(txC, nil)
 		txC.EXPECT().Stmt(store.deleteStmt).Return(store.deleteStmt)
 		txC.EXPECT().StmtExec(store.deleteStmt, testObject.Id).Return(nil)

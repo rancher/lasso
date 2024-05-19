@@ -49,7 +49,7 @@ func TestNewListOptionIndexer(t *testing.T) {
 
 		store.EXPECT().Begin().Return(txClient, nil)
 		// create field table
-		txClient.EXPECT().Exec(fmt.Sprintf(createFieldsTableFmt, id, `"metadata.name" VARCHAR, "metadata.namespace" VARCHAR, "metadata.creationTimestamp" VARCHAR, "something" VARCHAR`)).Return(nil)
+		txClient.EXPECT().Exec(fmt.Sprintf(createFieldsTableFmt, id, `"metadata.name" VARCHAR, "metadata.creationTimestamp" VARCHAR, "metadata.namespace" VARCHAR, "something" VARCHAR`)).Return(nil)
 		// create field table indexes
 		txClient.EXPECT().Exec(fmt.Sprintf(createFieldsIndexFmt, id, "metadata.name", id, "metadata.name")).Return(nil)
 		txClient.EXPECT().Exec(fmt.Sprintf(createFieldsIndexFmt, id, "metadata.namespace", id, "metadata.namespace")).Return(nil)
@@ -57,7 +57,7 @@ func TestNewListOptionIndexer(t *testing.T) {
 		txClient.EXPECT().Exec(fmt.Sprintf(createFieldsIndexFmt, id, fields[0][0], id, fields[0][0])).Return(nil)
 		txClient.EXPECT().Commit().Return(nil)
 
-		loi, err := NewListOptionIndexer(fields, store)
+		loi, err := NewListOptionIndexer(fields, store, true)
 		assert.Nil(t, err)
 		assert.NotNil(t, loi)
 	}})
@@ -73,7 +73,7 @@ func TestNewListOptionIndexer(t *testing.T) {
 		txClient.EXPECT().Exec(gomock.Any(), gomock.Any()).Return(nil)
 		txClient.EXPECT().Commit().Return(fmt.Errorf("error"))
 
-		_, err := NewListOptionIndexer(fields, store)
+		_, err := NewListOptionIndexer(fields, store, false)
 		assert.NotNil(t, err)
 	}})
 	tests = append(tests, testCase{description: "NewListOptionIndexer() with error returned from Begin(), should return an error", test: func(t *testing.T) {
@@ -97,7 +97,7 @@ func TestNewListOptionIndexer(t *testing.T) {
 
 		store.EXPECT().Begin().Return(txClient, fmt.Errorf("error"))
 
-		_, err := NewListOptionIndexer(fields, store)
+		_, err := NewListOptionIndexer(fields, store, false)
 		assert.NotNil(t, err)
 	}})
 	tests = append(tests, testCase{description: "NewListOptionIndexer() with error from Exec() when creating fields table, should return an error", test: func(t *testing.T) {
@@ -120,10 +120,10 @@ func TestNewListOptionIndexer(t *testing.T) {
 		store.EXPECT().RegisterAfterDelete(gomock.Any())
 
 		store.EXPECT().Begin().Return(txClient, nil)
-		txClient.EXPECT().Exec(fmt.Sprintf(createFieldsTableFmt, id, `"metadata.name" VARCHAR, "metadata.namespace" VARCHAR, "metadata.creationTimestamp" VARCHAR, "something" VARCHAR`)).Return(nil)
+		txClient.EXPECT().Exec(fmt.Sprintf(createFieldsTableFmt, id, `"metadata.name" VARCHAR, "metadata.creationTimestamp" VARCHAR, "metadata.namespace" VARCHAR, "something" VARCHAR`)).Return(nil)
 		txClient.EXPECT().Exec(fmt.Sprintf(createFieldsIndexFmt, id, "metadata.name", id, "metadata.name")).Return(fmt.Errorf("error"))
 
-		_, err := NewListOptionIndexer(fields, store)
+		_, err := NewListOptionIndexer(fields, store, true)
 		assert.NotNil(t, err)
 	}})
 	tests = append(tests, testCase{description: "NewListOptionIndexer() with error from Commit(), should return an error", test: func(t *testing.T) {
@@ -146,14 +146,14 @@ func TestNewListOptionIndexer(t *testing.T) {
 		store.EXPECT().RegisterAfterDelete(gomock.Any())
 
 		store.EXPECT().Begin().Return(txClient, nil)
-		txClient.EXPECT().Exec(fmt.Sprintf(createFieldsTableFmt, id, `"metadata.name" VARCHAR, "metadata.namespace" VARCHAR, "metadata.creationTimestamp" VARCHAR, "something" VARCHAR`)).Return(nil)
+		txClient.EXPECT().Exec(fmt.Sprintf(createFieldsTableFmt, id, `"metadata.name" VARCHAR, "metadata.creationTimestamp" VARCHAR, "metadata.namespace" VARCHAR, "something" VARCHAR`)).Return(nil)
 		txClient.EXPECT().Exec(fmt.Sprintf(createFieldsIndexFmt, id, "metadata.name", id, "metadata.name")).Return(nil)
 		txClient.EXPECT().Exec(fmt.Sprintf(createFieldsIndexFmt, id, "metadata.namespace", id, "metadata.namespace")).Return(nil)
 		txClient.EXPECT().Exec(fmt.Sprintf(createFieldsIndexFmt, id, "metadata.creationTimestamp", id, "metadata.creationTimestamp")).Return(nil)
 		txClient.EXPECT().Exec(fmt.Sprintf(createFieldsIndexFmt, id, fields[0][0], id, fields[0][0])).Return(nil)
 		txClient.EXPECT().Commit().Return(fmt.Errorf("error"))
 
-		_, err := NewListOptionIndexer(fields, store)
+		_, err := NewListOptionIndexer(fields, store, true)
 		assert.NotNil(t, err)
 	}})
 
@@ -191,7 +191,7 @@ func TestListByOptions(t *testing.T) {
   JOIN db2."something_fields" f ON o.key = f.key
   WHERE
     (FALSE)
-  ORDER BY f."metadata.namespace" ASC, f."metadata.name" ASC `,
+  ORDER BY f."metadata.name" ASC `,
 		returnList:        []any{&unstructured.Unstructured{Object: unstrTestObjectMap}},
 		expectedList:      &unstructured.UnstructuredList{Object: map[string]interface{}{"items": []map[string]interface{}{unstrTestObjectMap}}, Items: []unstructured.Unstructured{{Object: unstrTestObjectMap}}},
 		expectedContToken: "",
@@ -206,7 +206,7 @@ func TestListByOptions(t *testing.T) {
   JOIN db2."something_fields" f ON o.key = f.key
   WHERE
     (FALSE)
-  ORDER BY f."metadata.namespace" ASC, f."metadata.name" ASC 
+  ORDER BY f."metadata.name" ASC 
   LIMIT ?`,
 		expectedStmtArgs:  []interface{}{3},
 		returnList:        []any{&unstructured.Unstructured{Object: unstrTestObjectMap}, &unstructured.Unstructured{Object: unstrTestObjectMap}},
@@ -223,7 +223,7 @@ func TestListByOptions(t *testing.T) {
   JOIN db2."something_fields" f ON o.key = f.key
   WHERE
     (FALSE)
-  ORDER BY f."metadata.namespace" ASC, f."metadata.name" ASC 
+  ORDER BY f."metadata.name" ASC 
   OFFSET ?`,
 		expectedStmtArgs:  []interface{}{4},
 		returnList:        []any{&unstructured.Unstructured{Object: unstrTestObjectMap}, &unstructured.Unstructured{Object: unstrTestObjectMap}},
@@ -251,7 +251,7 @@ func TestListByOptions(t *testing.T) {
   WHERE
     (f."metadata.somefield" LIKE ?) AND
     (FALSE)
-  ORDER BY f."metadata.namespace" ASC, f."metadata.name" ASC `,
+  ORDER BY f."metadata.name" ASC `,
 		expectedStmtArgs:  []any{"somevalue"},
 		returnList:        []any{&unstructured.Unstructured{Object: unstrTestObjectMap}, &unstructured.Unstructured{Object: unstrTestObjectMap}},
 		expectedList:      &unstructured.UnstructuredList{Object: map[string]interface{}{"items": []map[string]interface{}{unstrTestObjectMap, unstrTestObjectMap}}, Items: []unstructured.Unstructured{{Object: unstrTestObjectMap}, {Object: unstrTestObjectMap}}},
@@ -279,7 +279,7 @@ func TestListByOptions(t *testing.T) {
   WHERE
     (f."metadata.somefield" NOT LIKE ?) AND
     (FALSE)
-  ORDER BY f."metadata.namespace" ASC, f."metadata.name" ASC `,
+  ORDER BY f."metadata.name" ASC `,
 		expectedStmtArgs:  []any{"somevalue"},
 		returnList:        []any{&unstructured.Unstructured{Object: unstrTestObjectMap}, &unstructured.Unstructured{Object: unstrTestObjectMap}},
 		expectedList:      &unstructured.UnstructuredList{Object: map[string]interface{}{"items": []map[string]interface{}{unstrTestObjectMap, unstrTestObjectMap}}, Items: []unstructured.Unstructured{{Object: unstrTestObjectMap}, {Object: unstrTestObjectMap}}},
@@ -307,7 +307,7 @@ func TestListByOptions(t *testing.T) {
   WHERE
     (f."metadata.somefield" LIKE ?) AND
     (FALSE)
-  ORDER BY f."metadata.namespace" ASC, f."metadata.name" ASC `,
+  ORDER BY f."metadata.name" ASC `,
 		expectedStmtArgs:  []any{"%somevalue%"},
 		returnList:        []any{&unstructured.Unstructured{Object: unstrTestObjectMap}, &unstructured.Unstructured{Object: unstrTestObjectMap}},
 		expectedList:      &unstructured.UnstructuredList{Object: map[string]interface{}{"items": []map[string]interface{}{unstrTestObjectMap, unstrTestObjectMap}}, Items: []unstructured.Unstructured{{Object: unstrTestObjectMap}, {Object: unstrTestObjectMap}}},
@@ -344,7 +344,7 @@ func TestListByOptions(t *testing.T) {
   WHERE
     (f."metadata.somefield" LIKE ? OR f."metadata.somefield" LIKE ? OR f."metadata.somefield" NOT LIKE ?) AND
     (FALSE)
-  ORDER BY f."metadata.namespace" ASC, f."metadata.name" ASC `,
+  ORDER BY f."metadata.name" ASC `,
 		expectedStmtArgs:  []any{"%somevalue%", "someothervalue", "somethirdvalue"},
 		returnList:        []any{&unstructured.Unstructured{Object: unstrTestObjectMap}, &unstructured.Unstructured{Object: unstrTestObjectMap}},
 		expectedList:      &unstructured.UnstructuredList{Object: map[string]interface{}{"items": []map[string]interface{}{unstrTestObjectMap, unstrTestObjectMap}}, Items: []unstructured.Unstructured{{Object: unstrTestObjectMap}, {Object: unstrTestObjectMap}}},
@@ -388,7 +388,7 @@ func TestListByOptions(t *testing.T) {
     (f."metadata.somefield" LIKE ?) AND
     (f."metadata.namespace" = ?) AND
     (FALSE)
-  ORDER BY f."metadata.namespace" ASC, f."metadata.name" ASC `,
+  ORDER BY f."metadata.name" ASC `,
 		expectedStmtArgs:  []any{"%somevalue%", "someothervalue", "somethirdvalue", "test4"},
 		returnList:        []any{&unstructured.Unstructured{Object: unstrTestObjectMap}, &unstructured.Unstructured{Object: unstrTestObjectMap}},
 		expectedList:      &unstructured.UnstructuredList{Object: map[string]interface{}{"items": []map[string]interface{}{unstrTestObjectMap, unstrTestObjectMap}}, Items: []unstructured.Unstructured{{Object: unstrTestObjectMap}, {Object: unstrTestObjectMap}}},
@@ -509,7 +509,7 @@ func TestListByOptions(t *testing.T) {
   JOIN db2."something_fields" f ON o.key = f.key
   WHERE
     (FALSE)
-  ORDER BY f."metadata.namespace" ASC, f."metadata.name" ASC `,
+  ORDER BY f."metadata.name" ASC `,
 		returnList:        []any{&unstructured.Unstructured{Object: unstrTestObjectMap}, &unstructured.Unstructured{Object: unstrTestObjectMap}},
 		expectedList:      &unstructured.UnstructuredList{Object: map[string]interface{}{"items": []map[string]interface{}{unstrTestObjectMap, unstrTestObjectMap}}, Items: []unstructured.Unstructured{{Object: unstrTestObjectMap}, {Object: unstrTestObjectMap}}},
 		expectedContToken: "",
@@ -528,7 +528,7 @@ func TestListByOptions(t *testing.T) {
   JOIN db2."something_fields" f ON o.key = f.key
   WHERE
     (FALSE)
-  ORDER BY f."metadata.namespace" ASC, f."metadata.name" ASC 
+  ORDER BY f."metadata.name" ASC 
   LIMIT ?`,
 		expectedStmtArgs:  []any{11},
 		returnList:        []any{&unstructured.Unstructured{Object: unstrTestObjectMap}, &unstructured.Unstructured{Object: unstrTestObjectMap}},
@@ -549,7 +549,7 @@ func TestListByOptions(t *testing.T) {
   JOIN db2."something_fields" f ON o.key = f.key
   WHERE
     (FALSE)
-  ORDER BY f."metadata.namespace" ASC, f."metadata.name" ASC `,
+  ORDER BY f."metadata.name" ASC `,
 		returnList:        []any{&unstructured.Unstructured{Object: unstrTestObjectMap}, &unstructured.Unstructured{Object: unstrTestObjectMap}},
 		expectedList:      &unstructured.UnstructuredList{Object: map[string]interface{}{"items": []map[string]interface{}{unstrTestObjectMap, unstrTestObjectMap}}, Items: []unstructured.Unstructured{{Object: unstrTestObjectMap}, {Object: unstrTestObjectMap}}},
 		expectedContToken: "",
@@ -569,7 +569,7 @@ func TestListByOptions(t *testing.T) {
   JOIN db2."something_fields" f ON o.key = f.key
   WHERE
     (FALSE)
-  ORDER BY f."metadata.namespace" ASC, f."metadata.name" ASC 
+  ORDER BY f."metadata.name" ASC 
   LIMIT ?
   OFFSET ?`,
 		expectedStmtArgs:  []any{11, 10},
@@ -590,7 +590,7 @@ func TestListByOptions(t *testing.T) {
   JOIN db2."something_fields" f ON o.key = f.key
   WHERE
     (f."metadata.namespace" = ? AND FALSE)
-  ORDER BY f."metadata.namespace" ASC, f."metadata.name" ASC `,
+  ORDER BY f."metadata.name" ASC `,
 		expectedStmtArgs:  []any{"somens"},
 		returnList:        []any{&unstructured.Unstructured{Object: unstrTestObjectMap}, &unstructured.Unstructured{Object: unstrTestObjectMap}},
 		expectedList:      &unstructured.UnstructuredList{Object: map[string]interface{}{"items": []map[string]interface{}{unstrTestObjectMap, unstrTestObjectMap}}, Items: []unstructured.Unstructured{{Object: unstrTestObjectMap}, {Object: unstrTestObjectMap}}},
@@ -607,7 +607,7 @@ func TestListByOptions(t *testing.T) {
 		ns: "",
 		expectedStmt: `SELECT o.object, o.objectnonce, o.dek, o.deknonce FROM "something" o
   JOIN db2."something_fields" f ON o.key = f.key
-  ORDER BY f."metadata.namespace" ASC, f."metadata.name" ASC `,
+  ORDER BY f."metadata.name" ASC `,
 		returnList:        []any{&unstructured.Unstructured{Object: unstrTestObjectMap}, &unstructured.Unstructured{Object: unstrTestObjectMap}},
 		expectedList:      &unstructured.UnstructuredList{Object: map[string]interface{}{"items": []map[string]interface{}{unstrTestObjectMap, unstrTestObjectMap}}, Items: []unstructured.Unstructured{{Object: unstrTestObjectMap}, {Object: unstrTestObjectMap}}},
 		expectedContToken: "",
@@ -623,7 +623,7 @@ func TestListByOptions(t *testing.T) {
 		ns: "",
 		expectedStmt: `SELECT o.object, o.objectnonce, o.dek, o.deknonce FROM "something" o
   JOIN db2."something_fields" f ON o.key = f.key
-  ORDER BY f."metadata.namespace" ASC, f."metadata.name" ASC `,
+  ORDER BY f."metadata.name" ASC `,
 		returnList:        []any{&unstructured.Unstructured{Object: unstrTestObjectMap}, &unstructured.Unstructured{Object: unstrTestObjectMap}},
 		expectedList:      &unstructured.UnstructuredList{Object: map[string]interface{}{"items": []map[string]interface{}{unstrTestObjectMap, unstrTestObjectMap}}, Items: []unstructured.Unstructured{{Object: unstrTestObjectMap}, {Object: unstrTestObjectMap}}},
 		expectedContToken: "",
@@ -641,7 +641,7 @@ func TestListByOptions(t *testing.T) {
   JOIN db2."something_fields" f ON o.key = f.key
   WHERE
     (f."metadata.name" IN (?, ?))
-  ORDER BY f."metadata.namespace" ASC, f."metadata.name" ASC `,
+  ORDER BY f."metadata.name" ASC `,
 		expectedStmtArgs:  []any{"someid", "someotherid"},
 		returnList:        []any{&unstructured.Unstructured{Object: unstrTestObjectMap}, &unstructured.Unstructured{Object: unstrTestObjectMap}},
 		expectedList:      &unstructured.UnstructuredList{Object: map[string]interface{}{"items": []map[string]interface{}{unstrTestObjectMap, unstrTestObjectMap}}, Items: []unstructured.Unstructured{{Object: unstrTestObjectMap}, {Object: unstrTestObjectMap}}},

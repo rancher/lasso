@@ -57,9 +57,9 @@ func TestNewInformer(t *testing.T) {
 		txClient.EXPECT().Exec(gomock.Any(), gomock.Any()).Return(nil)
 		txClient.EXPECT().Commit().Return(nil)
 
-		informer, err := NewInformer(dynamicClient, fields, gvk, dbClient, false)
+		informer, err := NewInformer(dynamicClient, fields, gvk, dbClient, false, true)
 		assert.Nil(t, err)
-		assert.NotNil(t, informer.indexer)
+		assert.NotNil(t, informer.ByOptionsLister)
 		assert.NotNil(t, informer.SharedIndexInformer)
 	}})
 	tests = append(tests, testCase{description: "NewInformer() with errors returned from NewStore(), should return an error", test: func(t *testing.T) {
@@ -76,7 +76,7 @@ func TestNewInformer(t *testing.T) {
 		txClient.EXPECT().Exec(gomock.Any(), gomock.Any()).Return(nil)
 		txClient.EXPECT().Commit().Return(fmt.Errorf("error"))
 
-		_, err := NewInformer(dynamicClient, fields, gvk, dbClient, false)
+		_, err := NewInformer(dynamicClient, fields, gvk, dbClient, false, true)
 		assert.NotNil(t, err)
 	}})
 	tests = append(tests, testCase{description: "NewInformer() with errors returned from NewIndexer(), should return an error", test: func(t *testing.T) {
@@ -101,7 +101,7 @@ func TestNewInformer(t *testing.T) {
 		txClient.EXPECT().Exec(gomock.Any(), gomock.Any()).Return(nil)
 		txClient.EXPECT().Commit().Return(fmt.Errorf("error"))
 
-		_, err := NewInformer(dynamicClient, fields, gvk, dbClient, false)
+		_, err := NewInformer(dynamicClient, fields, gvk, dbClient, false, true)
 		assert.NotNil(t, err)
 	}})
 	tests = append(tests, testCase{description: "NewInformer() with errors returned from NewListOptionIndexer(), should return an error", test: func(t *testing.T) {
@@ -136,7 +136,7 @@ func TestNewInformer(t *testing.T) {
 		txClient.EXPECT().Exec(gomock.Any(), gomock.Any()).Return(nil)
 		txClient.EXPECT().Commit().Return(fmt.Errorf("error"))
 
-		_, err := NewInformer(dynamicClient, fields, gvk, dbClient, false)
+		_, err := NewInformer(dynamicClient, fields, gvk, dbClient, false, true)
 		assert.NotNil(t, err)
 	}})
 	t.Parallel()
@@ -156,7 +156,7 @@ func TestInformerListByOptions(t *testing.T) {
 	tests = append(tests, testCase{description: "ListByOptions() with no errors returned, should return no error and return value from indexer's ListByOptions()", test: func(t *testing.T) {
 		indexer := NewMockByOptionsLister(gomock.NewController(t))
 		informer := &Informer{
-			indexer: indexer,
+			ByOptionsLister: indexer,
 		}
 		lo := ListOptions{}
 		var partitions []partition.Partition
@@ -172,7 +172,7 @@ func TestInformerListByOptions(t *testing.T) {
 	tests = append(tests, testCase{description: "ListByOptions() with indexer ListByOptions error, should return error", test: func(t *testing.T) {
 		indexer := NewMockByOptionsLister(gomock.NewController(t))
 		informer := &Informer{
-			indexer: indexer,
+			ByOptionsLister: indexer,
 		}
 		lo := ListOptions{}
 		var partitions []partition.Partition

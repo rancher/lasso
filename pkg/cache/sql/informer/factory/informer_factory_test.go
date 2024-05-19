@@ -66,7 +66,7 @@ func TestInformerFor(t *testing.T) {
 			// need to set this so Run function is not nil
 			SharedIndexInformer: sii,
 		}
-		testNewInformer := func(client dynamic.ResourceInterface, fields [][]string, gvk schema.GroupVersionKind, db sqlStore.DBClient, shouldEncrypt bool) (*informer.Informer, error) {
+		testNewInformer := func(client dynamic.ResourceInterface, fields [][]string, gvk schema.GroupVersionKind, db sqlStore.DBClient, shouldEncrypt bool, namespaced bool) (*informer.Informer, error) {
 			assert.Equal(t, client, dynamicClient)
 			assert.Equal(t, fields, fields)
 			assert.Equal(t, expectedGVK, gvk)
@@ -87,12 +87,12 @@ func TestInformerFor(t *testing.T) {
 		}()
 		var i *informer.Informer
 		var err error
-		i, err = f.InformerFor(fields, dynamicClient, expectedGVK)
+		i, err = f.InformerFor(fields, dynamicClient, expectedGVK, false)
 		assert.Nil(t, err)
 		assert.Equal(t, expectedI, i)
 		// this sleep is critical to the test. It ensure there has been enough time for expected function like Run to be invoked in their go routines.
 		time.Sleep(1 * time.Second)
-		i2, err := f.InformerFor(fields, dynamicClient, expectedGVK)
+		i2, err := f.InformerFor(fields, dynamicClient, expectedGVK, false)
 		assert.Nil(t, err)
 		assert.Equal(t, i, i2)
 	}})
@@ -109,7 +109,7 @@ func TestInformerFor(t *testing.T) {
 			// need to set this so Run function is not nil
 			SharedIndexInformer: sii,
 		}
-		testNewInformer := func(client dynamic.ResourceInterface, fields [][]string, gvk schema.GroupVersionKind, db sqlStore.DBClient, shouldEncrypt bool) (*informer.Informer, error) {
+		testNewInformer := func(client dynamic.ResourceInterface, fields [][]string, gvk schema.GroupVersionKind, db sqlStore.DBClient, shouldEncrypt, namespaced bool) (*informer.Informer, error) {
 			assert.Equal(t, client, dynamicClient)
 			assert.Equal(t, fields, fields)
 			assert.Equal(t, expectedGVK, gvk)
@@ -128,7 +128,7 @@ func TestInformerFor(t *testing.T) {
 			close(f.stopCh)
 		}()
 		var err error
-		_, err = f.InformerFor(fields, dynamicClient, expectedGVK)
+		_, err = f.InformerFor(fields, dynamicClient, expectedGVK, false)
 		assert.NotNil(t, err)
 		time.Sleep(2 * time.Second)
 	}})
@@ -146,7 +146,7 @@ func TestInformerFor(t *testing.T) {
 			// need to set this so Run function is not nil
 			SharedIndexInformer: sii,
 		}
-		testNewInformer := func(client dynamic.ResourceInterface, fields [][]string, gvk schema.GroupVersionKind, db sqlStore.DBClient, shouldEncrypt bool) (*informer.Informer, error) {
+		testNewInformer := func(client dynamic.ResourceInterface, fields [][]string, gvk schema.GroupVersionKind, db sqlStore.DBClient, shouldEncrypt, namespaced bool) (*informer.Informer, error) {
 			assert.Equal(t, client, dynamicClient)
 			assert.Equal(t, fields, fields)
 			assert.Equal(t, expectedGVK, gvk)
@@ -163,7 +163,7 @@ func TestInformerFor(t *testing.T) {
 		close(f.stopCh)
 		var i *informer.Informer
 		var err error
-		i, err = f.InformerFor(fields, dynamicClient, expectedGVK)
+		i, err = f.InformerFor(fields, dynamicClient, expectedGVK, false)
 		assert.Nil(t, err)
 		assert.Equal(t, expectedI, i)
 		time.Sleep(1 * time.Second)
@@ -180,7 +180,7 @@ func TestInformerFor(t *testing.T) {
 			// need to set this so Run function is not nil
 			SharedIndexInformer: sii,
 		}
-		testNewInformer := func(client dynamic.ResourceInterface, fields [][]string, gvk schema.GroupVersionKind, db sqlStore.DBClient, shouldEncrypt bool) (*informer.Informer, error) {
+		testNewInformer := func(client dynamic.ResourceInterface, fields [][]string, gvk schema.GroupVersionKind, db sqlStore.DBClient, shouldEncrypt, namespaced bool) (*informer.Informer, error) {
 			assert.Equal(t, client, dynamicClient)
 			assert.Equal(t, fields, fields)
 			assert.Equal(t, expectedGVK, gvk)
@@ -201,7 +201,7 @@ func TestInformerFor(t *testing.T) {
 		}()
 		var i *informer.Informer
 		var err error
-		i, err = f.InformerFor(fields, dynamicClient, expectedGVK)
+		i, err = f.InformerFor(fields, dynamicClient, expectedGVK, false)
 		assert.Nil(t, err)
 		assert.Equal(t, expectedI, i)
 		time.Sleep(1 * time.Second)
