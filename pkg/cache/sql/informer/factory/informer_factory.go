@@ -5,7 +5,6 @@ package factory
 
 import (
 	"fmt"
-	"github.com/rancher/apiserver/pkg/types"
 	"github.com/rancher/lasso/pkg/cache/sql/attachdriver"
 	db2 "github.com/rancher/lasso/pkg/cache/sql/db"
 	"github.com/rancher/lasso/pkg/cache/sql/encryption"
@@ -26,7 +25,6 @@ type InformerFactory struct {
 	dbClient           DBClient
 	stopCh             chan struct{}
 	encryptAll         bool
-	schemas            map[string]*types.APISchema
 
 	newInformer newInformer
 
