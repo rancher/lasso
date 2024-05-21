@@ -64,7 +64,7 @@ intended to be used as a way of enforcing RBAC.
     )
 
     func main() {
-		informerFactory, err := factory.NewInformerFactory()
+		cacheFactory, err := factory.NewCacheFactory()
 		if err != nil {
 			panic(err)
         }
@@ -79,14 +79,14 @@ intended to be used as a way of enforcing RBAC.
 		fields := [][]string{{"metadata", "name"}, {"metadata", "namespace"}}
 		opts := &informer.ListOptions{}
 		// gvk should be of type k8s.io/apimachinery/pkg/runtime/schema.GroupVersionKind
-		i, err := informerFactory.InformerFor(fields, client, gvk)
+		c, err := cacheFactory.CacheFor(fields, client, gvk)
 		if err != nil {
 			panic(err)
 		}
 
 		// continueToken will just be an offset that can be used in Resume on a subsequent request to continue
 		// to next page
-		list, continueToken, err := i.ListByOptions(apiOp.Context(), opts, partitions, namespace)
+		list, continueToken, err := c.ListByOptions(apiOp.Context(), opts, partitions, namespace)
 		if err != nil {
 			panic(err)
 		}

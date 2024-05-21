@@ -1,25 +1,26 @@
 /*
-Package factory provides an informer factory for the sql-based informer.
+Package factory provides an cache factory for the sql-based cache.
 */
 package factory
 
 import (
 	"fmt"
+	"github.com/rancher/lasso/pkg/cache/sql/informer"
+	"os"
+	"sync"
+
 	"github.com/rancher/lasso/pkg/cache/sql/attachdriver"
 	db2 "github.com/rancher/lasso/pkg/cache/sql/db"
 	"github.com/rancher/lasso/pkg/cache/sql/encryption"
-	"github.com/rancher/lasso/pkg/cache/sql/informer"
 	sqlStore "github.com/rancher/lasso/pkg/cache/sql/store"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/tools/cache"
-	"os"
-	"sync"
 )
 
-// InformerFactory builds Informer instances and keeps a cache of instances it created
-type InformerFactory struct {
+// CacheFactory builds Informer instances and keeps a cache of instances it created
+type CacheFactory struct {
 	informerCreateLock sync.Mutex
 	wg                 wait.Group
 	dbClient           DBClient
@@ -37,6 +38,10 @@ type DBClient interface {
 	informer.DBClient
 	sqlStore.DBClient
 	connector
+}
+
+type Cache struct {
+	informer.ByOptionsLister
 }
 
 type connector interface {
@@ -62,8 +67,8 @@ func init() {
 	attachdriver.Register("file:" + indexedFieldDBPath + "?cache=shared")
 }
 
-// NewInformerFactory returns an informer factory instance
-func NewInformerFactory() (*InformerFactory, error) {
+// NewCacheFactory returns an informer factory instance
+func NewCacheFactory() (*CacheFactory, error) {
 	m, err := encryption.NewManager()
 	if err != nil {
 		return nil, err
@@ -72,7 +77,7 @@ func NewInformerFactory() (*InformerFactory, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &InformerFactory{
+	return &CacheFactory{
 		wg:          wait.Group{},
 		stopCh:      make(chan struct{}),
 		cache:       map[schema.GroupVersionKind]*informer.Informer{},
@@ -82,8 +87,8 @@ func NewInformerFactory() (*InformerFactory, error) {
 	}, nil
 }
 
-// InformerFor returns an informer for given GVK, using sql store indexed with fields, using the specified client
-func (f *InformerFactory) InformerFor(fields [][]string, client dynamic.ResourceInterface, gvk schema.GroupVersionKind, namespaced bool) (*informer.Informer, error) {
+// CacheFor returns an informer for given GVK, using sql store indexed with fields, using the specified client
+func (f *CacheFactory) CacheFor(fields [][]string, client dynamic.ResourceInterface, gvk schema.GroupVersionKind, namespaced bool) (Cache, error) {
 	f.informerCreateLock.Lock()
 	defer f.informerCreateLock.Unlock()
 
@@ -93,7 +98,7 @@ func (f *InformerFactory) InformerFor(fields [][]string, client dynamic.Resource
 		shouldEncrypt := f.encryptAll || encryptResourceAlways
 		i, err := f.newInformer(client, fields, gvk, f.dbClient, shouldEncrypt, namespaced)
 		if err != nil {
-			return nil, err
+			return Cache{}, err
 		}
 
 		if f.cache == nil {
@@ -102,18 +107,18 @@ func (f *InformerFactory) InformerFor(fields [][]string, client dynamic.Resource
 		f.cache[gvk] = i
 		f.wg.StartWithChannel(f.stopCh, i.Run)
 		if !cache.WaitForCacheSync(f.stopCh, i.HasSynced) {
-			return nil, fmt.Errorf("failed to sync SQLite Informer cache for GVK %v", gvk)
+			return Cache{}, fmt.Errorf("failed to sync SQLite Informer cache for GVK %v", gvk)
 		}
 
-		return i, nil
+		return Cache{ByOptionsLister: i}, nil
 	}
 
-	return result, nil
+	return Cache{ByOptionsLister: result}, nil
 }
 
 // Reset closes the stopCh which stops any running informers, assigns a new stopCh, resets the GVK-informer cache, and resets
 // the database connection which wipes any current sqlite database at the default location.
-func (f *InformerFactory) Reset() error {
+func (f *CacheFactory) Reset() error {
 	if f.dbClient == nil {
 		// nothing to reset
 		return nil
