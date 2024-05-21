@@ -13,5 +13,5 @@ type Partition struct {
 	Namespace   string
 	All         bool
 	Passthrough bool
-	Names       sets.String
+	Names       sets.Set[string]
 }

@@ -633,7 +633,7 @@ func TestListByOptions(t *testing.T) {
 		description: "ListByOptions with a Names Partition should select only items where metadata.name equals an items in Names and all other conditions are met in prepared sql.Stmt",
 		partitions: []partition.Partition{
 			{
-				Names: sets.NewString("someid", "someotherid"),
+				Names: sets.New[string]("someid", "someotherid"),
 			},
 		},
 		ns: "",

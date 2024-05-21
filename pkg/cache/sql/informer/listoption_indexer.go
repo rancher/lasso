@@ -396,7 +396,7 @@ func getField(a any, field string) (any, error) {
 				return nil, err
 			}
 			if !found {
-				// particularly with labels/annotation indexess, it is totally possible that some objects won't have these,
+				// particularly with labels/annotation indexes, it is totally possible that some objects won't have these,
 				// so either we this is not an error state or it could be an error state with a type that callers can check for
 				return nil, nil
 			}
