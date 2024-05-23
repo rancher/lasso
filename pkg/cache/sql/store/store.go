@@ -98,7 +98,7 @@ func NewStore(example any, keyFunc cache.KeyFunc, c DBClient, shouldEncrypt bool
 	if err != nil {
 		return nil, err
 	}
-	s.upsertStmt = s.Prepare(fmt.Sprintf(upsertStmtFmt, s.name)) // ON CONFLICT DO UPDATE SET object = excluded.object`, s.name))
+	s.upsertStmt = s.Prepare(fmt.Sprintf(upsertStmtFmt, s.name))
 	s.deleteStmt = s.Prepare(fmt.Sprintf(deleteStmtFmt, s.name))
 	s.getStmt = s.Prepare(fmt.Sprintf(getStmtFmt, s.name))
 	s.listStmt = s.Prepare(fmt.Sprintf(listStmtFmt, s.name))
