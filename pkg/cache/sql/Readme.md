@@ -141,7 +141,7 @@ in `pkg/cache/sql/informer/factory/informer_factory.go`. To enabled encryption f
 The key size used is 256 bits. Data-encryption-keys are stored in the object table and are rotated every 150,000 writes.
 
 ### Indexed Fields
-Filtering and sorting only work on indexed fields. These fields are defined when using Informer For. Objects will
+Filtering and sorting only work on indexed fields. These fields are defined when using `CacheFor`. Objects will
 have the following indexes by default:
 * Fields in informer.defaultIndexedFields
 * Fields passed to InformerFor()
