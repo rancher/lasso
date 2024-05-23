@@ -622,8 +622,8 @@ func SetupMockDB(t *testing.T) (*MockDBClient, *MockTXClient) {
 	txC := NewMockTXClient(gomock.NewController(t))
 	// stmt := NewMockStmt(gomock.NewController())
 	txC.EXPECT().Exec(`CREATE TABLE "testStoreObject" (
-		key VARCHAR UNIQUE NOT NULL PRIMARY KEY,
-		object BLOB, objectnonce VARCHAR, dek VARCHAR, deknonce VARCHAR
+		key TEXT UNIQUE NOT NULL PRIMARY KEY,
+		object BLOB, objectnonce TEXT, dek TEXT, deknonce TEXT
 	)`).Return(nil)
 	txC.EXPECT().Commit().Return(nil)
 	dbC.EXPECT().Begin().Return(txC, nil)

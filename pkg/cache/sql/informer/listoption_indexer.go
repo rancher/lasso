@@ -39,7 +39,7 @@ const (
 	matchFmt             = `%%%s%%`
 	strictMatchFmt       = `%s`
 	createFieldsTableFmt = `CREATE TABLE db2."%s_fields" (
-			key VARCHAR NOT NULL PRIMARY KEY,
+			key TEXT NOT NULL PRIMARY KEY,
             %s
 	   )`
 	createFieldsIndexFmt = `CREATE INDEX db2."%s_%s_index" ON "%s_fields"("%s")`
@@ -79,7 +79,7 @@ func NewListOptionIndexer(fields [][]string, s Store, namespaced bool) (*ListOpt
 	l.RegisterAfterDelete(l.afterDelete)
 	columnDefs := make([]string, len(indexedFields))
 	for index, field := range indexedFields {
-		column := fmt.Sprintf(`"%s" VARCHAR`, field)
+		column := fmt.Sprintf(`"%s" TEXT`, field)
 		columnDefs[index] = column
 	}
 

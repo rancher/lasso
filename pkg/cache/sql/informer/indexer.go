@@ -23,9 +23,9 @@ const (
 				)
 		`
 	createTablefmt = `CREATE TABLE "%s_indices" (
-			name VARCHAR NOT NULL,
-			value VARCHAR NOT NULL,
-			key VARCHAR NOT NULL REFERENCES "%s"(key) ON DELETE CASCADE,
+			name TEXT NOT NULL,
+			value TEXT NOT NULL,
+			key TEXT NOT NULL REFERENCES "%s"(key) ON DELETE CASCADE,
 			PRIMARY KEY (name, value, key)
         )`
 	createIndexFmt = `CREATE INDEX "%s_indices_index" ON "%s_indices"(name, value)`

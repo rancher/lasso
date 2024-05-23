@@ -49,7 +49,7 @@ func TestNewListOptionIndexer(t *testing.T) {
 
 		store.EXPECT().Begin().Return(txClient, nil)
 		// create field table
-		txClient.EXPECT().Exec(fmt.Sprintf(createFieldsTableFmt, id, `"metadata.name" VARCHAR, "metadata.creationTimestamp" VARCHAR, "metadata.namespace" VARCHAR, "something" VARCHAR`)).Return(nil)
+		txClient.EXPECT().Exec(fmt.Sprintf(createFieldsTableFmt, id, `"metadata.name" TEXT, "metadata.creationTimestamp" TEXT, "metadata.namespace" TEXT, "something" TEXT`)).Return(nil)
 		// create field table indexes
 		txClient.EXPECT().Exec(fmt.Sprintf(createFieldsIndexFmt, id, "metadata.name", id, "metadata.name")).Return(nil)
 		txClient.EXPECT().Exec(fmt.Sprintf(createFieldsIndexFmt, id, "metadata.namespace", id, "metadata.namespace")).Return(nil)
@@ -120,7 +120,7 @@ func TestNewListOptionIndexer(t *testing.T) {
 		store.EXPECT().RegisterAfterDelete(gomock.Any())
 
 		store.EXPECT().Begin().Return(txClient, nil)
-		txClient.EXPECT().Exec(fmt.Sprintf(createFieldsTableFmt, id, `"metadata.name" VARCHAR, "metadata.creationTimestamp" VARCHAR, "metadata.namespace" VARCHAR, "something" VARCHAR`)).Return(nil)
+		txClient.EXPECT().Exec(fmt.Sprintf(createFieldsTableFmt, id, `"metadata.name" TEXT, "metadata.creationTimestamp" TEXT, "metadata.namespace" TEXT, "something" TEXT`)).Return(nil)
 		txClient.EXPECT().Exec(fmt.Sprintf(createFieldsIndexFmt, id, "metadata.name", id, "metadata.name")).Return(fmt.Errorf("error"))
 
 		_, err := NewListOptionIndexer(fields, store, true)
@@ -146,7 +146,7 @@ func TestNewListOptionIndexer(t *testing.T) {
 		store.EXPECT().RegisterAfterDelete(gomock.Any())
 
 		store.EXPECT().Begin().Return(txClient, nil)
-		txClient.EXPECT().Exec(fmt.Sprintf(createFieldsTableFmt, id, `"metadata.name" VARCHAR, "metadata.creationTimestamp" VARCHAR, "metadata.namespace" VARCHAR, "something" VARCHAR`)).Return(nil)
+		txClient.EXPECT().Exec(fmt.Sprintf(createFieldsTableFmt, id, `"metadata.name" TEXT, "metadata.creationTimestamp" TEXT, "metadata.namespace" TEXT, "something" TEXT`)).Return(nil)
 		txClient.EXPECT().Exec(fmt.Sprintf(createFieldsIndexFmt, id, "metadata.name", id, "metadata.name")).Return(nil)
 		txClient.EXPECT().Exec(fmt.Sprintf(createFieldsIndexFmt, id, "metadata.namespace", id, "metadata.namespace")).Return(nil)
 		txClient.EXPECT().Exec(fmt.Sprintf(createFieldsIndexFmt, id, "metadata.creationTimestamp", id, "metadata.creationTimestamp")).Return(nil)
@@ -362,7 +362,7 @@ func TestListByOptions(t *testing.T) {
 						Partial: true,
 					},
 					{
-						Field: []string{"metadata", "somesecondfield"},
+						Field: []string{"status", "someotherfield"},
 						Match: "someothervalue",
 						Op:    NotEq,
 					},
@@ -384,7 +384,7 @@ func TestListByOptions(t *testing.T) {
 		expectedStmt: `SELECT o.object, o.objectnonce, o.dek, o.deknonce FROM "something" o
   JOIN db2."something_fields" f ON o.key = f.key
   WHERE
-    (f."metadata.somefield" LIKE ? OR f."metadata.somesecondfield" NOT LIKE ?) AND
+    (f."metadata.somefield" LIKE ? OR f."status.someotherfield" NOT LIKE ?) AND
     (f."metadata.somefield" LIKE ?) AND
     (f."metadata.namespace" = ?) AND
     (FALSE)
@@ -656,7 +656,8 @@ func TestListByOptions(t *testing.T) {
 				Store: store,
 			}
 			lii := &ListOptionIndexer{
-				Indexer: i,
+				Indexer:       i,
+				indexedFields: []string{"metadata.somefield", "status.someotherfield"},
 			}
 			stmt := &sql.Stmt{}
 			rows := &sql.Rows{}
