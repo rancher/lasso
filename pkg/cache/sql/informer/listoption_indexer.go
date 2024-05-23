@@ -30,7 +30,9 @@ type ListOptionIndexer struct {
 var (
 	defaultIndexedFields   = []string{"metadata.name", "metadata.creationTimestamp"}
 	defaultIndexNamespaced = "metadata.namespace"
-	subfieldRegex          = regexp.MustCompile(`([a-zA-Z]+)|(\["[a-zA-Z./]+"])|(\[[0-9]+])`)
+	subfieldRegex          = regexp.MustCompile(`([a-zA-Z]+)|(\[[a-zA-Z./]+])|(\[[0-9]+])`)
+
+	InvalidColumnErr = errors.New("supplied column is invalid")
 )
 
 const (
@@ -76,11 +78,8 @@ func NewListOptionIndexer(fields [][]string, s Store, namespaced bool) (*ListOpt
 	l.RegisterAfterUpsert(l.afterUpsert)
 	l.RegisterAfterDelete(l.afterDelete)
 	columnDefs := make([]string, len(indexedFields))
-	sanitizedIndexFields := make([]string, len(indexedFields))
 	for index, field := range indexedFields {
-		sanitizedIndexField := db.Sanitize(field)
-		column := fmt.Sprintf(`"%s" VARCHAR`, sanitizedIndexField)
-		sanitizedIndexFields[index] = sanitizedIndexField
+		column := fmt.Sprintf(`"%s" VARCHAR`, field)
 		columnDefs[index] = column
 	}
 
@@ -93,33 +92,32 @@ func NewListOptionIndexer(fields [][]string, s Store, namespaced bool) (*ListOpt
 		return nil, err
 	}
 
-	for _, sanitizedField := range sanitizedIndexFields {
-		err = tx.Exec(fmt.Sprintf(createFieldsIndexFmt, i.GetName(), sanitizedField, i.GetName(), sanitizedField))
+	columns := make([]string, len(indexedFields))
+	qmarks := make([]string, len(indexedFields))
+	setStatements := make([]string, len(indexedFields))
+
+	for index, field := range indexedFields {
+		// create index for field
+		err = tx.Exec(fmt.Sprintf(createFieldsIndexFmt, i.GetName(), field, i.GetName(), field))
 		if err != nil {
 			return nil, err
 		}
+
+		// format field into column for prepared statement
+		column := fmt.Sprintf(`"%s"`, field)
+		columns[index] = column
+
+		// add placeholder for column's value in prepared statement
+		qmarks[index] = "?"
+
+		// add formatted set statement for prepared statement
+		setStatement := fmt.Sprintf(`"%s" = excluded."%s"`, field, field)
+		setStatements[index] = setStatement
 	}
 
 	err = tx.Commit()
 	if err != nil {
 		return nil, err
-	}
-
-	columns := make([]string, len(indexedFields))
-	for index, field := range sanitizedIndexFields {
-		column := fmt.Sprintf(`"%s"`, field)
-		columns[index] = column
-	}
-
-	qmarks := make([]string, len(indexedFields))
-	for index := range indexedFields {
-		qmarks[index] = "?"
-	}
-
-	setStatements := make([]string, len(indexedFields))
-	for index, sanitizedField := range sanitizedIndexFields {
-		setStatement := fmt.Sprintf(`"%s" = excluded."%s"`, sanitizedField, sanitizedField)
-		setStatements[index] = setStatement
 	}
 
 	l.addField = l.Prepare(fmt.Sprintf(
@@ -183,7 +181,10 @@ func (l *ListOptionIndexer) ListByOptions(ctx context.Context, lo ListOptions, p
 	// 2- Filtering: WHERE clauses (from lo.Filters)
 	whereClauses := []string{}
 	for _, orFilters := range lo.Filters {
-		orClause, orParams := buildORClause(orFilters)
+		orClause, orParams, err := l.buildORClauseFromFilters(orFilters)
+		if err != nil {
+			return nil, "", err
+		}
 		whereClauses = append(whereClauses, orClause)
 		params = append(params, orParams...)
 	}
@@ -255,6 +256,10 @@ func (l *ListOptionIndexer) ListByOptions(ctx context.Context, lo ListOptions, p
 	orderByClauses := []string{}
 	if len(lo.Sort.PrimaryField) > 0 {
 		columnName := toColumnName(lo.Sort.PrimaryField)
+		if err := l.validateColumn(columnName); err != nil {
+			return nil, "", err
+		}
+
 		direction := "ASC"
 		if lo.Sort.PrimaryOrder == DESC {
 			direction = "DESC"
@@ -263,6 +268,10 @@ func (l *ListOptionIndexer) ListByOptions(ctx context.Context, lo ListOptions, p
 	}
 	if len(lo.Sort.SecondaryField) > 0 {
 		columnName := toColumnName(lo.Sort.SecondaryField)
+		if err := l.validateColumn(columnName); err != nil {
+			return nil, "", err
+		}
+
 		direction := "ASC"
 		if lo.Sort.SecondaryOrder == DESC {
 			direction = "DESC"
@@ -343,10 +352,17 @@ func (l *ListOptionIndexer) ListByOptions(ctx context.Context, lo ListOptions, p
 	return toUnstructuredList(items), continueToken, nil
 }
 
-/* Utilities */
+func (l *ListOptionIndexer) validateColumn(column string) error {
+	for _, v := range l.indexedFields {
+		if v == column {
+			return nil
+		}
+	}
+	return errors.Wrapf(InvalidColumnErr, "column is invalid [%s]", column)
+}
 
 // buildORClause creates an SQLite compatible query that ORs conditions built from passed filters
-func buildORClause(orFilters OrFilter) (string, []any) {
+func (l *ListOptionIndexer) buildORClauseFromFilters(orFilters OrFilter) (string, []any, error) {
 	var orWhereClause string
 	var params []any
 
@@ -356,6 +372,10 @@ func buildORClause(orFilters OrFilter) (string, []any) {
 			opString = "NOT LIKE"
 		}
 		columnName := toColumnName(filter.Field)
+		if err := l.validateColumn(columnName); err != nil {
+			return "", nil, err
+		}
+
 		orWhereClause += fmt.Sprintf(`f."%s" %s ?`, columnName, opString)
 		format := strictMatchFmt
 		if filter.Partial {
@@ -367,7 +387,7 @@ func buildORClause(orFilters OrFilter) (string, []any) {
 		}
 		orWhereClause += " OR "
 	}
-	return orWhereClause, params
+	return orWhereClause, params, nil
 }
 
 // toColumnName returns the column name corresponding to a field expressed as string slice
@@ -435,7 +455,7 @@ func getField(a any, field string) (any, error) {
 func extractSubFields(fields string) []string {
 	subfields := make([]string, 0)
 	for _, subField := range subfieldRegex.FindAllString(fields, -1) {
-		subfields = append(subfields, strings.TrimSuffix(db.Sanitize(subField), "."))
+		subfields = append(subfields, strings.TrimSuffix(subField, "."))
 	}
 	return subfields
 }

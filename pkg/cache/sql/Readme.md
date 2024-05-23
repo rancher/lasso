@@ -160,6 +160,10 @@ Below is a non-exhaustive list of some of these cases and what the behavior is:
 * Setting Sort.SecondaryField only will sort as though it was Sort.PrimaryField. Sort.SecondaryOrder will still be applied
 and Sort.PrimaryOrder will be ignored
 
+### Writing Secure Queries
+Values should be supplied to SQL queries using placeholders, read [Avoiding SQL Injection Risk](https://go.dev/doc/database/sql-injection). Any other portions
+of a query that may be user supplied, such as columns, should be carefully validated against a fixed set of acceptable values.
+
 ### Troubleshooting SQLite
 A useful tool for troubleshooting the database files is the sqlite command line tool. Another useful tool is the goland
 sqlite plugin. Both of these tools can be used with the database files. If running a database in-memory, there is no option
