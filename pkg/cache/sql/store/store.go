@@ -4,10 +4,8 @@ Package store contains the sql backed store. It persists objects to a sqlite dat
 package store
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
-	"encoding/gob"
 	"fmt"
 	"reflect"
 	"strings"
@@ -302,27 +300,6 @@ func sanitize(s string) string {
 	return strings.ReplaceAll(s, "\"", "")
 }
 
-// toBytes encodes an object to a byte slice
-func (s *Store) toBytes(obj any) []byte {
-	var buf bytes.Buffer
-	enc := gob.NewEncoder(&buf)
-	err := enc.Encode(obj)
-	if err != nil {
-		panic(errors.Wrap(err, "Error while gobbing object"))
-	}
-	bb := buf.Bytes()
-	return bb
-}
-
-// fromBytes decodes an object from a byte slice
-func (s *Store) fromBytes(buf sql.RawBytes) (reflect.Value, error) {
-	dec := gob.NewDecoder(bytes.NewReader(buf))
-	singleResult := reflect.New(s.typ)
-	err := dec.DecodeValue(singleResult)
-	return singleResult, err
-}
-
-// keep
 // RegisterAfterUpsert registers a func to be called after each upsert
 func (s *Store) RegisterAfterUpsert(f func(key string, obj any, txC db.TXClient) error) {
 	s.afterUpsert = append(s.afterUpsert, f)
