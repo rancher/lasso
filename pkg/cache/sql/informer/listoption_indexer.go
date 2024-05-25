@@ -53,6 +53,7 @@ const (
 func NewListOptionIndexer(fields [][]string, s Store, namespaced bool) (*ListOptionIndexer, error) {
 	// necessary in order to gob/ungob unstructured.Unstructured objects
 	gob.Register(map[string]interface{}{})
+	gob.Register([]interface{}{})
 
 	i, err := NewIndexer(cache.Indexers{}, s)
 	if err != nil {
