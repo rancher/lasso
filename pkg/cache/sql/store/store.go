@@ -84,7 +84,7 @@ func NewStore(example any, keyFunc cache.KeyFunc, c DBClient, shouldEncrypt bool
 	if err != nil {
 		return nil, err
 	}
-	err = txC.Exec(fmt.Sprintf(`CREATE TABLE "%s" (
+	err = txC.Exec(fmt.Sprintf(`CREATE TABLE IF NOT EXISTS "%s" (
 		key TEXT UNIQUE NOT NULL PRIMARY KEY,
 		object BLOB, objectnonce TEXT, dek TEXT, deknonce TEXT
 	)`, s.name))

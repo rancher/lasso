@@ -22,13 +22,13 @@ const (
 						WHERE name = ? AND value IN (?%s)
 				)
 		`
-	createTablefmt = `CREATE TABLE "%s_indices" (
+	createTablefmt = `CREATE TABLE IF NOT EXISTS "%s_indices" (
 			name TEXT NOT NULL,
 			value TEXT NOT NULL,
 			key TEXT NOT NULL REFERENCES "%s"(key) ON DELETE CASCADE,
 			PRIMARY KEY (name, value, key)
         )`
-	createIndexFmt = `CREATE INDEX "%s_indices_index" ON "%s_indices"(name, value)`
+	createIndexFmt = `CREATE INDEX IF NOT EXISTS "%s_indices_index" ON "%s_indices"(name, value)`
 
 	deleteIndicesFmt = `DELETE FROM "%s_indices" WHERE key = ?`
 	addIndexFmt      = `INSERT INTO "%s_indices"(name, value, key) VALUES (?, ?, ?)`
@@ -99,11 +99,11 @@ func NewIndexer(indexers cache.Indexers, s Store) (*Indexer, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	err = tx.Commit()
 	if err != nil {
 		return nil, err
 	}
+
 	i := &Indexer{
 		Store:    s,
 		indexers: indexers,
