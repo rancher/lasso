@@ -106,7 +106,6 @@ func NewStore(example any, keyFunc cache.KeyFunc, c DBClient, shouldEncrypt bool
 }
 
 /* Core methods */
-// TODO: this is where I left off, need to figure out how lock will be handled
 // upsert saves an obj with its key, or updates key with obj if it exists in this Store
 func (s *Store) upsert(key string, obj any) error {
 	tx, err := s.Begin()

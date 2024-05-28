@@ -34,11 +34,11 @@ type ByOptionsLister interface {
 func NewInformer(client dynamic.ResourceInterface, fields [][]string, gvk schema.GroupVersionKind, db sqlStore.DBClient, shouldEncrypt bool, namespaced bool) (*Informer, error) {
 	listWatcher := &cache.ListWatch{
 		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-			a, err := client.List(context.TODO(), options)
+			a, err := client.List(context.Background(), options)
 			return a, err
 		},
 		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-			return client.Watch(context.TODO(), options)
+			return client.Watch(context.Background(), options)
 		},
 	}
 

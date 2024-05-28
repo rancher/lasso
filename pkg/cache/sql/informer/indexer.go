@@ -8,7 +8,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/pkg/errors"
 	"github.com/rancher/lasso/pkg/cache/sql/db"
 	"github.com/rancher/lasso/pkg/cache/sql/db/transaction"
 	"k8s.io/client-go/tools/cache"
@@ -222,7 +221,7 @@ func (i *Indexer) IndexKeys(indexName, indexedValue string) ([]string, error) {
 func (i *Indexer) ListIndexFuncValues(name string) []string {
 	result, err := i.safeListIndexFuncValues(name)
 	if err != nil {
-		panic(errors.Wrap(err, "Unexpected error in safeListIndexFuncValues"))
+		panic(fmt.Errorf("unexpected error in safeListIndexFuncValues: %w", err))
 	}
 	return result
 }

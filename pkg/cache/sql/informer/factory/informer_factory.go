@@ -10,7 +10,7 @@ import (
 	"sync"
 
 	"github.com/rancher/lasso/pkg/cache/sql/attachdriver"
-	db2 "github.com/rancher/lasso/pkg/cache/sql/db"
+	"github.com/rancher/lasso/pkg/cache/sql/db"
 	"github.com/rancher/lasso/pkg/cache/sql/encryption"
 	sqlStore "github.com/rancher/lasso/pkg/cache/sql/store"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -21,7 +21,7 @@ import (
 
 // CacheFactory builds Informer instances and keeps a cache of instances it created
 type CacheFactory struct {
-	informerCreateLock sync.Mutex
+	informerCreateLock sync.RWMutex
 	wg                 wait.Group
 	dbClient           DBClient
 	stopCh             chan struct{}
@@ -60,9 +60,9 @@ const (
 )
 
 func init() {
-	indexedFieldDBPath := db2.OnDiskInformerIndexedFieldDBPath
+	indexedFieldDBPath := db.OnDiskInformerIndexedFieldDBPath
 	if os.Getenv(EncryptAllEnvVar) == "true" {
-		indexedFieldDBPath = ":memory:" // indexedFieldDBPath = "file::memory:?cache=shared"
+		indexedFieldDBPath = ":memory:"
 	}
 	attachdriver.Register("file:" + indexedFieldDBPath + "?cache=shared")
 }
@@ -73,7 +73,7 @@ func NewCacheFactory() (*CacheFactory, error) {
 	if err != nil {
 		return nil, err
 	}
-	dbClient, err := db2.NewClient(nil, m, m)
+	dbClient, err := db.NewClient(nil, m, m)
 	if err != nil {
 		return nil, err
 	}
@@ -89,31 +89,42 @@ func NewCacheFactory() (*CacheFactory, error) {
 
 // CacheFor returns an informer for given GVK, using sql store indexed with fields, using the specified client
 func (f *CacheFactory) CacheFor(fields [][]string, client dynamic.ResourceInterface, gvk schema.GroupVersionKind, namespaced bool) (Cache, error) {
+	result, ok := f.getCacheIfExists(gvk)
+	if ok {
+		return Cache{ByOptionsLister: result}, nil
+	}
+
 	f.informerCreateLock.Lock()
 	defer f.informerCreateLock.Unlock()
 
-	result, ok := f.cache[gvk]
-	if !ok {
-		_, encryptResourceAlways := defaultEncryptedResourceTypes[gvk]
-		shouldEncrypt := f.encryptAll || encryptResourceAlways
-		i, err := f.newInformer(client, fields, gvk, f.dbClient, shouldEncrypt, namespaced)
-		if err != nil {
-			return Cache{}, err
-		}
-
-		if f.cache == nil {
-			f.cache = make(map[schema.GroupVersionKind]*informer.Informer)
-		}
-		f.cache[gvk] = i
-		f.wg.StartWithChannel(f.stopCh, i.Run)
-		if !cache.WaitForCacheSync(f.stopCh, i.HasSynced) {
-			return Cache{}, fmt.Errorf("failed to sync SQLite Informer cache for GVK %v", gvk)
-		}
-
-		return Cache{ByOptionsLister: i}, nil
+	_, encryptResourceAlways := defaultEncryptedResourceTypes[gvk]
+	shouldEncrypt := f.encryptAll || encryptResourceAlways
+	i, err := f.newInformer(client, fields, gvk, f.dbClient, shouldEncrypt, namespaced)
+	if err != nil {
+		return Cache{}, err
 	}
 
-	return Cache{ByOptionsLister: result}, nil
+	if f.cache == nil {
+		f.cache = make(map[schema.GroupVersionKind]*informer.Informer)
+	}
+	f.cache[gvk] = i
+	f.wg.StartWithChannel(f.stopCh, i.Run)
+	if !cache.WaitForCacheSync(f.stopCh, i.HasSynced) {
+		return Cache{}, fmt.Errorf("failed to sync SQLite Informer cache for GVK %v", gvk)
+	}
+
+	return Cache{ByOptionsLister: i}, nil
+}
+
+func (f *CacheFactory) getCacheIfExists(gvk schema.GroupVersionKind) (*informer.Informer, bool) {
+	f.informerCreateLock.RLock()
+	defer f.informerCreateLock.RUnlock()
+
+	result, ok := f.cache[gvk]
+	if ok {
+		return result, true
+	}
+	return nil, false
 }
 
 // Reset closes the stopCh which stops any running informers, assigns a new stopCh, resets the GVK-informer cache, and resets
