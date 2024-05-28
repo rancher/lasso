@@ -1,6 +1,3 @@
-// Mocks for this test are generated with the following command.
-//go:generate mockgen --build_flags=--mod=mod -package client -destination ./mocks_test.go github.com/rancher/lasso/pkg/client SharedClientFactory
-
 package client
 
 import (
@@ -13,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/rancher/lasso/pkg/internal/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -54,7 +52,7 @@ func (f *fakeRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) 
 }
 
 func TestNewSharedClientFactoryWithAgent(t *testing.T) {
-	mockSharedClientFactory := NewMockSharedClientFactory(gomock.NewController(t))
+	mockSharedClientFactory := mocks.NewMockSharedClientFactory(gomock.NewController(t))
 
 	testUserAgent := "testagent"
 	testConfig := rest.Config{
@@ -104,7 +102,7 @@ func TestNewSharedClientFactoryWithAgent(t *testing.T) {
 	restClient.Client.Transport.RoundTrip(&http.Request{})
 
 	// test with errors
-	mockSharedClientErrFactory := NewMockSharedClientFactory(gomock.NewController(t))
+	mockSharedClientErrFactory := mocks.NewMockSharedClientFactory(gomock.NewController(t))
 	mockSharedClientErrFactory.EXPECT().ForKind(gomock.Any()).DoAndReturn(func(gvk schema.GroupVersionKind) (*Client, error) {
 		return nil, fmt.Errorf("some error")
 	}).AnyTimes()
@@ -150,7 +148,7 @@ func TestNewSharedClientFactoryWithImpersonation(t *testing.T) {
 		Config:     testConfig,
 	}
 
-	mockSharedClientFactory := NewMockSharedClientFactory(gomock.NewController(t))
+	mockSharedClientFactory := mocks.NewMockSharedClientFactory(gomock.NewController(t))
 
 	// return testClient for all valid request
 	mockSharedClientFactory.EXPECT().ForKind(validGVK).Return(testClient, nil).AnyTimes()
@@ -248,7 +246,7 @@ func Test_SharedClientFactoryWithMutation(t *testing.T) {
 	mutatedClient := &Client{kind: "MUTATED"}
 	expectedError := errors.New("expected Error")
 
-	mockSharedClientFactory := NewMockSharedClientFactory(gomock.NewController(t))
+	mockSharedClientFactory := mocks.NewMockSharedClientFactory(gomock.NewController(t))
 	var retErr bool
 	newMutator := func(_ *Client) (*Client, error) {
 		if retErr {
