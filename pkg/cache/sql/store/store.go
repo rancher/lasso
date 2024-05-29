@@ -21,6 +21,13 @@ const (
 	getStmtFmt      = `SELECT object, objectnonce, dek, deknonce FROM "%s" WHERE key = ?`
 	listStmtFmt     = `SELECT object, objectnonce, dek, deknonce FROM "%s"`
 	listKeysStmtFmt = `SELECT key FROM "%s"`
+	createTableFmt  = `CREATE TABLE IF NOT EXISTS "%s" (
+		key TEXT UNIQUE NOT NULL PRIMARY KEY,
+		object BLOB,
+		objectnonce TEXT,
+		dek TEXT,
+		deknonce TEXT
+	)`
 )
 
 // Store is a SQLite-backed cache.Store
@@ -72,10 +79,7 @@ func NewStore(example any, keyFunc cache.KeyFunc, c DBClient, shouldEncrypt bool
 	if err != nil {
 		return nil, err
 	}
-	err = txC.Exec(fmt.Sprintf(`CREATE TABLE IF NOT EXISTS "%s" (
-		key TEXT UNIQUE NOT NULL PRIMARY KEY,
-		object BLOB, objectnonce TEXT, dek TEXT, deknonce TEXT
-	)`, s.name))
+	err = txC.Exec(fmt.Sprintf(createTableFmt, s.name))
 	if err != nil {
 		return nil, err
 	}
