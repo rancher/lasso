@@ -13,7 +13,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	_ "modernc.org/sqlite"
 	"reflect"
-	"strings"
 )
 
 const (
@@ -59,7 +58,7 @@ type DBClient interface {
 // NewStore creates a SQLite-backed cache.Store for objects of the given example type
 func NewStore(example any, keyFunc cache.KeyFunc, c DBClient, shouldEncrypt bool, name string) (*Store, error) {
 	s := &Store{
-		name:          sanitize(name),
+		name:          db.Sanitize(name),
 		typ:           reflect.TypeOf(example),
 		DBClient:      c,
 		keyFunc:       keyFunc,
@@ -282,11 +281,6 @@ func (s *Store) Resync() error {
 }
 
 /* Utilities */
-
-// sanitize returns a string  that can be used in SQL as a name
-func sanitize(s string) string {
-	return strings.ReplaceAll(s, "\"", "")
-}
 
 // RegisterAfterUpsert registers a func to be called after each upsert
 func (s *Store) RegisterAfterUpsert(f func(key string, obj any, txC db.TXClient) error) {

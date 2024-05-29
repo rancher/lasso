@@ -79,8 +79,8 @@ type DBClient interface {
 func NewIndexer(indexers cache.Indexers, s Store) (*Indexer, error) {
 	// sanity checks first
 	for key := range indexers {
-		if strings.Contains(key, `"`) {
-			panic("Quote characters (\") in indexer names are not supported")
+		if strings.Contains(key, `"`) || strings.Contains(key, `''`) {
+			panic("Quote characters (\") or (') in indexer names are not supported")
 		}
 	}
 
@@ -88,11 +88,11 @@ func NewIndexer(indexers cache.Indexers, s Store) (*Indexer, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = tx.Exec(fmt.Sprintf(createTableFmt, s.GetName()))
+	err = tx.Exec(fmt.Sprintf(createTableFmt, db.Sanitize(s.GetName())))
 	if err != nil {
 		return nil, err
 	}
-	err = tx.Exec(fmt.Sprintf(createIndexFmt, s.GetName()))
+	err = tx.Exec(fmt.Sprintf(createIndexFmt, db.Sanitize(s.GetName())))
 	if err != nil {
 		return nil, err
 	}
@@ -107,11 +107,11 @@ func NewIndexer(indexers cache.Indexers, s Store) (*Indexer, error) {
 	}
 	i.RegisterAfterUpsert(i.AfterUpsert)
 
-	i.deleteIndicesStmt = s.Prepare(fmt.Sprintf(deleteIndicesFmt, s.GetName()))
-	i.addIndexStmt = s.Prepare(fmt.Sprintf(addIndexFmt, s.GetName()))
-	i.listByIndexStmt = s.Prepare(fmt.Sprintf(listByIndexFmt, s.GetName()))
-	i.listKeysByIndexStmt = s.Prepare(fmt.Sprintf(listKeyByIndexFmt, s.GetName()))
-	i.listIndexValuesStmt = s.Prepare(fmt.Sprintf(listIndexValuesFmt, s.GetName()))
+	i.deleteIndicesStmt = s.Prepare(fmt.Sprintf(deleteIndicesFmt, db.Sanitize(s.GetName())))
+	i.addIndexStmt = s.Prepare(fmt.Sprintf(addIndexFmt, db.Sanitize(s.GetName())))
+	i.listByIndexStmt = s.Prepare(fmt.Sprintf(listByIndexFmt, db.Sanitize(s.GetName())))
+	i.listKeysByIndexStmt = s.Prepare(fmt.Sprintf(listKeyByIndexFmt, db.Sanitize(s.GetName())))
+	i.listIndexValuesStmt = s.Prepare(fmt.Sprintf(listIndexValuesFmt, db.Sanitize(s.GetName())))
 
 	return i, nil
 }
@@ -173,7 +173,7 @@ func (i *Indexer) Index(indexName string, obj any) ([]any, error) {
 
 	// atypical case - more than one value to lookup
 	// HACK: sql.Statement.Query does not allow to pass slices in as of go 1.19 - create an ad-hoc statement
-	query := fmt.Sprintf(fmt.Sprintf(selectQueryFmt, i.GetName(), strings.Repeat(", ?", len(values)-1)))
+	query := fmt.Sprintf(fmt.Sprintf(selectQueryFmt, db.Sanitize(i.GetName()), strings.Repeat(", ?", len(values)-1)))
 	stmt := i.Prepare(query)
 	defer i.CloseStmt(stmt)
 	// HACK: Query will accept []any but not []string
