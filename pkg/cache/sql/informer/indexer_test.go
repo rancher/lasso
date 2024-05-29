@@ -244,7 +244,7 @@ func TestIndex(t *testing.T) {
 			},
 		}
 		testObject := testStoreObject{Id: "something", Val: "a"}
-		// key := "somekey"
+
 		store.EXPECT().QueryForRows(context.TODO(), indexer.listByIndexStmt, indexName, objKey).Return(rows, nil)
 		store.EXPECT().GetType().Return(reflect.TypeOf(testObject))
 		store.EXPECT().GetShouldEncrypt().Return(false)
@@ -269,7 +269,7 @@ func TestIndex(t *testing.T) {
 			},
 		}
 		testObject := testStoreObject{Id: "something", Val: "a"}
-		// key := "somekey"
+
 		store.EXPECT().QueryForRows(context.TODO(), indexer.listByIndexStmt, indexName, objKey).Return(rows, nil)
 		store.EXPECT().GetType().Return(reflect.TypeOf(testObject))
 		store.EXPECT().GetShouldEncrypt().Return(false)
@@ -294,7 +294,7 @@ func TestIndex(t *testing.T) {
 			},
 		}
 		testObject := testStoreObject{Id: "something", Val: "a"}
-		// key := "somekey"
+
 		store.EXPECT().QueryForRows(context.TODO(), indexer.listByIndexStmt, indexName, objKey).Return(rows, nil)
 		store.EXPECT().GetType().Return(reflect.TypeOf(testObject))
 		store.EXPECT().GetShouldEncrypt().Return(false)
@@ -318,7 +318,7 @@ func TestIndex(t *testing.T) {
 			},
 		}
 		testObject := testStoreObject{Id: "something", Val: "a"}
-		// key := "somekey"
+
 		_, err := indexer.Index("someotherindexname", testObject)
 		assert.NotNil(t, err)
 	}})
@@ -337,7 +337,7 @@ func TestIndex(t *testing.T) {
 			},
 		}
 		testObject := testStoreObject{Id: "something", Val: "a"}
-		// key := "somekey"
+
 		store.EXPECT().QueryForRows(context.TODO(), indexer.listByIndexStmt, indexName, objKey).Return(nil, fmt.Errorf("error"))
 		_, err := indexer.Index(indexName, testObject)
 		assert.NotNil(t, err)
@@ -358,7 +358,7 @@ func TestIndex(t *testing.T) {
 			},
 		}
 		testObject := testStoreObject{Id: "something", Val: "a"}
-		// key := "somekey"
+
 		store.EXPECT().QueryForRows(context.TODO(), indexer.listByIndexStmt, indexName, objKey).Return(rows, nil)
 		store.EXPECT().GetType().Return(reflect.TypeOf(testObject))
 		store.EXPECT().GetShouldEncrypt().Return(false)
@@ -366,7 +366,7 @@ func TestIndex(t *testing.T) {
 		_, err := indexer.Index(indexName, testObject)
 		assert.NotNil(t, err)
 	}})
-	tests = append(tests, testCase{description: "Index() with no errors returned from store and multiple keys return from index func, should return one obj and no error", test: func(t *testing.T) {
+	tests = append(tests, testCase{description: "Index() with no errors returned from store and multiple keys returned from index func, should return one obj and no error", test: func(t *testing.T) {
 		store := NewMockStore(gomock.NewController(t))
 		rows := &sql.Rows{}
 		listStmt := &sql.Stmt{}
@@ -382,11 +382,10 @@ func TestIndex(t *testing.T) {
 			},
 		}
 		testObject := testStoreObject{Id: "something", Val: "a"}
-		// key := "somekey"
-		store.EXPECT().GetName().Return("name")
+
 		store.EXPECT().GetName().Return("name")
 		stmt := &sql.Stmt{}
-		store.EXPECT().Prepare(fmt.Sprintf(selectQueryFmt, "name", "name", ", ?")).Return(stmt)
+		store.EXPECT().Prepare(fmt.Sprintf(selectQueryFmt, "name", ", ?")).Return(stmt)
 		store.EXPECT().QueryForRows(context.TODO(), indexer.listByIndexStmt, indexName, objKey, objKey+"2").Return(rows, nil)
 		store.EXPECT().GetType().Return(reflect.TypeOf(testObject))
 		store.EXPECT().GetShouldEncrypt().Return(false)
@@ -421,7 +420,7 @@ func TestByIndex(t *testing.T) {
 			listByIndexStmt: listStmt,
 		}
 		testObject := testStoreObject{Id: "something", Val: "a"}
-		// key := "somekey"
+
 		store.EXPECT().QueryForRows(context.TODO(), indexer.listByIndexStmt, indexName, objKey).Return(rows, nil)
 		store.EXPECT().GetType().Return(reflect.TypeOf(testObject))
 		store.EXPECT().GetShouldEncrypt().Return(false)
@@ -441,7 +440,7 @@ func TestByIndex(t *testing.T) {
 			listByIndexStmt: listStmt,
 		}
 		testObject := testStoreObject{Id: "something", Val: "a"}
-		// key := "somekey"
+
 		store.EXPECT().QueryForRows(context.TODO(), indexer.listByIndexStmt, indexName, objKey).Return(rows, nil)
 		store.EXPECT().GetType().Return(reflect.TypeOf(testObject))
 		store.EXPECT().GetShouldEncrypt().Return(false)
@@ -461,7 +460,7 @@ func TestByIndex(t *testing.T) {
 			listByIndexStmt: listStmt,
 		}
 		testObject := testStoreObject{Id: "something", Val: "a"}
-		// key := "somekey"
+
 		store.EXPECT().QueryForRows(context.TODO(), indexer.listByIndexStmt, indexName, objKey).Return(rows, nil)
 		store.EXPECT().GetType().Return(reflect.TypeOf(testObject))
 		store.EXPECT().GetShouldEncrypt().Return(false)
@@ -479,7 +478,7 @@ func TestByIndex(t *testing.T) {
 			Store:           store,
 			listByIndexStmt: listStmt,
 		}
-		// key := "somekey"
+
 		store.EXPECT().QueryForRows(context.TODO(), indexer.listByIndexStmt, indexName, objKey).Return(nil, fmt.Errorf("error"))
 		_, err := indexer.ByIndex(indexName, objKey)
 		assert.NotNil(t, err)
@@ -495,7 +494,7 @@ func TestByIndex(t *testing.T) {
 			listByIndexStmt: listStmt,
 		}
 		testObject := testStoreObject{Id: "something", Val: "a"}
-		// key := "somekey"
+
 		store.EXPECT().QueryForRows(context.TODO(), indexer.listByIndexStmt, indexName, objKey).Return(rows, nil)
 		store.EXPECT().GetType().Return(reflect.TypeOf(testObject))
 		store.EXPECT().GetShouldEncrypt().Return(false)
