@@ -7,17 +7,13 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"reflect"
-	"strings"
-	"sync"
-	"time"
-
 	"github.com/pkg/errors"
 	"github.com/rancher/lasso/pkg/cache/sql/db"
 	"github.com/rancher/lasso/pkg/cache/sql/db/transaction"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	_ "modernc.org/sqlite"
+	"reflect"
+	"strings"
 )
 
 const (
@@ -30,15 +26,11 @@ const (
 
 // Store is a SQLite-backed cache.Store
 type Store struct {
-	c       cache.Indexer
-	name    string
-	encrypt bool
-	typ     reflect.Type
-	keyFunc cache.KeyFunc
-	dbLock  *sync.RWMutex
-
 	DBClient
 
+	name          string
+	typ           reflect.Type
+	keyFunc       cache.KeyFunc
 	shouldEncrypt bool
 
 	upsertStmt   *sql.Stmt
@@ -62,10 +54,7 @@ type DBClient interface {
 	ReadStrings(rows db.Rows) ([]string, error)
 	Upsert(tx db.TXClient, stmt *sql.Stmt, key string, obj any, shouldEncrypt bool) error
 	CloseStmt(closable db.Closable) error
-	// TxModeClient() DBClient
 }
-
-var backoffRetry = wait.Backoff{Duration: 50 * time.Millisecond, Factor: 2, Steps: 10}
 
 // NewStore creates a SQLite-backed cache.Store for objects of the given example type
 func NewStore(example any, keyFunc cache.KeyFunc, c DBClient, shouldEncrypt bool, name string) (*Store, error) {

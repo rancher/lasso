@@ -15,25 +15,25 @@ import (
 
 const (
 	selectQueryFmt = `
-			SELECT object FROM "%s"
+			SELECT object FROM "%[1]s"
 				WHERE key IN (
-					SELECT key FROM "%s_indices"
+					SELECT key FROM "%[1]s_indices"
 						WHERE name = ? AND value IN (?%s)
 				)
 		`
-	createTablefmt = `CREATE TABLE IF NOT EXISTS "%s_indices" (
+	createTableFmt = `CREATE TABLE IF NOT EXISTS "%[1]s_indices" (
 			name TEXT NOT NULL,
 			value TEXT NOT NULL,
-			key TEXT NOT NULL REFERENCES "%s"(key) ON DELETE CASCADE,
+			key TEXT NOT NULL REFERENCES "%[1]s"(key) ON DELETE CASCADE,
 			PRIMARY KEY (name, value, key)
         )`
-	createIndexFmt = `CREATE INDEX IF NOT EXISTS "%s_indices_index" ON "%s_indices"(name, value)`
+	createIndexFmt = `CREATE INDEX IF NOT EXISTS "%[1]s_indices_index" ON "%[1]s_indices"(name, value)`
 
 	deleteIndicesFmt = `DELETE FROM "%s_indices" WHERE key = ?`
 	addIndexFmt      = `INSERT INTO "%s_indices"(name, value, key) VALUES (?, ?, ?)`
-	listByIndexFmt   = `SELECT object FROM "%s"
+	listByIndexFmt   = `SELECT object FROM "%[1]s"
 			WHERE key IN (
-			    SELECT key FROM "%s_indices"
+			    SELECT key FROM "%[1]s_indices"
 			    	WHERE name = ? AND value = ?
 			)`
 	listKeyByIndexFmt  = `SELECT DISTINCT key FROM "%s_indices" WHERE name = ? AND value = ?`
@@ -75,8 +75,6 @@ type DBClient interface {
 	CloseStmt(stmt db.Closable) error
 }
 
-// Test that Indexer implements cache.Indexervar _ cache.Indexer = (*Indexer)(nil)
-
 // NewIndexer returns a cache.Indexer backed by SQLite for objects of the given example type
 func NewIndexer(indexers cache.Indexers, s Store) (*Indexer, error) {
 	// sanity checks first
@@ -90,11 +88,11 @@ func NewIndexer(indexers cache.Indexers, s Store) (*Indexer, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = tx.Exec(fmt.Sprintf(createTablefmt, s.GetName(), s.GetName()))
+	err = tx.Exec(fmt.Sprintf(createTableFmt, s.GetName()))
 	if err != nil {
 		return nil, err
 	}
-	err = tx.Exec(fmt.Sprintf(createIndexFmt, s.GetName(), s.GetName()))
+	err = tx.Exec(fmt.Sprintf(createIndexFmt, s.GetName()))
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +109,7 @@ func NewIndexer(indexers cache.Indexers, s Store) (*Indexer, error) {
 
 	i.deleteIndicesStmt = s.Prepare(fmt.Sprintf(deleteIndicesFmt, s.GetName()))
 	i.addIndexStmt = s.Prepare(fmt.Sprintf(addIndexFmt, s.GetName()))
-	i.listByIndexStmt = s.Prepare(fmt.Sprintf(listByIndexFmt, s.GetName(), s.GetName()))
+	i.listByIndexStmt = s.Prepare(fmt.Sprintf(listByIndexFmt, s.GetName()))
 	i.listKeysByIndexStmt = s.Prepare(fmt.Sprintf(listKeyByIndexFmt, s.GetName()))
 	i.listIndexValuesStmt = s.Prepare(fmt.Sprintf(listIndexValuesFmt, s.GetName()))
 
@@ -175,7 +173,7 @@ func (i *Indexer) Index(indexName string, obj any) ([]any, error) {
 
 	// atypical case - more than one value to lookup
 	// HACK: sql.Statement.Query does not allow to pass slices in as of go 1.19 - create an ad-hoc statement
-	query := fmt.Sprintf(fmt.Sprintf(selectQueryFmt, i.GetName(), i.GetName(), strings.Repeat(", ?", len(values)-1)))
+	query := fmt.Sprintf(fmt.Sprintf(selectQueryFmt, i.GetName(), strings.Repeat(", ?", len(values)-1)))
 	stmt := i.Prepare(query)
 	defer i.CloseStmt(stmt)
 	// HACK: Query will accept []any but not []string

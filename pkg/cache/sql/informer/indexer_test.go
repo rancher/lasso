@@ -47,7 +47,7 @@ func TestNewIndexer(t *testing.T) {
 		storeName := "someStoreName"
 		store.EXPECT().Begin().Return(client, nil)
 		store.EXPECT().GetName().AnyTimes().Return(storeName)
-		client.EXPECT().Exec(fmt.Sprintf(createTablefmt, storeName, storeName)).Return(nil)
+		client.EXPECT().Exec(fmt.Sprintf(createTableFmt, storeName, storeName)).Return(nil)
 		client.EXPECT().Exec(fmt.Sprintf(createIndexFmt, storeName, storeName)).Return(nil)
 		client.EXPECT().Commit().Return(nil)
 		store.EXPECT().RegisterAfterUpsert(gomock.Any())
@@ -86,7 +86,7 @@ func TestNewIndexer(t *testing.T) {
 		storeName := "someStoreName"
 		store.EXPECT().Begin().Return(client, nil)
 		store.EXPECT().GetName().AnyTimes().Return(storeName)
-		client.EXPECT().Exec(fmt.Sprintf(createTablefmt, storeName, storeName)).Return(fmt.Errorf("error"))
+		client.EXPECT().Exec(fmt.Sprintf(createTableFmt, storeName, storeName)).Return(fmt.Errorf("error"))
 		_, err := NewIndexer(indexers, store)
 		assert.NotNil(t, err)
 	}})
@@ -103,7 +103,7 @@ func TestNewIndexer(t *testing.T) {
 		storeName := "someStoreName"
 		store.EXPECT().Begin().Return(client, nil)
 		store.EXPECT().GetName().AnyTimes().Return(storeName)
-		client.EXPECT().Exec(fmt.Sprintf(createTablefmt, storeName, storeName)).Return(nil)
+		client.EXPECT().Exec(fmt.Sprintf(createTableFmt, storeName, storeName)).Return(nil)
 		client.EXPECT().Exec(fmt.Sprintf(createIndexFmt, storeName, storeName)).Return(fmt.Errorf("error"))
 		_, err := NewIndexer(indexers, store)
 		assert.NotNil(t, err)
@@ -121,7 +121,7 @@ func TestNewIndexer(t *testing.T) {
 		storeName := "someStoreName"
 		store.EXPECT().Begin().Return(client, nil)
 		store.EXPECT().GetName().AnyTimes().Return(storeName)
-		client.EXPECT().Exec(fmt.Sprintf(createTablefmt, storeName, storeName)).Return(nil)
+		client.EXPECT().Exec(fmt.Sprintf(createTableFmt, storeName, storeName)).Return(nil)
 		client.EXPECT().Exec(fmt.Sprintf(createIndexFmt, storeName, storeName)).Return(nil)
 		client.EXPECT().Commit().Return(fmt.Errorf("error"))
 		_, err := NewIndexer(indexers, store)

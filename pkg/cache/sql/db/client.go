@@ -25,7 +25,7 @@ const (
 	// InformerObjectCacheDBPath is where SQLite's object database file will be stored relative to process running lasso
 	InformerObjectCacheDBPath = "informer_object_cache.db"
 	// OnDiskInformerIndexedFieldDBPath is where SQLite's indexed fields database file will be stored if, env var value
-	//found at EncryptAllEnvVar is "true".
+	// found at EncryptAllEnvVar is "true".
 	OnDiskInformerIndexedFieldDBPath = "informer_object_fields.db"
 )
 
@@ -37,7 +37,7 @@ type Client struct {
 	decryptor Decryptor
 }
 
-// Connection represents a connection pool
+// Connection represents a connection pool.
 type Connection interface {
 	Begin() (*sql.Tx, error)
 	Exec(query string, args ...any) (sql.Result, error)
@@ -45,7 +45,7 @@ type Connection interface {
 	Close() error
 }
 
-// Closable Closes an underlying connection and returns an error on failure
+// Closable Closes an underlying connection and returns an error on failure.
 type Closable interface {
 	Close() error
 }
@@ -147,9 +147,7 @@ func (c *Client) CloseStmt(closable Closable) error {
 func (c *Client) ReadObjects(rows Rows, typ reflect.Type, shouldDecrypt bool) ([]any, error) {
 	c.connLock.RLock()
 	defer c.connLock.RUnlock()
-	// defer rows.Close()
 
-	// rt := time.Now()
 	var result []any
 	for rows.Next() {
 		data, err := c.decryptScan(rows, shouldDecrypt)

@@ -8,7 +8,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-// Partition represents filtering of a request's results by namespace or a list of resource names
+// Partition represents filtering of a request's results by namespace or a list of resource names.
+// If All is false and Names is empty, that indicates an empty search space that result in an empty list
 type Partition struct {
 	Namespace   string
 	All         bool

@@ -86,7 +86,7 @@ func (m *Manager) Encrypt(data []byte) ([]byte, []byte, []byte, []byte, error) {
 func (m *Manager) Decrypt(edata, datanonce, edek, deknonce []byte) ([]byte, error) {
 	// We create block ciphers from the kek every time because there is no guarantee that block ciphers are safe for
 	// concurrency.
-	keyGCMCipher, err := createGCMCypher(m.keyEncryptionKey) // m.keyGCMCipher.Open(nil, deknonce, edek, nil)
+	keyGCMCipher, err := createGCMCypher(m.keyEncryptionKey)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to decrypt DEK with KEK")
 	}
