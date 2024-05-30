@@ -79,7 +79,7 @@ type DBClient interface {
 func NewIndexer(indexers cache.Indexers, s Store) (*Indexer, error) {
 	// sanity checks first
 	for key := range indexers {
-		if strings.Contains(key, `"`) || strings.Contains(key, `''`) {
+		if strings.Contains(key, `"`) || strings.Contains(key, `'`) {
 			panic("Quote characters (\") or (') in indexer names are not supported")
 		}
 	}
