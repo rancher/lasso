@@ -300,7 +300,7 @@ func (c *Client) NewConnection() error {
 		return err
 	}
 
-	// necessary to prevent memory races. Otherwise, all conections will close and in-memory database for fields table
+	// necessary to prevent memory races. Otherwise, all connections will close and in-memory database for fields table
 	// will be closed automatically. Setting max connections also minimizes SQLITE_BUSY errors.
 	// https://github.com/mattn/go-sqlite3/blob/master/README.md#faq
 	sqlDB.SetConnMaxIdleTime(-1)
