@@ -161,7 +161,12 @@ func TestInformerListByOptions(t *testing.T) {
 		lo := ListOptions{}
 		var partitions []partition.Partition
 		ns := "somens"
-		expectedList := &unstructured.UnstructuredList{Object: map[string]interface{}{"s": 2}, Items: []unstructured.Unstructured{{map[string]interface{}{"s": 2}}}}
+		expectedList := &unstructured.UnstructuredList{
+			Object: map[string]interface{}{"s": 2},
+			Items: []unstructured.Unstructured{{
+				Object: map[string]interface{}{"s": 2},
+			}},
+		}
 		expectedContinueToken := "123"
 		indexer.EXPECT().ListByOptions(context.TODO(), lo, partitions, ns).Return(expectedList, expectedContinueToken, nil)
 		list, continueToken, err := informer.ListByOptions(context.TODO(), lo, partitions, ns)
