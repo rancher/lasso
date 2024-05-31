@@ -13,8 +13,7 @@ import (
 
 // Client provides a way to interact with the underlying sql transaction.
 type Client struct {
-	sqlTx  SQLTx
-	closed bool
+	sqlTx SQLTx
 }
 
 // SQLTx represents a sql transaction
@@ -40,7 +39,6 @@ func NewClient(tx SQLTx) *Client {
 
 // Commit commits the transaction and then unlocks the database.
 func (c *Client) Commit() error {
-	c.closed = true
 	return c.sqlTx.Commit()
 }
 
@@ -73,7 +71,6 @@ func (c *Client) StmtExec(stmt Stmt, args ...any) error {
 
 // rollback handles rollbacks and wraps errors if needed
 func (c *Client) rollback(tx SQLTx, err error) error {
-	c.closed = true
 	rerr := tx.Rollback()
 	if rerr != nil {
 		return errors.Wrapf(err, "Encountered error, then encountered another error while rolling back: %v", rerr)
@@ -85,10 +82,9 @@ func (c *Client) rollback(tx SQLTx, err error) error {
 // an error yet or has not comitted. Otherwise, transaction has already rollbacked, or in the case of Commit() it is too
 // late.
 func (c *Client) Cancel() error {
-	if c.closed {
-		// transaction already done
-		return nil
+	rerr := c.sqlTx.Rollback()
+	if rerr != sql.ErrTxDone {
+		return rerr
 	}
-	c.closed = true
-	return c.sqlTx.Rollback()
+	return nil
 }
