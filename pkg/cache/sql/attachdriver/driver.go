@@ -11,6 +11,9 @@ import (
 	"modernc.org/sqlite"
 )
 
+// Name is the symbolic name for this driver in the sql framework to use with sql.Open
+const Name = "attach_sqlite"
+
 // AttachDriver uses an underlying driver to open the connection and attaches a database
 // to that connection using path.
 type AttachDriver struct {
@@ -24,7 +27,7 @@ func Register(path string) {
 		path: path,
 		d:    &sqlite.Driver{},
 	}
-	sql.Register("attach_sqlite", d)
+	sql.Register(Name, d)
 }
 
 // Open opens a connection from the underlying driver and
