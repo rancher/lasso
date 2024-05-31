@@ -38,13 +38,12 @@ func (ad AttachDriver) Open(name string) (driver.Conn, error) {
 		return nil, err
 	}
 
-	q := fmt.Sprintf(`ATTACH DATABASE '%s' AS db2;`, ad.path)
-	stmt, err := c.Prepare(q)
+	stmt, err := c.Prepare("ATTACH DATABASE ? AS db2;")
 	if err != nil {
 		return nil, closeConnOnError(c, err)
 	}
 
-	_, err = stmt.Exec(nil)
+	_, err = stmt.Exec([]driver.Value{ad.path})
 	if err != nil {
 		stmt.Close()
 		// cannot use defer close because stmt must be close before the following function closes the connection
