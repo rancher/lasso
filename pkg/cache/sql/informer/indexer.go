@@ -31,7 +31,7 @@ const (
 	createIndexFmt = `CREATE INDEX IF NOT EXISTS "%[1]s_indices_index" ON "%[1]s_indices"(name, value)`
 
 	deleteIndicesFmt = `DELETE FROM "%s_indices" WHERE key = ?`
-	addIndexFmt      = `INSERT INTO "%s_indices"(name, value, key) VALUES (?, ?, ?)`
+	addIndexFmt      = `INSERT INTO "%s_indices" (name, value, key) VALUES (?, ?, ?) ON CONFLICT DO NOTHING`
 	listByIndexFmt   = `SELECT object FROM "%[1]s"
 			WHERE key IN (
 			    SELECT key FROM "%[1]s_indices"
