@@ -158,9 +158,6 @@ func (l *ListOptionIndexer) afterUpsert(key string, obj any, tx db.TXClient) err
 		default:
 			return errors.Errorf("%v has a non-supported type value: %v", field, value)
 		}
-		if err != nil {
-			return err
-		}
 	}
 
 	return tx.StmtExec(tx.Stmt(l.addField), args...)

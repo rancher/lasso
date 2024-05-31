@@ -26,7 +26,7 @@ const (
 	// InformerObjectCacheDBPath is where SQLite's object database file will be stored relative to process running lasso
 	InformerObjectCacheDBPath = "informer_object_cache.db"
 	// OnDiskInformerIndexedFieldDBPath is where SQLite's indexed fields database file will be stored if, env var value
-	// found at EncryptAllEnvVar is "true".
+	// found at EncryptAllEnvVar is "false".
 	OnDiskInformerIndexedFieldDBPath = "informer_object_fields.db"
 )
 

@@ -156,47 +156,6 @@ func (s *Store) GetByKey(key string) (item any, exists bool, err error) {
 	return result[0], true, nil
 }
 
-// replaceByKey will delete the contents of the Store, using instead the given key to obj map
-func (s *Store) replaceByKey(objects map[string]any) error {
-	rows, err := s.QueryForRows(context.TODO(), s.listKeysStmt)
-	if err != nil {
-		return err
-	}
-	keys, err := s.ReadStrings(rows)
-	if err != nil {
-		return err
-	}
-
-	txC, err := s.Begin()
-	if err != nil {
-		return err
-	}
-
-	for _, key := range keys {
-		err = txC.StmtExec(txC.Stmt(s.deleteStmt), key)
-		if err != nil {
-			return err
-		}
-		err = s.runAfterDelete(key, txC)
-		if err != nil {
-			return err
-		}
-	}
-
-	for key, obj := range objects {
-		err = s.Upsert(txC, s.upsertStmt, key, obj, s.shouldEncrypt)
-		if err != nil {
-			return err
-		}
-		err = s.runAfterUpsert(key, obj, txC)
-		if err != nil {
-			return err
-		}
-	}
-
-	return txC.Commit()
-}
-
 /* Satisfy cache.Store */
 
 // Add saves an obj, or updates it if it exists in this Store
@@ -277,6 +236,47 @@ func (s *Store) Replace(objects []any, _ string) error {
 		objectMap[key] = object
 	}
 	return s.replaceByKey(objectMap)
+}
+
+// replaceByKey will delete the contents of the Store, using instead the given key to obj map
+func (s *Store) replaceByKey(objects map[string]any) error {
+	rows, err := s.QueryForRows(context.TODO(), s.listKeysStmt)
+	if err != nil {
+		return err
+	}
+	keys, err := s.ReadStrings(rows)
+	if err != nil {
+		return err
+	}
+
+	txC, err := s.Begin()
+	if err != nil {
+		return err
+	}
+
+	for _, key := range keys {
+		err = txC.StmtExec(txC.Stmt(s.deleteStmt), key)
+		if err != nil {
+			return err
+		}
+		err = s.runAfterDelete(key, txC)
+		if err != nil {
+			return err
+		}
+	}
+
+	for key, obj := range objects {
+		err = s.Upsert(txC, s.upsertStmt, key, obj, s.shouldEncrypt)
+		if err != nil {
+			return err
+		}
+		err = s.runAfterUpsert(key, obj, txC)
+		if err != nil {
+			return err
+		}
+	}
+
+	return txC.Commit()
 }
 
 // Resync is a no-op and is deprecated
