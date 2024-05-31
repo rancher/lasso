@@ -15,9 +15,10 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/rancher/lasso/pkg/cache/sql/db"
 	"reflect"
 	"testing"
+
+	"github.com/rancher/lasso/pkg/cache/sql/db"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -621,10 +622,7 @@ func SetupMockDB(t *testing.T) (*MockDBClient, *MockTXClient) {
 	dbC := NewMockDBClient(gomock.NewController(t)) // add functionality once store expectation are known
 	txC := NewMockTXClient(gomock.NewController(t))
 	// stmt := NewMockStmt(gomock.NewController())
-	txC.EXPECT().Exec(`CREATE TABLE IF NOT EXISTS "testStoreObject" (
-		key TEXT UNIQUE NOT NULL PRIMARY KEY,
-		object BLOB, objectnonce TEXT, dek TEXT, deknonce TEXT
-	)`).Return(nil)
+	txC.EXPECT().Exec(fmt.Sprintf(createTableFmt, "testStoreObject")).Return(nil)
 	txC.EXPECT().Commit().Return(nil)
 	dbC.EXPECT().Begin().Return(txC, nil)
 
