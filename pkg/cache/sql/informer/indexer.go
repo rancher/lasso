@@ -16,7 +16,7 @@ import (
 
 const (
 	selectQueryFmt = `
-			SELECT object FROM "%[1]s"
+			SELECT object, objectnonce, dek, deknonce FROM "%[1]s"
 				WHERE key IN (
 					SELECT key FROM "%[1]s_indices"
 						WHERE name = ? AND value IN (?%s)
@@ -32,7 +32,7 @@ const (
 
 	deleteIndicesFmt = `DELETE FROM "%s_indices" WHERE key = ?`
 	addIndexFmt      = `INSERT INTO "%s_indices" (name, value, key) VALUES (?, ?, ?) ON CONFLICT DO NOTHING`
-	listByIndexFmt   = `SELECT object FROM "%[1]s"
+	listByIndexFmt   = `SELECT object, objectnonce, dek, deknonce FROM "%[1]s"
 			WHERE key IN (
 			    SELECT key FROM "%[1]s_indices"
 			    	WHERE name = ? AND value = ?
@@ -202,13 +202,13 @@ func (i *Indexer) ByIndex(indexName, indexedValue string) ([]any, error) {
 // IndexKeys returns a list of the Store keys of the objects whose indexed values in the given index include the given indexed value
 func (i *Indexer) IndexKeys(indexName, indexedValue string) ([]string, error) {
 	i.indexersLock.RLock()
-	defer i.indexersLock.Unlock()
+	defer i.indexersLock.RUnlock()
 	indexFunc := i.indexers[indexName]
 	if indexFunc == nil {
 		return nil, fmt.Errorf("Index with name %s does not exist", indexName)
 	}
 
-	rows, err := i.QueryForRows(context.TODO(), i.listKeysByIndexStmt, false, indexName, indexedValue)
+	rows, err := i.QueryForRows(context.TODO(), i.listKeysByIndexStmt, indexName, indexedValue)
 	if err != nil {
 		return nil, err
 	}
@@ -226,7 +226,7 @@ func (i *Indexer) ListIndexFuncValues(name string) []string {
 
 // safeListIndexFuncValues returns all the indexed values of the given index
 func (i *Indexer) safeListIndexFuncValues(indexName string) ([]string, error) {
-	rows, err := i.QueryForRows(context.TODO(), i.listIndexValuesStmt, false, indexName)
+	rows, err := i.QueryForRows(context.TODO(), i.listIndexValuesStmt, indexName)
 	if err != nil {
 		return nil, err
 	}
