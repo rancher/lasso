@@ -146,7 +146,6 @@ func (i *Indexer) AfterUpsert(key string, obj any, tx db.TXClient) error {
 	return nil
 }
 
-// add afterDelete
 /* Satisfy cache.Indexer */
 
 // Index returns a list of items that match the given object on the index function
