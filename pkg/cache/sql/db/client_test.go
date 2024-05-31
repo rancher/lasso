@@ -334,7 +334,6 @@ func TestBegin(t *testing.T) {
 	}
 }
 
-/*
 func TestUpsert(t *testing.T) {
 	type testCase struct {
 		description string
@@ -416,7 +415,7 @@ func TestUpsert(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) { test.test(t) })
 	}
-}*/
+}
 
 func TestPrepare(t *testing.T) {
 	type testCase struct {
