@@ -6,6 +6,7 @@ import (
 	"encoding/gob"
 	"fmt"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -219,7 +220,10 @@ func (l *ListOptionIndexer) ListByOptions(ctx context.Context, lo ListOptions, p
 					singlePartitionClauses = append(singlePartitionClauses, "FALSE")
 				} else {
 					singlePartitionClauses = append(singlePartitionClauses, fmt.Sprintf(`f."metadata.name" IN (?%s)`, strings.Repeat(", ?", len(partition.Names)-1)))
-					for name := range partition.Names {
+					// sort for reproducibility
+					sortedNames := partition.Names.UnsortedList()
+					sort.Strings(sortedNames)
+					for _, name := range sortedNames {
 						params = append(params, name)
 					}
 				}
