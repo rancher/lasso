@@ -37,7 +37,7 @@ func TestNewIndexer(t *testing.T) {
 	tests = append(tests, testCase{description: "NewIndexer() with no errors returned from Store or TXClient, should return no error", test: func(t *testing.T) {
 		store := NewMockStore(gomock.NewController(t))
 		client := NewMockTXClient(gomock.NewController(t))
-		// testObject := testStoreObject{Id: "something", Val: "a"}
+
 		objKey := "objKey"
 		indexers := map[string]cache.IndexFunc{
 			"a": func(obj interface{}) ([]string, error) {
@@ -62,7 +62,7 @@ func TestNewIndexer(t *testing.T) {
 	}})
 	tests = append(tests, testCase{description: "NewIndexer() with Store Begin() error, should return error", test: func(t *testing.T) {
 		store := NewMockStore(gomock.NewController(t))
-		// testObject := testStoreObject{Id: "something", Val: "a"}
+
 		objKey := "objKey"
 		indexers := map[string]cache.IndexFunc{
 			"a": func(obj interface{}) ([]string, error) {
@@ -76,7 +76,7 @@ func TestNewIndexer(t *testing.T) {
 	tests = append(tests, testCase{description: "NewIndexer() with TXClient Exec() error on first call to Exec(), should return error", test: func(t *testing.T) {
 		store := NewMockStore(gomock.NewController(t))
 		client := NewMockTXClient(gomock.NewController(t))
-		// testObject := testStoreObject{Id: "something", Val: "a"}
+
 		objKey := "objKey"
 		indexers := map[string]cache.IndexFunc{
 			"a": func(obj interface{}) ([]string, error) {
@@ -93,7 +93,7 @@ func TestNewIndexer(t *testing.T) {
 	tests = append(tests, testCase{description: "NewIndexer() with TXClient Exec() error on second call to Exec(), should return error", test: func(t *testing.T) {
 		store := NewMockStore(gomock.NewController(t))
 		client := NewMockTXClient(gomock.NewController(t))
-		// testObject := testStoreObject{Id: "something", Val: "a"}
+
 		objKey := "objKey"
 		indexers := map[string]cache.IndexFunc{
 			"a": func(obj interface{}) ([]string, error) {
@@ -111,7 +111,7 @@ func TestNewIndexer(t *testing.T) {
 	tests = append(tests, testCase{description: "NewIndexer() with TXClient Commit() error, should return error", test: func(t *testing.T) {
 		store := NewMockStore(gomock.NewController(t))
 		client := NewMockTXClient(gomock.NewController(t))
-		// testObject := testStoreObject{Id: "something", Val: "a"}
+
 		objKey := "objKey"
 		indexers := map[string]cache.IndexFunc{
 			"a": func(obj interface{}) ([]string, error) {
@@ -525,7 +525,7 @@ func TestListIndexFuncValues(t *testing.T) {
 			Store:           store,
 			listByIndexStmt: listStmt,
 		}
-		store.EXPECT().QueryForRows(context.TODO(), indexer.listIndexValuesStmt, false, indexName).Return(rows, nil)
+		store.EXPECT().QueryForRows(context.TODO(), indexer.listIndexValuesStmt, indexName).Return(rows, nil)
 		store.EXPECT().ReadStrings(rows).Return([]string{"somestrings"}, nil)
 		vals := indexer.ListIndexFuncValues(indexName)
 		assert.Equal(t, []string{"somestrings"}, vals)
@@ -538,7 +538,7 @@ func TestListIndexFuncValues(t *testing.T) {
 			Store:           store,
 			listByIndexStmt: listStmt,
 		}
-		store.EXPECT().QueryForRows(context.TODO(), indexer.listIndexValuesStmt, false, indexName).Return(nil, fmt.Errorf("error"))
+		store.EXPECT().QueryForRows(context.TODO(), indexer.listIndexValuesStmt, indexName).Return(nil, fmt.Errorf("error"))
 		assert.Panics(t, func() { indexer.ListIndexFuncValues(indexName) })
 	}})
 	tests = append(tests, testCase{description: "ListIndexFuncvalues() with ReadStrings() error returned from store, should panic", test: func(t *testing.T) {
@@ -550,7 +550,7 @@ func TestListIndexFuncValues(t *testing.T) {
 			Store:           store,
 			listByIndexStmt: listStmt,
 		}
-		store.EXPECT().QueryForRows(context.TODO(), indexer.listIndexValuesStmt, false, indexName).Return(rows, nil)
+		store.EXPECT().QueryForRows(context.TODO(), indexer.listIndexValuesStmt, indexName).Return(rows, nil)
 		store.EXPECT().ReadStrings(rows).Return([]string{"somestrings"}, fmt.Errorf("error"))
 		assert.Panics(t, func() { indexer.ListIndexFuncValues(indexName) })
 	}})
