@@ -505,9 +505,10 @@ func TestReplace(t *testing.T) {
 		c, txC := SetupMockDB(t)
 		store := SetupStore(t, c, shouldEncrypt)
 		r := &sql.Rows{}
+		c.EXPECT().Begin().Return(txC, nil)
+		txC.EXPECT().Stmt(store.listKeysStmt).Return(store.listKeysStmt)
 		c.EXPECT().QueryForRows(context.TODO(), store.listKeysStmt).Return(r, nil)
 		c.EXPECT().ReadStrings(r).Return([]string{testObject.Id}, nil)
-		c.EXPECT().Begin().Return(txC, nil)
 		txC.EXPECT().Stmt(store.deleteStmt).Return(store.deleteStmt)
 		txC.EXPECT().StmtExec(store.deleteStmt, testObject.Id)
 		c.EXPECT().Upsert(txC, store.upsertStmt, testObject.Id, testObject, store.shouldEncrypt)
@@ -520,9 +521,10 @@ func TestReplace(t *testing.T) {
 		c, tx := SetupMockDB(t)
 		store := SetupStore(t, c, shouldEncrypt)
 		r := &sql.Rows{}
+		c.EXPECT().Begin().Return(tx, nil)
+		tx.EXPECT().Stmt(store.listKeysStmt).Return(store.listKeysStmt)
 		c.EXPECT().QueryForRows(context.TODO(), store.listKeysStmt).Return(r, nil)
 		c.EXPECT().ReadStrings(r).Return([]string{}, nil)
-		c.EXPECT().Begin().Return(tx, nil)
 		c.EXPECT().Upsert(tx, store.upsertStmt, testObject.Id, testObject, store.shouldEncrypt)
 		tx.EXPECT().Commit()
 		err := store.Replace([]any{testObject}, testObject.Id)
@@ -532,18 +534,17 @@ func TestReplace(t *testing.T) {
 	tests = append(tests, testCase{description: "Replace with DB Client Begin() error", test: func(t *testing.T, shouldEncrypt bool) {
 		c, _ := SetupMockDB(t)
 		store := SetupStore(t, c, shouldEncrypt)
-		r := &sql.Rows{}
-		c.EXPECT().QueryForRows(context.TODO(), store.listKeysStmt).Return(r, nil)
-		c.EXPECT().ReadStrings(r).Return([]string{}, nil)
 		c.EXPECT().Begin().Return(nil, fmt.Errorf("error"))
 		err := store.Replace([]any{testObject}, testObject.Id)
 		assert.NotNil(t, err)
 	},
 	})
 	tests = append(tests, testCase{description: "Replace with no DB Client ReadStrings() error", test: func(t *testing.T, shouldEncrypt bool) {
-		c, _ := SetupMockDB(t)
+		c, tx := SetupMockDB(t)
 		store := SetupStore(t, c, shouldEncrypt)
 		r := &sql.Rows{}
+		c.EXPECT().Begin().Return(tx, nil)
+		tx.EXPECT().Stmt(store.listKeysStmt).Return(store.listKeysStmt)
 		c.EXPECT().QueryForRows(context.TODO(), store.listKeysStmt).Return(r, nil)
 		c.EXPECT().ReadStrings(r).Return(nil, fmt.Errorf("error"))
 		err := store.Replace([]any{testObject}, testObject.Id)
@@ -551,9 +552,11 @@ func TestReplace(t *testing.T) {
 	},
 	})
 	tests = append(tests, testCase{description: "Replace with ReadStrings() error", test: func(t *testing.T, shouldEncrypt bool) {
-		c, _ := SetupMockDB(t)
+		c, tx := SetupMockDB(t)
 		store := SetupStore(t, c, shouldEncrypt)
 		r := &sql.Rows{}
+		c.EXPECT().Begin().Return(tx, nil)
+		tx.EXPECT().Stmt(store.listKeysStmt).Return(store.listKeysStmt)
 		c.EXPECT().QueryForRows(context.TODO(), store.listKeysStmt).Return(r, nil)
 		c.EXPECT().ReadStrings(r).Return(nil, fmt.Errorf("error"))
 		err := store.Replace([]any{testObject}, testObject.Id)
@@ -564,9 +567,10 @@ func TestReplace(t *testing.T) {
 		c, txC := SetupMockDB(t)
 		store := SetupStore(t, c, shouldEncrypt)
 		r := &sql.Rows{}
+		c.EXPECT().Begin().Return(txC, nil)
+		txC.EXPECT().Stmt(store.listKeysStmt).Return(store.listKeysStmt)
 		c.EXPECT().QueryForRows(context.TODO(), store.listKeysStmt).Return(r, nil)
 		c.EXPECT().ReadStrings(r).Return([]string{testObject.Id}, nil)
-		c.EXPECT().Begin().Return(txC, nil)
 		txC.EXPECT().Stmt(store.deleteStmt).Return(store.deleteStmt)
 		txC.EXPECT().StmtExec(store.deleteStmt, testObject.Id).Return(fmt.Errorf("error"))
 		err := store.Replace([]any{testObject}, testObject.Id)
@@ -577,9 +581,10 @@ func TestReplace(t *testing.T) {
 		c, txC := SetupMockDB(t)
 		store := SetupStore(t, c, shouldEncrypt)
 		r := &sql.Rows{}
+		c.EXPECT().Begin().Return(txC, nil)
+		txC.EXPECT().Stmt(store.listKeysStmt).Return(store.listKeysStmt)
 		c.EXPECT().QueryForRows(context.TODO(), store.listKeysStmt).Return(r, nil)
 		c.EXPECT().ReadStrings(r).Return([]string{testObject.Id}, nil)
-		c.EXPECT().Begin().Return(txC, nil)
 		txC.EXPECT().Stmt(store.deleteStmt).Return(store.deleteStmt)
 		txC.EXPECT().StmtExec(store.deleteStmt, testObject.Id).Return(nil)
 		c.EXPECT().Upsert(txC, store.upsertStmt, testObject.Id, testObject, store.shouldEncrypt).Return(fmt.Errorf("error"))

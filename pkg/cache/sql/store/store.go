@@ -7,12 +7,13 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"reflect"
+
 	"github.com/pkg/errors"
 	"github.com/rancher/lasso/pkg/cache/sql/db"
 	"github.com/rancher/lasso/pkg/cache/sql/db/transaction"
 	"k8s.io/client-go/tools/cache"
 	_ "modernc.org/sqlite"
-	"reflect"
 )
 
 const (
@@ -240,16 +241,18 @@ func (s *Store) Replace(objects []any, _ string) error {
 
 // replaceByKey will delete the contents of the Store, using instead the given key to obj map
 func (s *Store) replaceByKey(objects map[string]any) error {
-	rows, err := s.QueryForRows(context.TODO(), s.listKeysStmt)
-	if err != nil {
-		return err
-	}
-	keys, err := s.ReadStrings(rows)
+	txC, err := s.Begin()
 	if err != nil {
 		return err
 	}
 
-	txC, err := s.Begin()
+	txCListKeys := txC.Stmt(s.listKeysStmt)
+
+	rows, err := s.QueryForRows(context.TODO(), txCListKeys)
+	if err != nil {
+		return err
+	}
+	keys, err := s.ReadStrings(rows)
 	if err != nil {
 		return err
 	}
