@@ -14,7 +14,7 @@ require (
 	k8s.io/apimachinery v0.30.0
 	k8s.io/client-go v0.30.0
 	k8s.io/klog v1.0.0
-	k8s.io/utils v0.0.0-20230726121419-3b25d923346b
+	k8s.io/utils v0.0.0-20240502163921-fe8a2dddb1d0
 	modernc.org/sqlite v1.29.10
 )
 
