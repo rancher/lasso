@@ -31,7 +31,7 @@ type ByOptionsLister interface {
 
 // NewInformer returns a new SQLite-backed Informer for the type specified by schema in unstructured.Unstructured form
 // using the specified client
-func NewInformer(client dynamic.ResourceInterface, fields [][]string, gvk schema.GroupVersionKind, db sqlStore.DBClient, shouldEncrypt bool, namespaced bool) (*Informer, error) {
+func NewInformer(client dynamic.ResourceInterface, fields [][]string, transform cache.TransformFunc, gvk schema.GroupVersionKind, db sqlStore.DBClient, shouldEncrypt bool, namespaced bool) (*Informer, error) {
 	listWatcher := &cache.ListWatch{
 		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 			a, err := client.List(context.Background(), options)
@@ -50,6 +50,9 @@ func NewInformer(client dynamic.ResourceInterface, fields [][]string, gvk schema
 	resyncPeriod := time.Duration(0)
 
 	sii := cache.NewSharedIndexInformer(listWatcher, example, resyncPeriod, cache.Indexers{})
+	if transform != nil {
+		sii.SetTransform(transform)
+	}
 
 	name := informerNameFromGVK(gvk)
 
