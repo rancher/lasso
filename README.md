@@ -179,7 +179,7 @@ func main() {
 		sharedController.Informer().GetStore().Get(key)
 
 		result := &appsv1.Deployment{}
-		err := sharedController.Client().Update(ctx, dep.Namespace, dep, result, metav1.UpdateOptions{})
+		err := sharedController.Client().Update(context.TODO(), dep.Namespace, dep, result, metav1.UpdateOptions{})
 
 		// return the latest version of the object
 		return result, err
@@ -190,6 +190,9 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
+	// block forever, otherwise it will exit
+	select {}
 }
 
 ```
