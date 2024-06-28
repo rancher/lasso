@@ -17,17 +17,16 @@ import (
 )
 
 const (
-	upsertStmtFmt   = `REPLACE INTO "%s"(key, object, objectnonce, dek, deknonce) VALUES (?, ?, ?, ?, ?)`
+	upsertStmtFmt   = `REPLACE INTO "%s"(key, object, objectnonce, dekid) VALUES (?, ?, ?, ?)`
 	deleteStmtFmt   = `DELETE FROM "%s" WHERE key = ?`
-	getStmtFmt      = `SELECT object, objectnonce, dek, deknonce FROM "%s" WHERE key = ?`
-	listStmtFmt     = `SELECT object, objectnonce, dek, deknonce FROM "%s"`
+	getStmtFmt      = `SELECT object, objectnonce, dekid FROM "%s" WHERE key = ?`
+	listStmtFmt     = `SELECT object, objectnonce, dekid FROM "%s"`
 	listKeysStmtFmt = `SELECT key FROM "%s"`
 	createTableFmt  = `CREATE TABLE IF NOT EXISTS "%s" (
 		key TEXT UNIQUE NOT NULL PRIMARY KEY,
 		object BLOB,
-		objectnonce TEXT,
-		dek TEXT,
-		deknonce TEXT
+		objectnonce BLOB,
+		dekid BLOB
 	)`
 )
 

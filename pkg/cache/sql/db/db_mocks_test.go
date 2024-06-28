@@ -9,6 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	"github.com/google/uuid"
 	transaction "github.com/rancher/lasso/pkg/cache/sql/db/transaction"
 )
 
@@ -206,15 +207,14 @@ func (m *MockEncryptor) EXPECT() *MockEncryptorMockRecorder {
 }
 
 // Encrypt mocks base method.
-func (m *MockEncryptor) Encrypt(arg0 []byte) ([]byte, []byte, []byte, []byte, error) {
+func (m *MockEncryptor) Encrypt(arg0 []byte) ([]byte, []byte, uuid.UUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Encrypt", arg0)
 	ret0, _ := ret[0].([]byte)
 	ret1, _ := ret[1].([]byte)
-	ret2, _ := ret[2].([]byte)
-	ret3, _ := ret[3].([]byte)
-	ret4, _ := ret[4].(error)
-	return ret0, ret1, ret2, ret3, ret4
+	ret2, _ := ret[2].(uuid.UUID)
+	ret3, _ := ret[3].(error)
+	return ret0, ret1, ret2, ret3
 }
 
 // Encrypt indicates an expected call of Encrypt.
@@ -247,18 +247,18 @@ func (m *MockDecryptor) EXPECT() *MockDecryptorMockRecorder {
 }
 
 // Decrypt mocks base method.
-func (m *MockDecryptor) Decrypt(arg0, arg1, arg2, arg3 []byte) ([]byte, error) {
+func (m *MockDecryptor) Decrypt(arg0, arg1 []byte, arg2 uuid.UUID) ([]byte, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Decrypt", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "Decrypt", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]byte)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Decrypt indicates an expected call of Decrypt.
-func (mr *MockDecryptorMockRecorder) Decrypt(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+func (mr *MockDecryptorMockRecorder) Decrypt(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Decrypt", reflect.TypeOf((*MockDecryptor)(nil).Decrypt), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Decrypt", reflect.TypeOf((*MockDecryptor)(nil).Decrypt), arg0, arg1, arg2)
 }
 
 // MockTXClient is a mock of TXClient interface.

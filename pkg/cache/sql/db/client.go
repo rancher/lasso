@@ -9,11 +9,13 @@ import (
 	"context"
 	"database/sql"
 	"encoding/gob"
+	"encoding/hex"
 	"os"
 	"reflect"
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rancher/lasso/pkg/cache/sql/attachdriver"
 	"github.com/rancher/lasso/pkg/cache/sql/db/transaction"
@@ -72,14 +74,14 @@ type TXClient interface {
 // It should use a key-encryption-key (KEK) to then encrypt the DEK. The encrypted data, nonce used to encrypt the data,
 // encrypted dek, nonce used to decrypt the dek should be returned, in that order. On failure an error should be returned.
 type Encryptor interface {
-	Encrypt([]byte) ([]byte, []byte, []byte, []byte, error)
+	Encrypt([]byte) ([]byte, []byte, uuid.UUID, error)
 }
 
 // Decryptor decrypts encrypted data given: some encrypted data, nonce used to encrypt the data, an encrypted
 // data-encryption-key (DEK), nonce used to encrypt the DEK. The KEK is not provided. Decryptor is expected to use its
 // receiver to decrypt the DEK using its KEK.
 type Decryptor interface {
-	Decrypt([]byte, []byte, []byte, []byte) ([]byte, error)
+	Decrypt([]byte, []byte, uuid.UUID) ([]byte, error)
 }
 
 var backoffRetry = wait.Backoff{Duration: 50 * time.Millisecond, Factor: 2, Steps: 10}
@@ -215,13 +217,17 @@ func (c *Client) Begin() (TXClient, error) {
 }
 
 func (c *Client) decryptScan(rows Rows, shouldDecrypt bool) ([]byte, error) {
-	var data, dataNonce, eDEK, dekNonce sql.RawBytes
-	err := rows.Scan(&data, &dataNonce, &eDEK, &dekNonce)
+	var data, dataNonce, kid sql.RawBytes
+	err := rows.Scan(&data, &dataNonce, &kid)
 	if err != nil {
 		return nil, err
 	}
 	if c.decryptor != nil && shouldDecrypt {
-		decryptedData, err := c.decryptor.Decrypt(data, dataNonce, eDEK, dekNonce)
+		keyID, err := uuid.Parse(hex.EncodeToString(kid))
+		if err != nil {
+			return nil, err
+		}
+		decryptedData, err := c.decryptor.Decrypt(data, dataNonce, keyID)
 		if err != nil {
 			return nil, err
 		}
@@ -233,17 +239,17 @@ func (c *Client) decryptScan(rows Rows, shouldDecrypt bool) ([]byte, error) {
 // Upsert used to be called upsertEncrypted in store package before move
 func (c *Client) Upsert(tx TXClient, stmt *sql.Stmt, key string, obj any, shouldEncrypt bool) error {
 	objBytes := toBytes(obj)
-	// object, dek, deknonce, datanonce
-	var dataNonce, encryptedDEK, dekNonce []byte
+	var dataNonce []byte
 	var err error
+	kid := uuid.Nil
 	if c.encryptor != nil && shouldEncrypt {
-		objBytes, dataNonce, encryptedDEK, dekNonce, err = c.encryptor.Encrypt(objBytes)
+		objBytes, dataNonce, kid, err = c.encryptor.Encrypt(objBytes)
 		if err != nil {
 			return err
 		}
 	}
 
-	return tx.StmtExec(tx.Stmt(stmt), key, objBytes, dataNonce, encryptedDEK, dekNonce)
+	return tx.StmtExec(tx.Stmt(stmt), key, objBytes, dataNonce, kid[:])
 }
 
 // toBytes encodes an object to a byte slice

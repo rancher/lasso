@@ -4,9 +4,12 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"fmt"
+	"math"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewManager(t *testing.T) {
@@ -24,100 +27,91 @@ func TestEncrypt(t *testing.T) {
 	}
 	var tests []testCase
 
-	tests = append(tests, testCase{description: "test encrypt with no errors", test: func(t *testing.T) {
-		testKEK := []byte{208, 54, 21, 118, 74, 213, 2, 151, 38, 199, 225, 46, 189, 55, 60, 91}
-		testDEK := []byte{83, 125, 203, 18, 75, 156, 24, 192, 119, 73, 157, 222, 143, 140, 231, 181}
+	tests = append(tests, testCase{description: "test encrypt with arbitrary initial key", test: func(t *testing.T) {
+		testDEK := []byte{83, 125, 203, 18, 75, 156, 24, 192, 119, 73, 157, 222, 143, 140, 231, 181, 83, 125, 203, 18, 75, 156, 24, 192, 119, 73, 157, 222, 143, 140, 231, 181}
 
-		m := Manager{
-			keyEncryptionKey:  testKEK,
-			dataEncryptionKey: testDEK,
-		}
-		b, err := aes.NewCipher(m.keyEncryptionKey)
-		assert.Nil(t, err)
-		aead, err := cipher.NewGCM(b)
-		assert.Nil(t, err)
-		m.keyGCMCipher = aead
+		m, err := NewManager()
+		require.Nil(t, err)
+
+		m.dataKeys[m.activeKey] = testDEK
 
 		testData := []byte("something")
-		encryptedData, dataNonce, encryptedDEK, dekNonce, err := m.Encrypt(testData)
-		assert.Nil(t, err)
+		cipherText, nonce, keyID, err := m.Encrypt(testData)
+		require.Nil(t, err)
 
-		decryptedDEK, err := aead.Open(nil, dekNonce, encryptedDEK, nil)
-		assert.Nil(t, err)
-		assert.Equal(t, m.dataEncryptionKey, decryptedDEK)
+		dek, ok := m.dataKeys[keyID]
+		require.True(t, ok)
 
-		b, err = aes.NewCipher(m.dataEncryptionKey)
-		assert.Nil(t, err)
-		aead, err = cipher.NewGCM(b)
-		assert.Nil(t, err)
-		decryptedData, err := aead.Open(nil, dataNonce, encryptedData, nil)
-		assert.Nil(t, err)
+		b, err := aes.NewCipher(dek)
+		require.Nil(t, err)
+
+		aead, err := cipher.NewGCM(b)
+		require.Nil(t, err)
+		decryptedData, err := aead.Open(nil, nonce, cipherText, nil)
+
+		require.Nil(t, err)
 		assert.Equal(t, testData, decryptedData)
 	}})
-	tests = append(tests, testCase{description: "test encrypt with nil aead", test: func(t *testing.T) {
-		testKEK := []byte{208, 54, 21, 118, 74, 213, 2, 151, 38, 199, 225, 46, 189, 55, 60, 91}
-		testDEK := []byte{83, 125, 203, 18, 75, 156, 24, 192, 119, 73, 157, 222, 143, 140, 231, 181}
-
-		m := Manager{
-			keyEncryptionKey:  testKEK,
-			dataEncryptionKey: testDEK,
-		}
+	tests = append(tests, testCase{description: "test encrypt without arbitrary initial key", test: func(t *testing.T) {
+		m, err := NewManager()
+		require.Nil(t, err)
 
 		testData := []byte("something")
-		_, _, _, _, err := m.Encrypt(testData)
-		assert.NotNil(t, err)
+		cipherText, nonce, keyID, err := m.Encrypt(testData)
+		require.Nil(t, err)
 
-	}})
-	tests = append(tests, testCase{description: "test encrypt with nil KEK and DEK", test: func(t *testing.T) {
-		var testDEK []byte
-		testKEK := []byte{208, 54, 21, 118, 74, 213, 2, 151, 38, 199, 225, 46, 189, 55, 60, 91}
-		m := Manager{
-			keyEncryptionKey:  testKEK,
-			dataEncryptionKey: testDEK,
-		}
+		dek, ok := m.dataKeys[keyID]
+		require.True(t, ok)
 
-		b, err := aes.NewCipher([]byte{208, 54, 21, 118, 74, 213, 2, 151, 38, 199, 225, 46, 189, 55, 60, 91})
-		assert.Nil(t, err)
+		b, err := aes.NewCipher(dek)
+		require.Nil(t, err)
+
 		aead, err := cipher.NewGCM(b)
-		assert.Nil(t, err)
-		m.keyGCMCipher = aead
+		require.Nil(t, err)
+		decryptedData, err := aead.Open(nil, nonce, cipherText, nil)
+
+		require.Nil(t, err)
+		assert.Equal(t, testData, decryptedData)
+	}})
+	tests = append(tests, testCase{description: "test encrypt: same data yield different cipher/nonce pair", test: func(t *testing.T) {
+		m, err := NewManager()
+		require.Nil(t, err)
 
 		testData := []byte("something")
-		_, _, _, _, err = m.Encrypt(testData)
-		assert.NotNil(t, err)
+		cipher1, nonce1, keyID1, err := m.Encrypt(testData)
+		require.Nil(t, err)
+		assert.Len(t, cipher1, 25)
+		assert.Len(t, nonce1, 12)
+		assert.NotEmpty(t, cipher1)
+		assert.NotEmpty(t, nonce1)
 
+		cipher2, nonce2, keyID2, err := m.Encrypt(testData)
+		require.Nil(t, err)
+
+		assert.Equal(t, keyID1, keyID2)
+		assert.NotEqual(t, cipher1, cipher2, "each encrypt op must return a unique cipher")
+		assert.NotEqual(t, nonce1, nonce2, "each encrypt op must return a unique nonce")
 	}})
 	tests = append(tests, testCase{description: "test encrypt with key rotation", test: func(t *testing.T) {
-		testKEK := []byte{208, 54, 21, 118, 74, 213, 2, 151, 38, 199, 225, 46, 189, 55, 60, 91}
-		testDEK := []byte{83, 125, 203, 18, 75, 156, 24, 192, 119, 73, 157, 222, 143, 140, 231, 181}
-
-		m := Manager{
-			keyEncryptionKey:  testKEK,
-			dataEncryptionKey: testDEK,
-			writesCounter:     maxWriteCount + 1,
-		}
-		b, err := aes.NewCipher(m.keyEncryptionKey)
-		assert.Nil(t, err)
-		aead, err := cipher.NewGCM(b)
-		assert.Nil(t, err)
-		m.keyGCMCipher = aead
+		m, err := NewManager()
+		require.Nil(t, err)
 
 		testData := []byte("something")
-		encryptedData, dataNonce, encryptedDEK, dekNonce, err := m.Encrypt(testData)
-		assert.Nil(t, err)
+		cipher1, nonce1, keyID1, err := m.Encrypt(testData)
+		require.Nil(t, err)
+		assert.Len(t, cipher1, 25)
+		assert.Len(t, nonce1, 12)
+		assert.NotEmpty(t, cipher1)
+		assert.NotEmpty(t, nonce1)
 
-		decryptedDEK, err := aead.Open(nil, dekNonce, encryptedDEK, nil)
-		assert.Nil(t, err)
-		assert.NotEqual(t, testDEK, decryptedDEK)
-		assert.Equal(t, m.dataEncryptionKey, decryptedDEK)
+		m.activeKeyCounter += maxWriteCount
 
-		b, err = aes.NewCipher(m.dataEncryptionKey)
-		assert.Nil(t, err)
-		aead, err = cipher.NewGCM(b)
-		assert.Nil(t, err)
-		decryptedData, err := aead.Open(nil, dataNonce, encryptedData, nil)
-		assert.Nil(t, err)
-		assert.Equal(t, testData, decryptedData)
+		cipher2, nonce2, keyID2, err := m.Encrypt(testData)
+		require.Nil(t, err)
+
+		assert.NotEqual(t, keyID1, keyID2)
+		assert.NotEqual(t, cipher1, cipher2, "each encrypt op must return a unique cipher")
+		assert.NotEqual(t, nonce1, nonce2, "each encrypt op must return a unique nonce")
 	}})
 	t.Parallel()
 	for _, test := range tests {
@@ -132,231 +126,149 @@ func TestDecrypt(t *testing.T) {
 	}
 	var tests []testCase
 
-	tests = append(tests, testCase{description: "test decrypt with no errors", test: func(t *testing.T) {
-		testKEK := []byte{208, 54, 21, 118, 74, 213, 2, 151, 38, 199, 225, 46, 189, 55, 60, 91}
-		testDEK := []byte{83, 125, 203, 18, 75, 156, 24, 192, 119, 73, 157, 222, 143, 140, 231, 181}
+	tests = append(tests, testCase{description: "test decrypt with arbitrary key", test: func(t *testing.T) {
+		testDEK := []byte{83, 125, 203, 18, 75, 156, 24, 192, 119, 73, 157, 222, 143, 140, 231, 181, 83, 125, 203, 18, 75, 156, 24, 192, 119, 73, 157, 222, 143, 140, 231, 181}
 
-		m := Manager{
-			keyEncryptionKey:  testKEK,
-			dataEncryptionKey: testDEK,
-		}
-		// encrypt dek
-		b, err := aes.NewCipher(testKEK)
-		assert.Nil(t, err)
-		aead, err := cipher.NewGCM(b)
-		assert.Nil(t, err)
-		m.keyGCMCipher = aead
-		dekNonce := make([]byte, aead.NonceSize())
-		_, err = rand.Read(dekNonce)
-		assert.Nil(t, err)
-		encryptedDEK := aead.Seal(nil, dekNonce, testDEK, nil)
+		m, err := NewManager()
+		require.Nil(t, err)
 
-		// encrypt data
+		m.dataKeys[m.activeKey] = testDEK
+
 		testData := []byte("something")
-		b, err = aes.NewCipher(testDEK)
-		assert.Nil(t, err)
-		dekAEAD, err := cipher.NewGCM(b)
-		assert.Nil(t, err)
-		dataNonce := make([]byte, aead.NonceSize())
-		_, err = rand.Read(dataNonce)
-		assert.Nil(t, err)
-		encryptedData := dekAEAD.Seal(nil, dataNonce, testData, nil)
 
-		// decrypted encrypted data using encrypted dek
-		decryptedData, err := m.Decrypt(encryptedData, dataNonce, encryptedDEK, dekNonce)
-		assert.Nil(t, err)
+		// encrypt data out of band.
+		b, err := aes.NewCipher(testDEK)
+		require.Nil(t, err)
+
+		aead, err := cipher.NewGCM(b)
+		require.Nil(t, err)
+
+		nonce := make([]byte, aead.NonceSize())
+		_, err = rand.Read(nonce)
+		require.Nil(t, err)
+
+		cipherText := aead.Seal(nil, nonce, testData, nil)
+
+		// use manager to decrypt the data.
+		decryptedData, err := m.Decrypt(cipherText, nonce, m.activeKey)
+		require.Nil(t, err)
+
 		assert.Equal(t, testData, decryptedData)
 	},
 	})
-	tests = append(tests, testCase{description: "test decrypt with nil kek aead- should still work, aead not needed for decrypt since inputs are passed", test: func(t *testing.T) {
-		testKEK := []byte{208, 54, 21, 118, 74, 213, 2, 151, 38, 199, 225, 46, 189, 55, 60, 91}
-		testDEK := []byte{83, 125, 203, 18, 75, 156, 24, 192, 119, 73, 157, 222, 143, 140, 231, 181}
+	tests = append(tests, testCase{description: "test decrypt without arbitrary key", test: func(t *testing.T) {
+		m, err := NewManager()
+		require.Nil(t, err)
 
-		m := Manager{
-			keyEncryptionKey:  testKEK,
-			dataEncryptionKey: testDEK,
-		}
-		// encrypt dek
-		b, err := aes.NewCipher(testKEK)
-		assert.Nil(t, err)
-		aead, err := cipher.NewGCM(b)
-		assert.Nil(t, err)
-
-		dekNonce := make([]byte, aead.NonceSize())
-		_, err = rand.Read(dekNonce)
-		assert.Nil(t, err)
-		encryptedDEK := aead.Seal(nil, dekNonce, testDEK, nil)
-
-		// encrypt data
 		testData := []byte("something")
-		b, err = aes.NewCipher(testDEK)
-		assert.Nil(t, err)
-		dekAEAD, err := cipher.NewGCM(b)
-		assert.Nil(t, err)
-		dataNonce := make([]byte, aead.NonceSize())
-		_, err = rand.Read(dataNonce)
-		assert.Nil(t, err)
-		encryptedData := dekAEAD.Seal(nil, dataNonce, testData, nil)
 
-		// decrypted encrypted data using encrypted dek
-		decryptedData, err := m.Decrypt(encryptedData, dataNonce, encryptedDEK, dekNonce)
-		assert.Nil(t, err)
+		// encrypt data out of band.
+		dek, ok := m.dataKeys[m.activeKey]
+		require.True(t, ok)
+
+		b, err := aes.NewCipher(dek)
+		require.Nil(t, err)
+
+		aead, err := cipher.NewGCM(b)
+		require.Nil(t, err)
+
+		nonce := make([]byte, aead.NonceSize())
+		_, err = rand.Read(nonce)
+		require.Nil(t, err)
+
+		cipherText := aead.Seal(nil, nonce, testData, nil)
+
+		// use manager to decrypt the data.
+		decryptedData, err := m.Decrypt(cipherText, nonce, m.activeKey)
+		require.Nil(t, err)
+
 		assert.Equal(t, testData, decryptedData)
 	},
 	})
-	tests = append(tests, testCase{description: "test encrypt with nil DEK and KEK", test: func(t *testing.T) {
-		testKEK := []byte{208, 54, 21, 118, 74, 213, 2, 151, 38, 199, 225, 46, 189, 55, 60, 91}
-		testDEK := []byte{83, 125, 203, 18, 75, 156, 24, 192, 119, 73, 157, 222, 143, 140, 231, 181}
-
-		m := Manager{}
-		// encrypt dek
-		b, err := aes.NewCipher(testKEK)
-		assert.Nil(t, err)
-		aead, err := cipher.NewGCM(b)
-		assert.Nil(t, err)
-
-		dekNonce := make([]byte, aead.NonceSize())
-		_, err = rand.Read(dekNonce)
-		assert.Nil(t, err)
-		encryptedDEK := aead.Seal(nil, dekNonce, testDEK, nil)
-
-		// encrypt data
-		testData := []byte("something")
-		b, err = aes.NewCipher(testDEK)
-		assert.Nil(t, err)
-		dekAEAD, err := cipher.NewGCM(b)
-		assert.Nil(t, err)
-		dataNonce := make([]byte, aead.NonceSize())
-		_, err = rand.Read(dataNonce)
-		assert.Nil(t, err)
-		encryptedData := dekAEAD.Seal(nil, dataNonce, testData, nil)
-
-		// decrypted encrypted data using encrypted dek
-		_, err = m.Decrypt(encryptedData, dataNonce, encryptedDEK, dekNonce)
-		assert.NotNil(t, err)
-
-	}})
 	tests = append(tests, testCase{description: "test decrypt with wrong data nonce should return error", test: func(t *testing.T) {
-		testKEK := []byte{208, 54, 21, 118, 74, 213, 2, 151, 38, 199, 225, 46, 189, 55, 60, 91}
-		testDEK := []byte{83, 125, 203, 18, 75, 156, 24, 192, 119, 73, 157, 222, 143, 140, 231, 181}
+		m, err := NewManager()
+		require.Nil(t, err)
 
-		m := Manager{
-			keyEncryptionKey:  testKEK,
-			dataEncryptionKey: testDEK,
-		}
-		// encrypt dek
-		b, err := aes.NewCipher(testKEK)
-		assert.Nil(t, err)
-		aead, err := cipher.NewGCM(b)
-		assert.Nil(t, err)
-		m.keyGCMCipher = aead
-		dekNonce := make([]byte, aead.NonceSize())
-		_, err = rand.Read(dekNonce)
-		assert.Nil(t, err)
-		encryptedDEK := aead.Seal(nil, dekNonce, testDEK, nil)
-
-		// encrypt data
 		testData := []byte("something")
-		b, err = aes.NewCipher(testDEK)
-		assert.Nil(t, err)
-		dekAEAD, err := cipher.NewGCM(b)
-		assert.Nil(t, err)
-		dataNonce := make([]byte, aead.NonceSize())
-		_, err = rand.Read(dataNonce)
-		assert.Nil(t, err)
-		encryptedData := dekAEAD.Seal(nil, dataNonce, testData, nil)
 
-		// generate random nonce not used to seal either dek or data
-		randomNonce := make([]byte, aead.NonceSize())
-		_, err = rand.Read(dataNonce)
-		assert.Nil(t, err)
-		// decrypted encrypted data using encrypted dek
-		_, err = m.Decrypt(encryptedData, randomNonce, encryptedDEK, dekNonce)
-		assert.NotNil(t, err)
-	},
-	})
-	tests = append(tests, testCase{description: "test decrypt with wrong dek nonce should return error", test: func(t *testing.T) {
-		testKEK := []byte{208, 54, 21, 118, 74, 213, 2, 151, 38, 199, 225, 46, 189, 55, 60, 91}
-		testDEK := []byte{83, 125, 203, 18, 75, 156, 24, 192, 119, 73, 157, 222, 143, 140, 231, 181}
+		// encrypt data out of band.
+		dek, ok := m.dataKeys[m.activeKey]
+		require.True(t, ok)
 
-		m := Manager{
-			keyEncryptionKey:  testKEK,
-			dataEncryptionKey: testDEK,
-		}
-		// encrypt dek
-		b, err := aes.NewCipher(testKEK)
-		assert.Nil(t, err)
+		b, err := aes.NewCipher(dek)
+		require.Nil(t, err)
+
 		aead, err := cipher.NewGCM(b)
-		assert.Nil(t, err)
-		m.keyGCMCipher = aead
-		dekNonce := make([]byte, aead.NonceSize())
-		_, err = rand.Read(dekNonce)
-		assert.Nil(t, err)
-		encryptedDEK := aead.Seal(nil, dekNonce, testDEK, nil)
+		require.Nil(t, err)
 
-		// encrypt data
-		testData := []byte("something")
-		b, err = aes.NewCipher(testDEK)
-		assert.Nil(t, err)
-		dekAEAD, err := cipher.NewGCM(b)
-		assert.Nil(t, err)
-		dataNonce := make([]byte, aead.NonceSize())
-		_, err = rand.Read(dataNonce)
-		assert.Nil(t, err)
-		encryptedData := dekAEAD.Seal(nil, dataNonce, testData, nil)
+		nonce := make([]byte, aead.NonceSize())
+		_, err = rand.Read(nonce)
+		require.Nil(t, err)
 
-		// generate random nonce not used to seal either dek or data
+		cipherText := aead.Seal(nil, nonce, testData, nil)
+
+		// generate random nonce.
 		randomNonce := make([]byte, aead.NonceSize())
-		_, err = rand.Read(dataNonce)
-		assert.Nil(t, err)
+		_, err = rand.Read(nonce)
+		require.Nil(t, err)
+
 		// decrypted encrypted data using encrypted dek
-		_, err = m.Decrypt(encryptedData, dataNonce, encryptedDEK, randomNonce)
+		_, err = m.Decrypt(cipherText, randomNonce, m.activeKey)
 		assert.NotNil(t, err)
 	},
 	})
 
 	tests = append(tests, testCase{description: "test decrypt with DEK/nonce pair not used to encrypt should return error", test: func(t *testing.T) {
-		testKEK := []byte{208, 54, 21, 118, 74, 213, 2, 151, 38, 199, 225, 46, 189, 55, 60, 91}
-		testDEK := []byte{83, 125, 203, 18, 75, 156, 24, 192, 119, 73, 157, 222, 143, 140, 231, 181}
+		m, err := NewManager()
+		require.Nil(t, err)
 
-		m := Manager{
-			keyEncryptionKey:  testKEK,
-			dataEncryptionKey: testDEK,
-		}
-		// set aead
-		b, err := aes.NewCipher(testKEK)
-		assert.Nil(t, err)
-		aead, err := cipher.NewGCM(b)
-		assert.Nil(t, err)
-		m.keyGCMCipher = aead
-
-		// encrypt data
 		testData := []byte("something")
-		b, err = aes.NewCipher(testDEK)
-		assert.Nil(t, err)
-		dekAEAD, err := cipher.NewGCM(b)
-		assert.Nil(t, err)
-		dataNonce := make([]byte, aead.NonceSize())
-		_, err = rand.Read(dataNonce)
-		assert.Nil(t, err)
-		encryptedData := dekAEAD.Seal(nil, dataNonce, testData, nil)
 
-		// create and encrypt dek not used for encrypting data
-		otherDEK := []byte{83, 125, 203, 18, 75, 156, 24, 192, 119, 73, 157, 222, 143, 145, 231, 181}
+		// encrypt data out of band.
+		dek, ok := m.dataKeys[m.activeKey]
+		require.True(t, ok)
 
-		// encrypt dek
-		b, err = aes.NewCipher(testKEK)
-		assert.Nil(t, err)
-		otherAEAD, err := cipher.NewGCM(b)
-		assert.Nil(t, err)
-		otherDEKNonce := make([]byte, aead.NonceSize())
-		_, err = rand.Read(otherDEKNonce)
-		assert.Nil(t, err)
-		otherEncryptedDEK := otherAEAD.Seal(nil, otherDEKNonce, otherDEK, nil)
+		b, err := aes.NewCipher(dek)
+		require.Nil(t, err)
 
-		// decrypted encrypted data using encrypted dek
-		_, err = m.Decrypt(encryptedData, dataNonce, otherEncryptedDEK, otherDEKNonce)
+		aead, err := cipher.NewGCM(b)
+		require.Nil(t, err)
+
+		nonce := make([]byte, aead.NonceSize())
+		_, err = rand.Read(nonce)
+		require.Nil(t, err)
+
+		cipherText := aead.Seal(nil, nonce, testData, nil)
+
+		key, id, err := m.newDataEncryptionKey()
+		require.Nil(t, err)
+		m.dataKeys[id] = key
+
+		plainText, err := m.Decrypt(cipherText, nonce, id)
 		assert.NotNil(t, err)
+		assert.Nil(t, plainText)
+	},
+	})
+	tests = append(tests, testCase{description: "test decrypt for non active key", test: func(t *testing.T) {
+		m, err := NewManager()
+		require.Nil(t, err)
+
+		testData := []byte("something")
+
+		cipher, nonce, keyID, err := m.Encrypt(testData)
+		require.Nil(t, err)
+
+		// force key rotation.
+		m.activeKeyCounter += maxWriteCount
+		_, _, newKeyID, err := m.Encrypt(nil)
+		require.Nil(t, err)
+		require.NotEqual(t, keyID, newKeyID)
+
+		// use manager to decrypt the data.
+		decryptedData, err := m.Decrypt(cipher, nonce, keyID)
+		require.Nil(t, err)
+
+		assert.Equal(t, testData, decryptedData)
 	},
 	})
 
@@ -364,4 +276,61 @@ func TestDecrypt(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) { test.test(t) })
 	}
+}
+
+var buf = make([]byte, 8192)
+
+func BenchmarkEncryption(b *testing.B) {
+	benchEncrypt(b, 1024)
+	benchEncrypt(b, 4096)
+	benchEncrypt(b, 8192)
+}
+
+func BenchmarkDecryption(b *testing.B) {
+	benchDecrypt(b, 1024)
+	benchDecrypt(b, 4096)
+	benchDecrypt(b, 8192)
+}
+
+func benchEncrypt(b *testing.B, size int) {
+	m, err := NewManager()
+	if err != nil {
+		b.Fatal("failed to create manager", err)
+	}
+	// disable auto rotation to avoid skewing results.
+	maxWriteCount = math.MaxInt32
+
+	b.Run(fmt.Sprintf("encrypt-%d", size), func(b *testing.B) {
+		b.ReportAllocs()
+		b.SetBytes(int64(size))
+		for i := 0; i < b.N; i++ {
+			_, _, _, err := m.Encrypt(buf[:size])
+			if err != nil {
+				b.Fatal("error encrypting data", err)
+			}
+		}
+	})
+}
+
+func benchDecrypt(b *testing.B, size int) {
+	m, err := NewManager()
+	if err != nil {
+		b.Fatal("failed to create manager", err)
+	}
+
+	edata, enonce, kid, err := m.Encrypt(buf[:size])
+	if err != nil {
+		b.Fatal("failed to encrypt data", err)
+	}
+
+	b.Run(fmt.Sprintf("decrypt-%d", size), func(b *testing.B) {
+		b.ReportAllocs()
+		b.SetBytes(int64(size))
+		for i := 0; i < b.N; i++ {
+			_, err := m.Decrypt(edata, enonce, kid)
+			if err != nil {
+				b.Fatal("error encrypting data", err)
+			}
+		}
+	})
 }

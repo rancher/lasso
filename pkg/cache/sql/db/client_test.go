@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -95,6 +96,8 @@ func TestQueryObjects(t *testing.T) {
 	var tests []testCase
 
 	testObject := testStoreObject{Id: "something", Val: "a"}
+	keyId := uuid.New()
+
 	// Tests with shouldEncryptSet to false
 	tests = append(tests, testCase{description: "Query objects, with one row, and no errors", test: func(t *testing.T) {
 		c := SetupMockConnection(t)
@@ -103,12 +106,11 @@ func TestQueryObjects(t *testing.T) {
 		r := SetupMockRows(t)
 		r.EXPECT().Next().Return(true)
 		r.EXPECT().Scan(gomock.Any()).Do(func(a ...any) {
-			for _, v := range a {
-				vk := v.(*sql.RawBytes)
-				*vk = toBytes(testObject)
-			}
+			*a[0].(*sql.RawBytes) = toBytes(testObject)
+			*a[1].(*sql.RawBytes) = toBytes(testObject)
+			*a[2].(*sql.RawBytes) = keyId[:]
 		})
-		d.EXPECT().Decrypt(toBytes(testObject), toBytes(testObject), toBytes(testObject), toBytes(testObject)).Return(toBytes(testObject), nil)
+		d.EXPECT().Decrypt(toBytes(testObject), toBytes(testObject), keyId).Return(toBytes(testObject), nil)
 		r.EXPECT().Err().Return(nil)
 		r.EXPECT().Next().Return(false)
 		r.EXPECT().Close().Return(nil)
@@ -125,12 +127,11 @@ func TestQueryObjects(t *testing.T) {
 		r := SetupMockRows(t)
 		r.EXPECT().Next().Return(true)
 		r.EXPECT().Scan(gomock.Any()).Do(func(a ...any) {
-			for _, v := range a {
-				vk := v.(*sql.RawBytes)
-				*vk = toBytes(testObject)
-			}
+			*a[0].(*sql.RawBytes) = toBytes(testObject)
+			*a[1].(*sql.RawBytes) = toBytes(testObject)
+			*a[2].(*sql.RawBytes) = keyId[:]
 		})
-		d.EXPECT().Decrypt(toBytes(testObject), toBytes(testObject), toBytes(testObject), toBytes(testObject)).Return(nil, fmt.Errorf("error"))
+		d.EXPECT().Decrypt(toBytes(testObject), toBytes(testObject), keyId).Return(nil, fmt.Errorf("error"))
 		r.EXPECT().Close().Return(nil)
 		client := SetupClient(t, c, e, d)
 		_, err := client.ReadObjects(r, reflect.TypeOf(testObject), true)
@@ -157,12 +158,11 @@ func TestQueryObjects(t *testing.T) {
 		r := SetupMockRows(t)
 		r.EXPECT().Next().Return(true)
 		r.EXPECT().Scan(gomock.Any()).Do(func(a ...any) {
-			for _, v := range a {
-				vk := v.(*sql.RawBytes)
-				*vk = toBytes(testObject)
-			}
+			*a[0].(*sql.RawBytes) = toBytes(testObject)
+			*a[1].(*sql.RawBytes) = toBytes(testObject)
+			*a[2].(*sql.RawBytes) = keyId[:]
 		})
-		d.EXPECT().Decrypt(toBytes(testObject), toBytes(testObject), toBytes(testObject), toBytes(testObject)).Return(toBytes(testObject), nil)
+		d.EXPECT().Decrypt(toBytes(testObject), toBytes(testObject), keyId).Return(toBytes(testObject), nil)
 		r.EXPECT().Err().Return(nil)
 		r.EXPECT().Next().Return(false)
 		r.EXPECT().Close().Return(fmt.Errorf("error"))
@@ -343,7 +343,9 @@ func TestUpsert(t *testing.T) {
 	var tests []testCase
 
 	testObject := testStoreObject{Id: "something", Val: "a"}
-	// Tests with shouldEncryptSet to false
+	keyID := uuid.New()
+
+	// Tests with shouldEncryptSet to true
 	tests = append(tests, testCase{description: "Upsert() with no errors", test: func(t *testing.T) {
 		c := SetupMockConnection(t)
 		e := SetupMockEncryptor(t)
@@ -355,9 +357,9 @@ func TestUpsert(t *testing.T) {
 		stmt := NewMockStmt(gomock.NewController(t))
 		testObjBytes := toBytes(testObject)
 		testByteValue := []byte("something")
-		e.EXPECT().Encrypt(testObjBytes).Return(testByteValue, testByteValue, testByteValue, testByteValue, nil)
+		e.EXPECT().Encrypt(testObjBytes).Return(testByteValue, testByteValue, keyID, nil)
 		txC.EXPECT().Stmt(sqlStmt).Return(stmt)
-		txC.EXPECT().StmtExec(stmt, "somekey", testByteValue, testByteValue, testByteValue, testByteValue).Return(nil)
+		txC.EXPECT().StmtExec(stmt, "somekey", testByteValue, testByteValue, keyID[:]).Return(nil)
 		err := client.Upsert(txC, sqlStmt, "somekey", testObject, true)
 		assert.Nil(t, err)
 	},
@@ -371,7 +373,7 @@ func TestUpsert(t *testing.T) {
 		txC := NewMockTXClient(gomock.NewController(t))
 		sqlStmt := &sql.Stmt{}
 		testObjBytes := toBytes(testObject)
-		e.EXPECT().Encrypt(testObjBytes).Return(nil, nil, nil, nil, fmt.Errorf("error"))
+		e.EXPECT().Encrypt(testObjBytes).Return(nil, nil, uuid.Nil, fmt.Errorf("error"))
 		err := client.Upsert(txC, sqlStmt, "somekey", testObject, true)
 		assert.NotNil(t, err)
 	},
@@ -387,9 +389,9 @@ func TestUpsert(t *testing.T) {
 		stmt := NewMockStmt(gomock.NewController(t))
 		testObjBytes := toBytes(testObject)
 		testByteValue := []byte("something")
-		e.EXPECT().Encrypt(testObjBytes).Return(testByteValue, testByteValue, testByteValue, testByteValue, nil)
+		e.EXPECT().Encrypt(testObjBytes).Return(testByteValue, testByteValue, keyID, nil)
 		txC.EXPECT().Stmt(sqlStmt).Return(stmt)
-		txC.EXPECT().StmtExec(stmt, "somekey", testByteValue, testByteValue, testByteValue, testByteValue).Return(fmt.Errorf("error"))
+		txC.EXPECT().StmtExec(stmt, "somekey", testByteValue, testByteValue, keyID[:]).Return(fmt.Errorf("error"))
 		err := client.Upsert(txC, sqlStmt, "somekey", testObject, true)
 		assert.NotNil(t, err)
 	},
@@ -406,7 +408,7 @@ func TestUpsert(t *testing.T) {
 		var testByteValue []byte
 		testObjBytes := toBytes(testObject)
 		txC.EXPECT().Stmt(sqlStmt).Return(stmt)
-		txC.EXPECT().StmtExec(stmt, "somekey", testObjBytes, testByteValue, testByteValue, testByteValue).Return(nil)
+		txC.EXPECT().StmtExec(stmt, "somekey", testObjBytes, testByteValue, uuid.Nil[:]).Return(nil)
 		err := client.Upsert(txC, sqlStmt, "somekey", testObject, false)
 		assert.Nil(t, err)
 	},
