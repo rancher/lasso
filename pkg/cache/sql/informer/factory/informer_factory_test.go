@@ -1,10 +1,11 @@
 package factory
 
 import (
-	"github.com/rancher/lasso/pkg/cache/sql/informer"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/rancher/lasso/pkg/cache/sql/informer"
 
 	"github.com/golang/mock/gomock"
 	sqlStore "github.com/rancher/lasso/pkg/cache/sql/store"
@@ -34,6 +35,7 @@ func TestNewCacheFactory(t *testing.T) {
 	}})
 	tests = append(tests, testCase{description: "NewCacheFactory() with no errors returned and EncryptAllEnvVar set to true, should return no errors and have encryptAll set to true", test: func(t *testing.T) {
 		err := os.Setenv(EncryptAllEnvVar, "true")
+		assert.Nil(t, err)
 		f, err := NewCacheFactory()
 		assert.Nil(t, err)
 		assert.Nil(t, err)
