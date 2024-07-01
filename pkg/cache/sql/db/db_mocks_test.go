@@ -9,7 +9,6 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	"github.com/google/uuid"
 	transaction "github.com/rancher/lasso/pkg/cache/sql/db/transaction"
 )
 
@@ -207,12 +206,12 @@ func (m *MockEncryptor) EXPECT() *MockEncryptorMockRecorder {
 }
 
 // Encrypt mocks base method.
-func (m *MockEncryptor) Encrypt(arg0 []byte) ([]byte, []byte, uuid.UUID, error) {
+func (m *MockEncryptor) Encrypt(arg0 []byte) ([]byte, []byte, uint32, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Encrypt", arg0)
 	ret0, _ := ret[0].([]byte)
 	ret1, _ := ret[1].([]byte)
-	ret2, _ := ret[2].(uuid.UUID)
+	ret2, _ := ret[2].(uint32)
 	ret3, _ := ret[3].(error)
 	return ret0, ret1, ret2, ret3
 }
@@ -247,7 +246,7 @@ func (m *MockDecryptor) EXPECT() *MockDecryptorMockRecorder {
 }
 
 // Decrypt mocks base method.
-func (m *MockDecryptor) Decrypt(arg0, arg1 []byte, arg2 uuid.UUID) ([]byte, error) {
+func (m *MockDecryptor) Decrypt(arg0, arg1 []byte, arg2 uint32) ([]byte, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Decrypt", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]byte)

@@ -26,7 +26,7 @@ const (
 		key TEXT UNIQUE NOT NULL PRIMARY KEY,
 		object BLOB,
 		objectnonce BLOB,
-		dekid BLOB
+		dekid INTEGER
 	)`
 )
 

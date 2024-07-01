@@ -33,15 +33,13 @@ func TestEncrypt(t *testing.T) {
 		m, err := NewManager()
 		require.Nil(t, err)
 
-		m.dataKeys[m.activeKey] = testDEK
+		m.dataKeys[0] = testDEK
 
 		testData := []byte("something")
 		cipherText, nonce, keyID, err := m.Encrypt(testData)
 		require.Nil(t, err)
 
-		dek, ok := m.dataKeys[keyID]
-		require.True(t, ok)
-
+		dek := m.dataKeys[keyID]
 		b, err := aes.NewCipher(dek)
 		require.Nil(t, err)
 
@@ -60,9 +58,7 @@ func TestEncrypt(t *testing.T) {
 		cipherText, nonce, keyID, err := m.Encrypt(testData)
 		require.Nil(t, err)
 
-		dek, ok := m.dataKeys[keyID]
-		require.True(t, ok)
-
+		dek := m.dataKeys[keyID]
 		b, err := aes.NewCipher(dek)
 		require.Nil(t, err)
 
@@ -132,7 +128,7 @@ func TestDecrypt(t *testing.T) {
 		m, err := NewManager()
 		require.Nil(t, err)
 
-		m.dataKeys[m.activeKey] = testDEK
+		m.dataKeys[0] = testDEK
 
 		testData := []byte("something")
 
@@ -150,7 +146,7 @@ func TestDecrypt(t *testing.T) {
 		cipherText := aead.Seal(nil, nonce, testData, nil)
 
 		// use manager to decrypt the data.
-		decryptedData, err := m.Decrypt(cipherText, nonce, m.activeKey)
+		decryptedData, err := m.Decrypt(cipherText, nonce, 0)
 		require.Nil(t, err)
 
 		assert.Equal(t, testData, decryptedData)
@@ -163,9 +159,7 @@ func TestDecrypt(t *testing.T) {
 		testData := []byte("something")
 
 		// encrypt data out of band.
-		dek, ok := m.dataKeys[m.activeKey]
-		require.True(t, ok)
-
+		dek := m.dataKeys[0]
 		b, err := aes.NewCipher(dek)
 		require.Nil(t, err)
 
@@ -179,7 +173,7 @@ func TestDecrypt(t *testing.T) {
 		cipherText := aead.Seal(nil, nonce, testData, nil)
 
 		// use manager to decrypt the data.
-		decryptedData, err := m.Decrypt(cipherText, nonce, m.activeKey)
+		decryptedData, err := m.Decrypt(cipherText, nonce, 0)
 		require.Nil(t, err)
 
 		assert.Equal(t, testData, decryptedData)
@@ -192,9 +186,7 @@ func TestDecrypt(t *testing.T) {
 		testData := []byte("something")
 
 		// encrypt data out of band.
-		dek, ok := m.dataKeys[m.activeKey]
-		require.True(t, ok)
-
+		dek := m.dataKeys[0]
 		b, err := aes.NewCipher(dek)
 		require.Nil(t, err)
 
@@ -213,7 +205,7 @@ func TestDecrypt(t *testing.T) {
 		require.Nil(t, err)
 
 		// decrypted encrypted data using encrypted dek
-		_, err = m.Decrypt(cipherText, randomNonce, m.activeKey)
+		_, err = m.Decrypt(cipherText, randomNonce, 0)
 		assert.NotNil(t, err)
 	},
 	})
@@ -225,9 +217,7 @@ func TestDecrypt(t *testing.T) {
 		testData := []byte("something")
 
 		// encrypt data out of band.
-		dek, ok := m.dataKeys[m.activeKey]
-		require.True(t, ok)
-
+		dek := m.dataKeys[0]
 		b, err := aes.NewCipher(dek)
 		require.Nil(t, err)
 

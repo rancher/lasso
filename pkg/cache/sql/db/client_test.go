@@ -3,13 +3,14 @@ package db
 import (
 	"context"
 	"database/sql"
+	"encoding/binary"
 	"fmt"
+	"math"
 	"os"
 	"reflect"
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -96,7 +97,7 @@ func TestQueryObjects(t *testing.T) {
 	var tests []testCase
 
 	testObject := testStoreObject{Id: "something", Val: "a"}
-	keyId := uuid.New()
+	var keyId uint32 = math.MaxUint32
 
 	// Tests with shouldEncryptSet to false
 	tests = append(tests, testCase{description: "Query objects, with one row, and no errors", test: func(t *testing.T) {
@@ -108,7 +109,8 @@ func TestQueryObjects(t *testing.T) {
 		r.EXPECT().Scan(gomock.Any()).Do(func(a ...any) {
 			*a[0].(*sql.RawBytes) = toBytes(testObject)
 			*a[1].(*sql.RawBytes) = toBytes(testObject)
-			*a[2].(*sql.RawBytes) = keyId[:]
+			*a[2].(*sql.RawBytes) = make([]byte, 4) // uint32 is represented by 4 bytes
+			binary.LittleEndian.PutUint32(*a[2].(*sql.RawBytes), keyId)
 		})
 		d.EXPECT().Decrypt(toBytes(testObject), toBytes(testObject), keyId).Return(toBytes(testObject), nil)
 		r.EXPECT().Err().Return(nil)
@@ -128,8 +130,10 @@ func TestQueryObjects(t *testing.T) {
 		r.EXPECT().Next().Return(true)
 		r.EXPECT().Scan(gomock.Any()).Do(func(a ...any) {
 			*a[0].(*sql.RawBytes) = toBytes(testObject)
-			*a[1].(*sql.RawBytes) = toBytes(testObject)
-			*a[2].(*sql.RawBytes) = keyId[:]
+			*a[1].(*sql.RawBytes) = toBytes(
+				testObject)
+			*a[2].(*sql.RawBytes) = make([]byte, 4) // uint32 is represented by 4 bytes
+			binary.LittleEndian.PutUint32(*a[2].(*sql.RawBytes), keyId)
 		})
 		d.EXPECT().Decrypt(toBytes(testObject), toBytes(testObject), keyId).Return(nil, fmt.Errorf("error"))
 		r.EXPECT().Close().Return(nil)
@@ -160,7 +164,8 @@ func TestQueryObjects(t *testing.T) {
 		r.EXPECT().Scan(gomock.Any()).Do(func(a ...any) {
 			*a[0].(*sql.RawBytes) = toBytes(testObject)
 			*a[1].(*sql.RawBytes) = toBytes(testObject)
-			*a[2].(*sql.RawBytes) = keyId[:]
+			*a[2].(*sql.RawBytes) = make([]byte, 4) // uint32 is represented by 4 bytes
+			binary.LittleEndian.PutUint32(*a[2].(*sql.RawBytes), keyId)
 		})
 		d.EXPECT().Decrypt(toBytes(testObject), toBytes(testObject), keyId).Return(toBytes(testObject), nil)
 		r.EXPECT().Err().Return(nil)
@@ -343,7 +348,7 @@ func TestUpsert(t *testing.T) {
 	var tests []testCase
 
 	testObject := testStoreObject{Id: "something", Val: "a"}
-	keyID := uuid.New()
+	var keyID uint32 = 5
 
 	// Tests with shouldEncryptSet to true
 	tests = append(tests, testCase{description: "Upsert() with no errors", test: func(t *testing.T) {
@@ -359,7 +364,7 @@ func TestUpsert(t *testing.T) {
 		testByteValue := []byte("something")
 		e.EXPECT().Encrypt(testObjBytes).Return(testByteValue, testByteValue, keyID, nil)
 		txC.EXPECT().Stmt(sqlStmt).Return(stmt)
-		txC.EXPECT().StmtExec(stmt, "somekey", testByteValue, testByteValue, keyID[:]).Return(nil)
+		txC.EXPECT().StmtExec(stmt, "somekey", testByteValue, testByteValue, keyID).Return(nil)
 		err := client.Upsert(txC, sqlStmt, "somekey", testObject, true)
 		assert.Nil(t, err)
 	},
@@ -373,7 +378,7 @@ func TestUpsert(t *testing.T) {
 		txC := NewMockTXClient(gomock.NewController(t))
 		sqlStmt := &sql.Stmt{}
 		testObjBytes := toBytes(testObject)
-		e.EXPECT().Encrypt(testObjBytes).Return(nil, nil, uuid.Nil, fmt.Errorf("error"))
+		e.EXPECT().Encrypt(testObjBytes).Return(nil, nil, uint32(0), fmt.Errorf("error"))
 		err := client.Upsert(txC, sqlStmt, "somekey", testObject, true)
 		assert.NotNil(t, err)
 	},
@@ -391,7 +396,7 @@ func TestUpsert(t *testing.T) {
 		testByteValue := []byte("something")
 		e.EXPECT().Encrypt(testObjBytes).Return(testByteValue, testByteValue, keyID, nil)
 		txC.EXPECT().Stmt(sqlStmt).Return(stmt)
-		txC.EXPECT().StmtExec(stmt, "somekey", testByteValue, testByteValue, keyID[:]).Return(fmt.Errorf("error"))
+		txC.EXPECT().StmtExec(stmt, "somekey", testByteValue, testByteValue, keyID).Return(fmt.Errorf("error"))
 		err := client.Upsert(txC, sqlStmt, "somekey", testObject, true)
 		assert.NotNil(t, err)
 	},
@@ -408,7 +413,7 @@ func TestUpsert(t *testing.T) {
 		var testByteValue []byte
 		testObjBytes := toBytes(testObject)
 		txC.EXPECT().Stmt(sqlStmt).Return(stmt)
-		txC.EXPECT().StmtExec(stmt, "somekey", testObjBytes, testByteValue, uuid.Nil[:]).Return(nil)
+		txC.EXPECT().StmtExec(stmt, "somekey", testObjBytes, testByteValue, uint32(0)).Return(nil)
 		err := client.Upsert(txC, sqlStmt, "somekey", testObject, false)
 		assert.Nil(t, err)
 	},

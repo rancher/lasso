@@ -1,5 +1,6 @@
 // package encryption provides encryption and decryption functions, while
 // abstracting away key management concerns.
+// Uses AES-GCM encryption, with key rotation, keeping keys in memory.
 package encryption
 
 import (
@@ -9,15 +10,12 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/google/uuid"
 	"github.com/pkg/errors"
 )
 
 var (
-	ErrKeyNotFound = errors.New("data key not found")
-	ErrInvalidKey  = errors.New("invalid key")
-
-	maxWriteCount int32 = 150000
+	ErrKeyNotFound       = errors.New("data key not found")
+	maxWriteCount  int32 = 150000
 )
 
 const (
@@ -28,8 +26,7 @@ const (
 // keys. The active encryption key is automatically rotated once it has been
 // used over a certain amount of times - defined by maxWriteCount.
 type Manager struct {
-	dataKeys         map[uuid.UUID][]byte
-	activeKey        uuid.UUID
+	dataKeys         [][]byte
 	activeKeyCounter int32
 
 	// lock works as the mutual exclusion lock for dataKeys, activeKey
@@ -46,15 +43,10 @@ func NewManager() (*Manager, error) {
 	}
 
 	m := &Manager{
-		dataKeys: map[uuid.UUID][]byte{},
+		dataKeys: [][]byte{},
 	}
 
-	keyID, err := uuid.NewRandom()
-	if err != nil {
-		return nil, err
-	}
-	m.activeKey = keyID
-	m.dataKeys[m.activeKey] = dek
+	m.dataKeys = append(m.dataKeys, dek)
 
 	return m, nil
 }
@@ -62,28 +54,28 @@ func NewManager() (*Manager, error) {
 // Encrypt encrypts data using the current active key.
 // Returned values are: the encrypted data, the nonce used to encrypt the
 // data, and the key ID used to encrypt the data.
-func (m *Manager) Encrypt(data []byte) ([]byte, []byte, uuid.UUID, error) {
+func (m *Manager) Encrypt(data []byte) ([]byte, []byte, uint32, error) {
 	dek, keyID, err := m.fetchActiveDataKey()
 	if err != nil {
-		return nil, nil, uuid.Nil, err
+		return nil, nil, 0, err
 	}
 	aead, err := createGCMCypher(dek)
 	if err != nil {
-		return nil, nil, uuid.Nil, err
+		return nil, nil, 0, err
 	}
 	edata, nonce, err := encrypt(aead, data)
 	if err != nil {
-		return nil, nil, uuid.Nil, err
+		return nil, nil, 0, err
 	}
 	return edata, nonce, keyID, nil
 }
 
 // Decrypt decrypts a pair of encrypted data and nonce based on a keyID.
-func (m *Manager) Decrypt(edata, nonce []byte, keyID uuid.UUID) ([]byte, error) {
-	dek, ok := m.dataKeys[keyID]
-	if !ok {
+func (m *Manager) Decrypt(edata, nonce []byte, keyID uint32) ([]byte, error) {
+	if len(m.dataKeys) <= int(keyID) {
 		return nil, fmt.Errorf("%w: %v", ErrKeyNotFound, keyID)
 	}
+	dek := m.dataKeys[keyID]
 
 	aead, err := createGCMCypher(dek)
 	if err != nil {
@@ -91,7 +83,7 @@ func (m *Manager) Decrypt(edata, nonce []byte, keyID uuid.UUID) ([]byte, error) 
 	}
 	data, err := aead.Open(nil, nonce, edata, nil)
 	if err != nil {
-		return nil, errors.Wrap(err, fmt.Sprintf("failed to decrypt data using %s", keyID))
+		return nil, errors.Wrap(err, fmt.Sprintf("failed to decrypt data using keyid %d", keyID))
 	}
 	return data, nil
 }
@@ -125,47 +117,43 @@ func createGCMCypher(key []byte) (cipher.AEAD, error) {
 // Each call results in activeKeyCounter being incremented by 1. When the
 // the activeKeyCounter exceeds maxWriteCount, the active data key is
 // rotated - before being returned.
-func (m *Manager) fetchActiveDataKey() ([]byte, uuid.UUID, error) {
+func (m *Manager) fetchActiveDataKey() ([]byte, uint32, error) {
 	m.lock.Lock()
+	defer m.lock.Unlock()
 	m.activeKeyCounter++
 
-	if m.activeKey == uuid.Nil || m.activeKeyCounter >= maxWriteCount {
+	if m.activeKeyCounter >= maxWriteCount {
 		dek, keyID, err := m.newDataEncryptionKey()
 		if err != nil {
-			m.lock.Unlock()
-			return nil, uuid.Nil, err
+			return nil, 0, err
 		}
 
-		m.activeKey = keyID
-		m.dataKeys[m.activeKey] = dek
-		m.lock.Unlock()
+		m.dataKeys[keyID] = dek
 		return dek, keyID, nil
 	}
-	dek, ok := m.dataKeys[m.activeKey]
-	m.lock.Unlock()
+	keyID := m.activeKey()
 
-	if !ok {
-		return nil, uuid.Nil, fmt.Errorf("%w: %v", ErrKeyNotFound, m.activeKey)
+	if len(m.dataKeys) <= int(keyID) {
+		return nil, 0, fmt.Errorf("%w: key ID %d", ErrKeyNotFound, m.activeKey())
 	}
-
-	return dek, m.activeKey, nil
-}
-
-func (m *Manager) newDataEncryptionKey() ([]byte, uuid.UUID, error) {
-	dek := make([]byte, keySize)
-	err := newRand(dek)
-	if err != nil {
-		return nil, uuid.Nil, err
-	}
-
-	keyID, err := uuid.NewRandom()
-	if err != nil {
-		return nil, uuid.Nil, err
-	}
+	dek := m.dataKeys[keyID]
 
 	return dek, keyID, nil
 }
 
+func (m *Manager) newDataEncryptionKey() ([]byte, uint32, error) {
+	dek := make([]byte, keySize)
+	err := newRand(dek)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	m.dataKeys = append(m.dataKeys, dek)
+
+	return dek, m.activeKey(), nil
+}
+
+//go:inline
 func newRand(d []byte) error {
 	_, err := rand.Read(d)
 	if err != nil {
@@ -173,4 +161,12 @@ func newRand(d []byte) error {
 	}
 
 	return nil
+}
+
+func (m *Manager) activeKey() uint32 {
+	nk := len(m.dataKeys)
+	if nk == 0 {
+		return 0
+	}
+	return uint32(nk - 1)
 }
