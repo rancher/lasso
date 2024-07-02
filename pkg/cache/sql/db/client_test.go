@@ -66,7 +66,7 @@ func TestQueryForRows(t *testing.T) {
 		ctx := context.TODO()
 		r := &sql.Rows{}
 		s.EXPECT().QueryContext(ctx).Return(r, nil)
-		rows, err := client.QueryForRows(ctx, s)
+		rows, err := client.QueryForRows(ctx, "mocked query", s)
 		assert.Nil(t, err)
 		assert.Equal(t, r, rows)
 	},
@@ -77,7 +77,7 @@ func TestQueryForRows(t *testing.T) {
 		s := NewMockStmt(gomock.NewController(t))
 		ctx := context.TODO()
 		s.EXPECT().QueryContext(ctx).Return(nil, fmt.Errorf("error"))
-		_, err := client.QueryForRows(ctx, s)
+		_, err := client.QueryForRows(ctx, "mocked query", s)
 		assert.NotNil(t, err)
 	},
 	})
