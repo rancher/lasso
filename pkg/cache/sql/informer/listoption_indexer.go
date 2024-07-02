@@ -184,6 +184,9 @@ func (l *ListOptionIndexer) ListByOptions(ctx context.Context, lo ListOptions, p
 		if err != nil {
 			return nil, "", err
 		}
+		if orClause == "" {
+			continue
+		}
 		whereClauses = append(whereClauses, orClause)
 		params = append(params, orParams...)
 	}

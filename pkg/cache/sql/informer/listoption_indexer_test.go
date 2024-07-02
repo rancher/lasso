@@ -198,6 +198,23 @@ func TestListByOptions(t *testing.T) {
 		expectedErr:       nil,
 	})
 	tests = append(tests, testCase{
+		description: "ListByOptions() with an empty filter, should not return an error",
+		listOptions: ListOptions{
+			Filters: []OrFilter{{[]Filter{}}},
+		},
+		partitions: []partition.Partition{},
+		ns:         "",
+		expectedStmt: `SELECT o.object, o.objectnonce, o.dek, o.deknonce FROM "something" o
+  JOIN db2."something_fields" f ON o.key = f.key
+  WHERE
+    (FALSE)
+  ORDER BY f."metadata.name" ASC `,
+		returnList:        []any{&unstructured.Unstructured{Object: unstrTestObjectMap}},
+		expectedList:      &unstructured.UnstructuredList{Object: map[string]interface{}{"items": []map[string]interface{}{unstrTestObjectMap}}, Items: []unstructured.Unstructured{{Object: unstrTestObjectMap}}},
+		expectedContToken: "",
+		expectedErr:       nil,
+	})
+	tests = append(tests, testCase{
 		description: "ListByOptions with ChunkSize set should set limit in prepared sql.Stmt",
 		listOptions: ListOptions{ChunkSize: 2},
 		partitions:  []partition.Partition{},
