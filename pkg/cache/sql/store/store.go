@@ -55,7 +55,7 @@ var _ cache.Store = (*Store)(nil)
 type DBClient interface {
 	Begin() (db.TXClient, error)
 	Prepare(stmt string) *sql.Stmt
-	QueryForRows(ctx context.Context, stmt transaction.Stmt, params ...any) (*sql.Rows, error)
+	QueryForRows(ctx context.Context, query string, stmt transaction.Stmt, params ...any) (*sql.Rows, error)
 	ReadObjects(rows db.Rows, typ reflect.Type, shouldDecrypt bool) ([]any, error)
 	ReadStrings(rows db.Rows) ([]string, error)
 	Upsert(tx db.TXClient, stmt *sql.Stmt, key string, obj any, shouldEncrypt bool) error
@@ -140,7 +140,7 @@ func (s *Store) deleteByKey(key string) error {
 
 // GetByKey returns the object associated with the given object's key
 func (s *Store) GetByKey(key string) (item any, exists bool, err error) {
-	rows, err := s.QueryForRows(context.TODO(), s.getStmt, key)
+	rows, err := s.QueryForRows(context.TODO(), getStmtFmt, s.getStmt, key)
 	if err != nil {
 		return nil, false, err
 	}
@@ -186,7 +186,7 @@ func (s *Store) Delete(obj any) error {
 // List returns a list of all the currently known objects
 // Note: I/O errors will panic this function, as the interface signature does not allow returning errors
 func (s *Store) List() []any {
-	rows, err := s.QueryForRows(context.TODO(), s.listStmt)
+	rows, err := s.QueryForRows(context.TODO(), listStmtFmt, s.listStmt)
 	if err != nil {
 		panic(errors.Wrap(err, "Unexpected error in Store.List"))
 	}
@@ -201,7 +201,7 @@ func (s *Store) List() []any {
 // Note: Atm it doesn't appear returning nil in the case of an error has any detrimental effects. An error is not
 // uncommon enough nor does it appear to necessitate a panic.
 func (s *Store) ListKeys() []string {
-	rows, err := s.QueryForRows(context.TODO(), s.listKeysStmt)
+	rows, err := s.QueryForRows(context.TODO(), listKeysStmtFmt, s.listKeysStmt)
 	if err != nil {
 		fmt.Printf("Unexpected error in store.ListKeys: %v\n", err)
 		return []string{}
@@ -247,7 +247,7 @@ func (s *Store) replaceByKey(objects map[string]any) error {
 
 	txCListKeys := txC.Stmt(s.listKeysStmt)
 
-	rows, err := s.QueryForRows(context.TODO(), txCListKeys)
+	rows, err := s.QueryForRows(context.TODO(), listKeysStmtFmt, txCListKeys)
 	if err != nil {
 		return err
 	}

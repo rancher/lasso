@@ -69,7 +69,7 @@ type Store interface {
 
 type DBClient interface {
 	Begin() (db.TXClient, error)
-	QueryForRows(ctx context.Context, stmt transaction.Stmt, params ...any) (*sql.Rows, error)
+	QueryForRows(ctx context.Context, query string, stmt transaction.Stmt, params ...any) (*sql.Rows, error)
 	ReadObjects(rows db.Rows, typ reflect.Type, shouldDecrypt bool) ([]any, error)
 	ReadStrings(rows db.Rows) ([]string, error)
 	Prepare(stmt string) *sql.Stmt
@@ -182,7 +182,7 @@ func (i *Indexer) Index(indexName string, obj any) ([]any, error) {
 		params = append(params, value)
 	}
 
-	rows, err := i.QueryForRows(context.TODO(), stmt, params...)
+	rows, err := i.QueryForRows(context.TODO(), query, stmt, params...)
 	if err != nil {
 		return nil, err
 	}
@@ -192,7 +192,7 @@ func (i *Indexer) Index(indexName string, obj any) ([]any, error) {
 // ByIndex returns the stored objects whose set of indexed values
 // for the named index includes the given indexed value
 func (i *Indexer) ByIndex(indexName, indexedValue string) ([]any, error) {
-	rows, err := i.QueryForRows(context.TODO(), i.listByIndexStmt, indexName, indexedValue)
+	rows, err := i.QueryForRows(context.TODO(), listByIndexFmt, i.listByIndexStmt, indexName, indexedValue)
 	if err != nil {
 		return nil, err
 	}
@@ -208,7 +208,7 @@ func (i *Indexer) IndexKeys(indexName, indexedValue string) ([]string, error) {
 		return nil, fmt.Errorf("Index with name %s does not exist", indexName)
 	}
 
-	rows, err := i.QueryForRows(context.TODO(), i.listKeysByIndexStmt, indexName, indexedValue)
+	rows, err := i.QueryForRows(context.TODO(), listKeyByIndexFmt, i.listKeysByIndexStmt, indexName, indexedValue)
 	if err != nil {
 		return nil, err
 	}
@@ -226,7 +226,7 @@ func (i *Indexer) ListIndexFuncValues(name string) []string {
 
 // safeListIndexFuncValues returns all the indexed values of the given index
 func (i *Indexer) safeListIndexFuncValues(indexName string) ([]string, error) {
-	rows, err := i.QueryForRows(context.TODO(), i.listIndexValuesStmt, indexName)
+	rows, err := i.QueryForRows(context.TODO(), listIndexValuesFmt, i.listIndexValuesStmt, indexName)
 	if err != nil {
 		return nil, err
 	}

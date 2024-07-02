@@ -112,7 +112,7 @@ func (c *Client) Prepare(stmt string) *sql.Stmt {
 
 // QueryForRows queries the given stmt with the given params and returns the resulting rows. The query wil be retried
 // given a sqlite busy error.
-func (c *Client) QueryForRows(ctx context.Context, stmt transaction.Stmt, params ...any) (*sql.Rows, error) {
+func (c *Client) QueryForRows(ctx context.Context, query string, stmt transaction.Stmt, params ...any) (*sql.Rows, error) {
 	c.connLock.RLock()
 	defer c.connLock.RUnlock()
 	var rows *sql.Rows
@@ -125,7 +125,7 @@ func (c *Client) QueryForRows(ctx context.Context, stmt transaction.Stmt, params
 			if ok && sqlErr.Code() == sqlite3.SQLITE_BUSY {
 				return false, nil
 			}
-			return false, errors.Wrapf(err, "Error initializing Store DB")
+			return false, errors.Wrapf(err, "Error while running query: %s", query)
 		}
 		return true, nil
 	})

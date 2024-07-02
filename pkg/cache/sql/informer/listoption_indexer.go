@@ -338,7 +338,7 @@ func (l *ListOptionIndexer) ListByOptions(ctx context.Context, lo ListOptions, p
 	// execute
 	prepStmt := l.Prepare(stmt)
 	defer l.CloseStmt(prepStmt)
-	rows, err := l.QueryForRows(ctx, prepStmt, params...)
+	rows, err := l.QueryForRows(ctx, stmt, prepStmt, params...)
 	if err != nil {
 		return nil, "", err
 	}
