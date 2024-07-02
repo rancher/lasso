@@ -37,7 +37,7 @@ type Manager struct {
 // NewManager returns Manager.
 func NewManager() (*Manager, error) {
 	dek := make([]byte, keySize, keySize)
-	err := newRand(dek)
+	_, err := rand.Read(dek)
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +93,7 @@ func encrypt(aead cipher.AEAD, data []byte) ([]byte, []byte, error) {
 		return nil, nil, fmt.Errorf("aead is nil, cannot encrypt data")
 	}
 	nonce := make([]byte, aead.NonceSize())
-	err := newRand(nonce)
+	_, err := rand.Read(nonce)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -137,7 +137,7 @@ func (m *Manager) fetchActiveDataKey() ([]byte, uint32, error) {
 
 func (m *Manager) newDataEncryptionKey() ([]byte, uint32, error) {
 	dek := make([]byte, keySize)
-	err := newRand(dek)
+	_, err := rand.Read(dek)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -145,16 +145,6 @@ func (m *Manager) newDataEncryptionKey() ([]byte, uint32, error) {
 	m.dataKeys = append(m.dataKeys, dek)
 
 	return dek, m.activeKey(), nil
-}
-
-//go:inline
-func newRand(d []byte) error {
-	_, err := rand.Read(d)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func (m *Manager) activeKey() uint32 {
