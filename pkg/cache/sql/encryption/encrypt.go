@@ -1,6 +1,8 @@
-// package encryption provides encryption and decryption functions, while
-// abstracting away key management concerns.
-// Uses AES-GCM encryption, with key rotation, keeping keys in memory.
+/*
+Package encryption provides encryption and decryption functions, while
+abstracting away key management concerns.
+Uses AES-GCM encryption, with key rotation, keeping keys in memory.
+*/
 package encryption
 
 import (
@@ -34,7 +36,7 @@ type Manager struct {
 	lock sync.Mutex
 }
 
-// NewManager returns Manager.
+// NewManager returns Manager, which satisfies db.Encryptor and db.Decryptor
 func NewManager() (*Manager, error) {
 	dek := make([]byte, keySize, keySize)
 	_, err := rand.Read(dek)
@@ -51,9 +53,7 @@ func NewManager() (*Manager, error) {
 	return m, nil
 }
 
-// Encrypt encrypts data using the current active key.
-// Returned values are: the encrypted data, the nonce used to encrypt the
-// data, and the key ID used to encrypt the data.
+// Encrypt encrypts the specified data, returning: the encrypted data, the nonce used to encrypt the data, and an ID identifying the key that was used (as it rotates). On failure error is returned instead.
 func (m *Manager) Encrypt(data []byte) ([]byte, []byte, uint32, error) {
 	dek, keyID, err := m.fetchActiveDataKey()
 	if err != nil {
@@ -70,7 +70,7 @@ func (m *Manager) Encrypt(data []byte) ([]byte, []byte, uint32, error) {
 	return edata, nonce, keyID, nil
 }
 
-// Decrypt decrypts a pair of encrypted data and nonce based on a keyID.
+// Decrypt accepts a chunk of encrypted data, the nonce used to encrypt it and the ID of the used key (as it rotates). It returns the decrypted data or an error.
 func (m *Manager) Decrypt(edata, nonce []byte, keyID uint32) ([]byte, error) {
 	if len(m.dataKeys) <= int(keyID) {
 		return nil, fmt.Errorf("%w: %v", ErrKeyNotFound, keyID)
