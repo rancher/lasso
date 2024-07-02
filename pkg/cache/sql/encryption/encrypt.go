@@ -123,13 +123,7 @@ func (m *Manager) fetchActiveDataKey() ([]byte, uint32, error) {
 	m.activeKeyCounter++
 
 	if m.activeKeyCounter >= maxWriteCount {
-		dek, keyID, err := m.newDataEncryptionKey()
-		if err != nil {
-			return nil, 0, err
-		}
-
-		m.dataKeys[keyID] = dek
-		return dek, keyID, nil
+		return m.newDataEncryptionKey()
 	}
 	keyID := m.activeKey()
 
