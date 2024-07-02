@@ -211,10 +211,10 @@ func (mr *MockStoreMockRecorder) Prepare(arg0 interface{}) *gomock.Call {
 }
 
 // QueryForRows mocks base method.
-func (m *MockStore) QueryForRows(arg0 context.Context, arg1 transaction.Stmt, arg2 ...interface{}) (*sql.Rows, error) {
+func (m *MockStore) QueryForRows(arg0 context.Context, arg1 string, arg2 transaction.Stmt, arg3 ...interface{}) (*sql.Rows, error) {
 	m.ctrl.T.Helper()
-	varargs := []interface{}{arg0, arg1}
-	for _, a := range arg2 {
+	varargs := []interface{}{arg0, arg1, arg2}
+	for _, a := range arg3 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "QueryForRows", varargs...)
@@ -224,9 +224,9 @@ func (m *MockStore) QueryForRows(arg0 context.Context, arg1 transaction.Stmt, ar
 }
 
 // QueryForRows indicates an expected call of QueryForRows.
-func (mr *MockStoreMockRecorder) QueryForRows(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockStoreMockRecorder) QueryForRows(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	varargs := append([]interface{}{arg0, arg1, arg2}, arg3...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueryForRows", reflect.TypeOf((*MockStore)(nil).QueryForRows), varargs...)
 }
 

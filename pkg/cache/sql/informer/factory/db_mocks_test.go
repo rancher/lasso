@@ -35,6 +35,20 @@ func (m *MockTXClient) EXPECT() *MockTXClientMockRecorder {
 	return m.recorder
 }
 
+// Cancel mocks base method.
+func (m *MockTXClient) Cancel() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Cancel")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Cancel indicates an expected call of Cancel.
+func (mr *MockTXClientMockRecorder) Cancel() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Cancel", reflect.TypeOf((*MockTXClient)(nil).Cancel))
+}
+
 // Commit mocks base method.
 func (m *MockTXClient) Commit() error {
 	m.ctrl.T.Helper()

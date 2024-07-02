@@ -668,9 +668,9 @@ func TestListByOptions(t *testing.T) {
 				fmt.Println(a)
 			}).Return(stmt)
 			if args := test.expectedStmtArgs; args != nil {
-				store.EXPECT().QueryForRows(context.TODO(), stmt, args...).Return(rows, nil)
+				store.EXPECT().QueryForRows(context.TODO(), gomock.Any(), stmt, args...).Return(rows, nil)
 			} else {
-				store.EXPECT().QueryForRows(context.TODO(), stmt).Return(rows, nil)
+				store.EXPECT().QueryForRows(context.TODO(), gomock.Any(), stmt).Return(rows, nil)
 			}
 			store.EXPECT().GetType().Return(objType)
 			store.EXPECT().GetShouldEncrypt().Return(false)
