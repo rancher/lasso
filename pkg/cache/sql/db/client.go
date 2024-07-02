@@ -68,18 +68,16 @@ type TXClient interface {
 	Cancel() error
 }
 
-// Encryptor encrypts a slice of bytes. It is expected to use data-encryption-key (DEK) which it used to encrypt the slice.
-// It should use a key-encryption-key (KEK) to then encrypt the DEK. The encrypted data, nonce used to encrypt the data,
-// encrypted dek, nonce used to decrypt the dek should be returned, in that order. On failure an error should be returned.
+// Encryptor encrypts data with a key which is rotated to avoid wear-out.
 type Encryptor interface {
-	Encrypt([]byte) ([]byte, []byte, []byte, []byte, error)
+	// Encrypt encrypts the specified data, returning: the encrypted data, the nonce used to encrypt the data, and an ID identifying the key that was used (as it rotates). On failure error is returned instead.
+	Encrypt([]byte) ([]byte, []byte, uint32, error)
 }
 
-// Decryptor decrypts encrypted data given: some encrypted data, nonce used to encrypt the data, an encrypted
-// data-encryption-key (DEK), nonce used to encrypt the DEK. The KEK is not provided. Decryptor is expected to use its
-// receiver to decrypt the DEK using its KEK.
+// Decryptor decrypts data previously encrypted by Encryptor.
 type Decryptor interface {
-	Decrypt([]byte, []byte, []byte, []byte) ([]byte, error)
+	// Decrypt accepts a chunk of encrypted data, the nonce used to encrypt it and the ID of the used key (as it rotates). It returns the decrypted data or an error.
+	Decrypt([]byte, []byte, uint32) ([]byte, error)
 }
 
 var backoffRetry = wait.Backoff{Duration: 50 * time.Millisecond, Factor: 2, Steps: 10}
@@ -215,13 +213,14 @@ func (c *Client) Begin() (TXClient, error) {
 }
 
 func (c *Client) decryptScan(rows Rows, shouldDecrypt bool) ([]byte, error) {
-	var data, dataNonce, eDEK, dekNonce sql.RawBytes
-	err := rows.Scan(&data, &dataNonce, &eDEK, &dekNonce)
+	var data, dataNonce sql.RawBytes
+	var kid uint32
+	err := rows.Scan(&data, &dataNonce, &kid)
 	if err != nil {
 		return nil, err
 	}
 	if c.decryptor != nil && shouldDecrypt {
-		decryptedData, err := c.decryptor.Decrypt(data, dataNonce, eDEK, dekNonce)
+		decryptedData, err := c.decryptor.Decrypt(data, dataNonce, kid)
 		if err != nil {
 			return nil, err
 		}
@@ -233,17 +232,17 @@ func (c *Client) decryptScan(rows Rows, shouldDecrypt bool) ([]byte, error) {
 // Upsert used to be called upsertEncrypted in store package before move
 func (c *Client) Upsert(tx TXClient, stmt *sql.Stmt, key string, obj any, shouldEncrypt bool) error {
 	objBytes := toBytes(obj)
-	// object, dek, deknonce, datanonce
-	var dataNonce, encryptedDEK, dekNonce []byte
+	var dataNonce []byte
 	var err error
+	var kid uint32
 	if c.encryptor != nil && shouldEncrypt {
-		objBytes, dataNonce, encryptedDEK, dekNonce, err = c.encryptor.Encrypt(objBytes)
+		objBytes, dataNonce, kid, err = c.encryptor.Encrypt(objBytes)
 		if err != nil {
 			return err
 		}
 	}
 
-	return tx.StmtExec(tx.Stmt(stmt), key, objBytes, dataNonce, encryptedDEK, dekNonce)
+	return tx.StmtExec(tx.Stmt(stmt), key, objBytes, dataNonce, kid)
 }
 
 // toBytes encodes an object to a byte slice

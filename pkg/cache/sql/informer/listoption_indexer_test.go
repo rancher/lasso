@@ -187,7 +187,7 @@ func TestListByOptions(t *testing.T) {
 		listOptions: ListOptions{},
 		partitions:  []partition.Partition{},
 		ns:          "",
-		expectedStmt: `SELECT o.object, o.objectnonce, o.dek, o.deknonce FROM "something" o
+		expectedStmt: `SELECT o.object, o.objectnonce, o.dekid FROM "something" o
   JOIN db2."something_fields" f ON o.key = f.key
   WHERE
     (FALSE)
@@ -202,7 +202,7 @@ func TestListByOptions(t *testing.T) {
 		listOptions: ListOptions{ChunkSize: 2},
 		partitions:  []partition.Partition{},
 		ns:          "",
-		expectedStmt: `SELECT o.object, o.objectnonce, o.dek, o.deknonce FROM "something" o
+		expectedStmt: `SELECT o.object, o.objectnonce, o.dekid FROM "something" o
   JOIN db2."something_fields" f ON o.key = f.key
   WHERE
     (FALSE)
@@ -219,7 +219,7 @@ func TestListByOptions(t *testing.T) {
 		listOptions: ListOptions{Resume: "4"},
 		partitions:  []partition.Partition{},
 		ns:          "",
-		expectedStmt: `SELECT o.object, o.objectnonce, o.dek, o.deknonce FROM "something" o
+		expectedStmt: `SELECT o.object, o.objectnonce, o.dekid FROM "something" o
   JOIN db2."something_fields" f ON o.key = f.key
   WHERE
     (FALSE)
@@ -246,7 +246,7 @@ func TestListByOptions(t *testing.T) {
 		},
 		partitions: []partition.Partition{},
 		ns:         "",
-		expectedStmt: `SELECT o.object, o.objectnonce, o.dek, o.deknonce FROM "something" o
+		expectedStmt: `SELECT o.object, o.objectnonce, o.dekid FROM "something" o
   JOIN db2."something_fields" f ON o.key = f.key
   WHERE
     (f."metadata.somefield" LIKE ?) AND
@@ -274,7 +274,7 @@ func TestListByOptions(t *testing.T) {
 		},
 		partitions: []partition.Partition{},
 		ns:         "",
-		expectedStmt: `SELECT o.object, o.objectnonce, o.dek, o.deknonce FROM "something" o
+		expectedStmt: `SELECT o.object, o.objectnonce, o.dekid FROM "something" o
   JOIN db2."something_fields" f ON o.key = f.key
   WHERE
     (f."metadata.somefield" NOT LIKE ?) AND
@@ -302,7 +302,7 @@ func TestListByOptions(t *testing.T) {
 		},
 		partitions: []partition.Partition{},
 		ns:         "",
-		expectedStmt: `SELECT o.object, o.objectnonce, o.dek, o.deknonce FROM "something" o
+		expectedStmt: `SELECT o.object, o.objectnonce, o.dekid FROM "something" o
   JOIN db2."something_fields" f ON o.key = f.key
   WHERE
     (f."metadata.somefield" LIKE ?) AND
@@ -339,7 +339,7 @@ func TestListByOptions(t *testing.T) {
 		},
 		partitions: []partition.Partition{},
 		ns:         "",
-		expectedStmt: `SELECT o.object, o.objectnonce, o.dek, o.deknonce FROM "something" o
+		expectedStmt: `SELECT o.object, o.objectnonce, o.dekid FROM "something" o
   JOIN db2."something_fields" f ON o.key = f.key
   WHERE
     (f."metadata.somefield" LIKE ? OR f."metadata.somefield" LIKE ? OR f."metadata.somefield" NOT LIKE ?) AND
@@ -381,7 +381,7 @@ func TestListByOptions(t *testing.T) {
 		},
 		partitions: []partition.Partition{},
 		ns:         "test4",
-		expectedStmt: `SELECT o.object, o.objectnonce, o.dek, o.deknonce FROM "something" o
+		expectedStmt: `SELECT o.object, o.objectnonce, o.dekid FROM "something" o
   JOIN db2."something_fields" f ON o.key = f.key
   WHERE
     (f."metadata.somefield" LIKE ? OR f."status.someotherfield" NOT LIKE ?) AND
@@ -404,7 +404,7 @@ func TestListByOptions(t *testing.T) {
 		},
 		partitions: []partition.Partition{},
 		ns:         "test5",
-		expectedStmt: `SELECT o.object, o.objectnonce, o.dek, o.deknonce FROM "something" o
+		expectedStmt: `SELECT o.object, o.objectnonce, o.dekid FROM "something" o
   JOIN db2."something_fields" f ON o.key = f.key
   WHERE
     (f."metadata.namespace" = ?) AND
@@ -425,7 +425,7 @@ func TestListByOptions(t *testing.T) {
 		},
 		partitions: []partition.Partition{},
 		ns:         "",
-		expectedStmt: `SELECT o.object, o.objectnonce, o.dek, o.deknonce FROM "something" o
+		expectedStmt: `SELECT o.object, o.objectnonce, o.dekid FROM "something" o
   JOIN db2."something_fields" f ON o.key = f.key
   WHERE
     (FALSE)
@@ -445,7 +445,7 @@ func TestListByOptions(t *testing.T) {
 		},
 		partitions: []partition.Partition{},
 		ns:         "",
-		expectedStmt: `SELECT o.object, o.objectnonce, o.dek, o.deknonce FROM "something" o
+		expectedStmt: `SELECT o.object, o.objectnonce, o.dekid FROM "something" o
   JOIN db2."something_fields" f ON o.key = f.key
   WHERE
     (FALSE)
@@ -466,7 +466,7 @@ func TestListByOptions(t *testing.T) {
 		},
 		partitions: []partition.Partition{},
 		ns:         "",
-		expectedStmt: `SELECT o.object, o.objectnonce, o.dek, o.deknonce FROM "something" o
+		expectedStmt: `SELECT o.object, o.objectnonce, o.dekid FROM "something" o
   JOIN db2."something_fields" f ON o.key = f.key
   WHERE
     (FALSE)
@@ -486,7 +486,7 @@ func TestListByOptions(t *testing.T) {
 		},
 		partitions: []partition.Partition{},
 		ns:         "",
-		expectedStmt: `SELECT o.object, o.objectnonce, o.dek, o.deknonce FROM "something" o
+		expectedStmt: `SELECT o.object, o.objectnonce, o.dekid FROM "something" o
   JOIN db2."something_fields" f ON o.key = f.key
   WHERE
     (FALSE)
@@ -505,7 +505,7 @@ func TestListByOptions(t *testing.T) {
 		},
 		partitions: []partition.Partition{},
 		ns:         "",
-		expectedStmt: `SELECT o.object, o.objectnonce, o.dek, o.deknonce FROM "something" o
+		expectedStmt: `SELECT o.object, o.objectnonce, o.dekid FROM "something" o
   JOIN db2."something_fields" f ON o.key = f.key
   WHERE
     (FALSE)
@@ -524,7 +524,7 @@ func TestListByOptions(t *testing.T) {
 		},
 		partitions: []partition.Partition{},
 		ns:         "",
-		expectedStmt: `SELECT o.object, o.objectnonce, o.dek, o.deknonce FROM "something" o
+		expectedStmt: `SELECT o.object, o.objectnonce, o.dekid FROM "something" o
   JOIN db2."something_fields" f ON o.key = f.key
   WHERE
     (FALSE)
@@ -545,7 +545,7 @@ func TestListByOptions(t *testing.T) {
 		},
 		partitions: []partition.Partition{},
 		ns:         "",
-		expectedStmt: `SELECT o.object, o.objectnonce, o.dek, o.deknonce FROM "something" o
+		expectedStmt: `SELECT o.object, o.objectnonce, o.dekid FROM "something" o
   JOIN db2."something_fields" f ON o.key = f.key
   WHERE
     (FALSE)
@@ -565,7 +565,7 @@ func TestListByOptions(t *testing.T) {
 		},
 		partitions: []partition.Partition{},
 		ns:         "",
-		expectedStmt: `SELECT o.object, o.objectnonce, o.dek, o.deknonce FROM "something" o
+		expectedStmt: `SELECT o.object, o.objectnonce, o.dekid FROM "something" o
   JOIN db2."something_fields" f ON o.key = f.key
   WHERE
     (FALSE)
@@ -586,7 +586,7 @@ func TestListByOptions(t *testing.T) {
 			},
 		},
 		ns: "",
-		expectedStmt: `SELECT o.object, o.objectnonce, o.dek, o.deknonce FROM "something" o
+		expectedStmt: `SELECT o.object, o.objectnonce, o.dekid FROM "something" o
   JOIN db2."something_fields" f ON o.key = f.key
   WHERE
     (f."metadata.namespace" = ? AND FALSE)
@@ -605,7 +605,7 @@ func TestListByOptions(t *testing.T) {
 			},
 		},
 		ns: "",
-		expectedStmt: `SELECT o.object, o.objectnonce, o.dek, o.deknonce FROM "something" o
+		expectedStmt: `SELECT o.object, o.objectnonce, o.dekid FROM "something" o
   JOIN db2."something_fields" f ON o.key = f.key
   ORDER BY f."metadata.name" ASC `,
 		returnList:        []any{&unstructured.Unstructured{Object: unstrTestObjectMap}, &unstructured.Unstructured{Object: unstrTestObjectMap}},
@@ -621,7 +621,7 @@ func TestListByOptions(t *testing.T) {
 			},
 		},
 		ns: "",
-		expectedStmt: `SELECT o.object, o.objectnonce, o.dek, o.deknonce FROM "something" o
+		expectedStmt: `SELECT o.object, o.objectnonce, o.dekid FROM "something" o
   JOIN db2."something_fields" f ON o.key = f.key
   ORDER BY f."metadata.name" ASC `,
 		returnList:        []any{&unstructured.Unstructured{Object: unstrTestObjectMap}, &unstructured.Unstructured{Object: unstrTestObjectMap}},
@@ -637,7 +637,7 @@ func TestListByOptions(t *testing.T) {
 			},
 		},
 		ns: "",
-		expectedStmt: `SELECT o.object, o.objectnonce, o.dek, o.deknonce FROM "something" o
+		expectedStmt: `SELECT o.object, o.objectnonce, o.dekid FROM "something" o
   JOIN db2."something_fields" f ON o.key = f.key
   WHERE
     (f."metadata.name" IN (?, ?))

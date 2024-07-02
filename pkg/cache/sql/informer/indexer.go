@@ -16,7 +16,7 @@ import (
 
 const (
 	selectQueryFmt = `
-			SELECT object, objectnonce, dek, deknonce FROM "%[1]s"
+			SELECT object, objectnonce, dekid FROM "%[1]s"
 				WHERE key IN (
 					SELECT key FROM "%[1]s_indices"
 						WHERE name = ? AND value IN (?%s)
@@ -32,7 +32,7 @@ const (
 
 	deleteIndicesFmt = `DELETE FROM "%s_indices" WHERE key = ?`
 	addIndexFmt      = `INSERT INTO "%s_indices" (name, value, key) VALUES (?, ?, ?) ON CONFLICT DO NOTHING`
-	listByIndexFmt   = `SELECT object, objectnonce, dek, deknonce FROM "%[1]s"
+	listByIndexFmt   = `SELECT object, objectnonce, dekid FROM "%[1]s"
 			WHERE key IN (
 			    SELECT key FROM "%[1]s_indices"
 			    	WHERE name = ? AND value = ?
