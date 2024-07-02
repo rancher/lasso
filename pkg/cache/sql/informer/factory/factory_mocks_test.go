@@ -95,10 +95,10 @@ func (mr *MockDBClientMockRecorder) Prepare(arg0 interface{}) *gomock.Call {
 }
 
 // QueryForRows mocks base method.
-func (m *MockDBClient) QueryForRows(arg0 context.Context, arg1 transaction.Stmt, arg2 ...interface{}) (*sql.Rows, error) {
+func (m *MockDBClient) QueryForRows(arg0 context.Context, arg1 string, arg2 transaction.Stmt, arg3 ...interface{}) (*sql.Rows, error) {
 	m.ctrl.T.Helper()
-	varargs := []interface{}{arg0, arg1}
-	for _, a := range arg2 {
+	varargs := []interface{}{arg0, arg1, arg2}
+	for _, a := range arg3 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "QueryForRows", varargs...)
@@ -108,13 +108,13 @@ func (m *MockDBClient) QueryForRows(arg0 context.Context, arg1 transaction.Stmt,
 }
 
 // QueryForRows indicates an expected call of QueryForRows.
-func (mr *MockDBClientMockRecorder) QueryForRows(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockDBClientMockRecorder) QueryForRows(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	varargs := append([]interface{}{arg0, arg1, arg2}, arg3...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueryForRows", reflect.TypeOf((*MockDBClient)(nil).QueryForRows), varargs...)
 }
 
-// QueryObjects mocks base method.
+// ReadObjects mocks base method.
 func (m *MockDBClient) ReadObjects(arg0 db.Rows, arg1 reflect.Type, arg2 bool) ([]interface{}, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReadObjects", arg0, arg1, arg2)
@@ -123,13 +123,13 @@ func (m *MockDBClient) ReadObjects(arg0 db.Rows, arg1 reflect.Type, arg2 bool) (
 	return ret0, ret1
 }
 
-// QueryObjects indicates an expected call of QueryObjects.
-func (mr *MockDBClientMockRecorder) QueryObjects(arg0, arg1, arg2 interface{}) *gomock.Call {
+// ReadObjects indicates an expected call of ReadObjects.
+func (mr *MockDBClientMockRecorder) ReadObjects(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadObjects", reflect.TypeOf((*MockDBClient)(nil).ReadObjects), arg0, arg1, arg2)
 }
 
-// QueryStrings mocks base method.
+// ReadStrings mocks base method.
 func (m *MockDBClient) ReadStrings(arg0 db.Rows) ([]string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReadStrings", arg0)
@@ -138,8 +138,8 @@ func (m *MockDBClient) ReadStrings(arg0 db.Rows) ([]string, error) {
 	return ret0, ret1
 }
 
-// QueryStrings indicates an expected call of QueryStrings.
-func (mr *MockDBClientMockRecorder) QueryStrings(arg0 interface{}) *gomock.Call {
+// ReadStrings indicates an expected call of ReadStrings.
+func (mr *MockDBClientMockRecorder) ReadStrings(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadStrings", reflect.TypeOf((*MockDBClient)(nil).ReadStrings), arg0)
 }
