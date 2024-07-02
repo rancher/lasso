@@ -8,7 +8,6 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
-	"encoding/binary"
 	"encoding/gob"
 	"os"
 	"reflect"
@@ -214,14 +213,14 @@ func (c *Client) Begin() (TXClient, error) {
 }
 
 func (c *Client) decryptScan(rows Rows, shouldDecrypt bool) ([]byte, error) {
-	var data, dataNonce, kid sql.RawBytes
+	var data, dataNonce sql.RawBytes
+	var kid uint32
 	err := rows.Scan(&data, &dataNonce, &kid)
 	if err != nil {
 		return nil, err
 	}
 	if c.decryptor != nil && shouldDecrypt {
-		keyID := binary.LittleEndian.Uint32(kid)
-		decryptedData, err := c.decryptor.Decrypt(data, dataNonce, keyID)
+		decryptedData, err := c.decryptor.Decrypt(data, dataNonce, kid)
 		if err != nil {
 			return nil, err
 		}
