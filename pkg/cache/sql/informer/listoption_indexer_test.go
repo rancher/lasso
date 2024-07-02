@@ -192,8 +192,24 @@ func TestListByOptions(t *testing.T) {
   WHERE
     (FALSE)
   ORDER BY f."metadata.name" ASC `,
-		returnList:        []any{&unstructured.Unstructured{Object: unstrTestObjectMap}},
-		expectedList:      &unstructured.UnstructuredList{Object: map[string]interface{}{"items": []map[string]interface{}{unstrTestObjectMap}}, Items: []unstructured.Unstructured{{Object: unstrTestObjectMap}}},
+		returnList:        []any{},
+		expectedList:      &unstructured.UnstructuredList{Object: map[string]interface{}{"items": []map[string]interface{}{}}, Items: []unstructured.Unstructured{}},
+		expectedContToken: "",
+		expectedErr:       nil,
+	})
+	tests = append(tests, testCase{
+		description: "ListByOptions() with an empty filter, should not return an error",
+		listOptions: ListOptions{
+			Filters: []OrFilter{{[]Filter{}}},
+		},
+		partitions: []partition.Partition{},
+		ns:         "",
+		expectedStmt: `SELECT o.object, o.objectnonce, o.dekid FROM "something" o
+  JOIN db2."something_fields" f ON o.key = f.key
+  WHERE
+    (FALSE)
+  ORDER BY f."metadata.name" ASC `,
+		expectedList:      &unstructured.UnstructuredList{Object: map[string]interface{}{"items": []map[string]interface{}{}}, Items: []unstructured.Unstructured{}},
 		expectedContToken: "",
 		expectedErr:       nil,
 	})
