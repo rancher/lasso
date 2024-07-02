@@ -3,7 +3,6 @@ package db
 import (
 	"context"
 	"database/sql"
-	"encoding/binary"
 	"fmt"
 	"math"
 	"os"
@@ -109,8 +108,7 @@ func TestQueryObjects(t *testing.T) {
 		r.EXPECT().Scan(gomock.Any()).Do(func(a ...any) {
 			*a[0].(*sql.RawBytes) = toBytes(testObject)
 			*a[1].(*sql.RawBytes) = toBytes(testObject)
-			*a[2].(*sql.RawBytes) = make([]byte, 4) // uint32 is represented by 4 bytes
-			binary.LittleEndian.PutUint32(*a[2].(*sql.RawBytes), keyId)
+			*a[2].(*uint32) = keyId
 		})
 		d.EXPECT().Decrypt(toBytes(testObject), toBytes(testObject), keyId).Return(toBytes(testObject), nil)
 		r.EXPECT().Err().Return(nil)
@@ -132,8 +130,7 @@ func TestQueryObjects(t *testing.T) {
 			*a[0].(*sql.RawBytes) = toBytes(testObject)
 			*a[1].(*sql.RawBytes) = toBytes(
 				testObject)
-			*a[2].(*sql.RawBytes) = make([]byte, 4) // uint32 is represented by 4 bytes
-			binary.LittleEndian.PutUint32(*a[2].(*sql.RawBytes), keyId)
+			*a[2].(*uint32) = keyId
 		})
 		d.EXPECT().Decrypt(toBytes(testObject), toBytes(testObject), keyId).Return(nil, fmt.Errorf("error"))
 		r.EXPECT().Close().Return(nil)
@@ -164,8 +161,7 @@ func TestQueryObjects(t *testing.T) {
 		r.EXPECT().Scan(gomock.Any()).Do(func(a ...any) {
 			*a[0].(*sql.RawBytes) = toBytes(testObject)
 			*a[1].(*sql.RawBytes) = toBytes(testObject)
-			*a[2].(*sql.RawBytes) = make([]byte, 4) // uint32 is represented by 4 bytes
-			binary.LittleEndian.PutUint32(*a[2].(*sql.RawBytes), keyId)
+			*a[2].(*uint32) = keyId
 		})
 		d.EXPECT().Decrypt(toBytes(testObject), toBytes(testObject), keyId).Return(toBytes(testObject), nil)
 		r.EXPECT().Err().Return(nil)
