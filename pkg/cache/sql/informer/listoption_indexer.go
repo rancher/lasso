@@ -172,7 +172,7 @@ func (l *ListOptionIndexer) afterDelete(key string, tx db.TXClient) error {
 // result is an unstructured.UnstructuredList, the continue token for the next page (or an error)
 func (l *ListOptionIndexer) ListByOptions(ctx context.Context, lo ListOptions, partitions []partition.Partition, namespace string) (*unstructured.UnstructuredList, string, error) {
 	// 1- Intro: SELECT and JOIN clauses
-	stmt := fmt.Sprintf(`SELECT o.object, o.objectnonce, o.dek, o.deknonce FROM "%s" o`, l.GetName())
+	stmt := fmt.Sprintf(`SELECT o.object, o.objectnonce, o.dekid FROM "%s" o`, l.GetName())
 	stmt += "\n  "
 	stmt += fmt.Sprintf(`JOIN db2."%s_fields" f ON o.key = f.key`, l.GetName())
 	params := []any{}

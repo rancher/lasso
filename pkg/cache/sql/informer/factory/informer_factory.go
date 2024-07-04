@@ -5,9 +5,10 @@ package factory
 
 import (
 	"fmt"
-	"github.com/rancher/lasso/pkg/cache/sql/informer"
 	"os"
 	"sync"
+
+	"github.com/rancher/lasso/pkg/cache/sql/informer"
 
 	"github.com/rancher/lasso/pkg/cache/sql/attachdriver"
 	"github.com/rancher/lasso/pkg/cache/sql/db"
@@ -49,7 +50,7 @@ type connector interface {
 }
 
 var defaultEncryptedResourceTypes = map[schema.GroupVersionKind]struct{}{
-	schema.GroupVersionKind{
+	{
 		Version: "v1",
 		Kind:    "Secret",
 	}: {},

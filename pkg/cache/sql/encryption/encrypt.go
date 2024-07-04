@@ -1,10 +1,8 @@
 /*
-package encryption provides a struct, Manager, that generates a key-encryption-key, generates and rotates a
-data-encryption-key, and provides functions for encryption and decryption. The key-encryption-key is used so the client
-can store an encrypted version of their data key. This key-hierarchy enables the rotation of data-encryption-keys which
-is intended to protect from cryptanalysis and mitigate impact of leaking a key.
+Package encryption provides encryption and decryption functions, while
+abstracting away key management concerns.
+Uses AES-GCM encryption, with key rotation, keeping keys in memory.
 */
-
 package encryption
 
 import (
@@ -17,103 +15,82 @@ import (
 	"github.com/pkg/errors"
 )
 
-const (
-	maxWriteCount = 150000
-	keySize       = 32 // 32 for AES-256
+var (
+	ErrKeyNotFound = errors.New("data key not found")
+	// maxWriteCount holds the maximum amount of times the active key can be
+	// used, prior to it being rotated. 2^32 is the currently recommended key
+	// wear-out params by NIST for AES-GCM using random nonces.
+	maxWriteCount int64 = 1 << 32
 )
 
-// Manager uses AES-GCM encryption with a key-hierarchy model. After a specified number of counts the key-encryption-key (KEK)
-// is rotated.
+const (
+	keySize = 32 // 32 for AES-256
+)
+
+// Manager uses AES-GCM encryption and keeps in memory the data encryption
+// keys. The active encryption key is automatically rotated once it has been
+// used over a certain amount of times - defined by maxWriteCount.
 type Manager struct {
-	keyEncryptionKey  []byte      // main key
-	dataEncryptionKey []byte      // current key
-	keyGCMCipher      cipher.AEAD // cipher in gcm mode created from kek
-	writesCounter     int
-	lock              sync.Mutex
+	dataKeys         [][]byte
+	activeKeyCounter int64
+
+	// lock works as the mutual exclusion lock for dataKeys.
+	lock sync.RWMutex
+	// counterLock works as the mutual exclusion lock for activeKeyCounter.
+	counterLock sync.Mutex
 }
 
-// NewManager returns Manager with a generated key-encryption-key which never rotates, and a data-encryption-key which does
-// automatically rotate.
+// NewManager returns Manager, which satisfies db.Encryptor and db.Decryptor
 func NewManager() (*Manager, error) {
-	kek, err := genRandKey()
-	if err != nil {
-		return nil, err
+	m := &Manager{
+		dataKeys: [][]byte{},
 	}
+	m.newDataEncryptionKey()
 
-	dek, err := genRandKey()
-	if err != nil {
-		return nil, err
-	}
-
-	keyGCMCipher, err := createGCMCypher(kek)
-	if err != nil {
-		return nil, err
-	}
-
-	return &Manager{
-		keyEncryptionKey:  kek,
-		dataEncryptionKey: dek,
-		keyGCMCipher:      keyGCMCipher,
-	}, nil
-
+	return m, nil
 }
 
-// Encrypt encrypts data using the Manager's current dataEncryptionKey. It then encrypts that key using the Manager's
-// keyEncryptionKey. Encrypt returns the encrypted data, the nonce used to encrypt the data, the encrypted
-// data-encryption-key,  and the nonce used with the key-encryption-key to encrypt the data-encryption-key on success.
-func (m *Manager) Encrypt(data []byte) ([]byte, []byte, []byte, []byte, error) {
-	dek, err := m.fetchUpToDateDataKey()
+// Encrypt encrypts the specified data, returning: the encrypted data, the nonce used to encrypt the data, and an ID identifying the key that was used (as it rotates). On failure error is returned instead.
+func (m *Manager) Encrypt(data []byte) ([]byte, []byte, uint32, error) {
+	dek, keyID, err := m.fetchActiveDataKey()
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, 0, err
 	}
 	aead, err := createGCMCypher(dek)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, 0, err
 	}
-	edata, edatanonce, err := encrypt(aead, data)
+	edata, nonce, err := encrypt(aead, data)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, 0, err
 	}
-	edek, edeknonce, err := m.encryptDataKey(dek)
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
-	return edata, edatanonce, edek, edeknonce, nil
+	return edata, nonce, keyID, nil
 }
 
-// Decrypt accepts encrypted data, an encrypted data-encryption-key (edek), the nonce that was used to encrypt the data,
-// and the nonce that was used to encrypt the data-encryption key. The edek is decrypted then used to decrpyt the data.
-func (m *Manager) Decrypt(edata, datanonce, edek, deknonce []byte) ([]byte, error) {
-	// We create block ciphers from the kek every time because there is no guarantee that block ciphers are safe for
-	// concurrency.
-	keyGCMCipher, err := createGCMCypher(m.keyEncryptionKey)
+// Decrypt accepts a chunk of encrypted data, the nonce used to encrypt it and the ID of the used key (as it rotates). It returns the decrypted data or an error.
+func (m *Manager) Decrypt(edata, nonce []byte, keyID uint32) ([]byte, error) {
+	dek, err := m.key(keyID)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to decrypt DEK with KEK")
+		return nil, err
 	}
-	dek, err := keyGCMCipher.Open(nil, deknonce, edek, nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to decrypt DEK")
-	}
+
 	aead, err := createGCMCypher(dek)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create GCMCypher from DEK")
 	}
-	data, err := aead.Open(nil, datanonce, edata, nil)
+	data, err := aead.Open(nil, nonce, edata, nil)
 	if err != nil {
-		return nil, errors.Wrap(err, fmt.Sprintf("failed to decrypt data using DEK: %s", dek))
+		return nil, errors.Wrap(err, fmt.Sprintf("failed to decrypt data using keyid %d", keyID))
 	}
 	return data, nil
-}
-
-func (m *Manager) encryptDataKey(dek []byte) ([]byte, []byte, error) {
-	return encrypt(m.keyGCMCipher, dek)
 }
 
 func encrypt(aead cipher.AEAD, data []byte) ([]byte, []byte, error) {
 	if aead == nil {
 		return nil, nil, fmt.Errorf("aead is nil, cannot encrypt data")
 	}
-	nonce, err := genRandByteSlice(aead.NonceSize())
+	nonce := make([]byte, aead.NonceSize())
+	_, err := rand.Read(nonce)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -133,50 +110,59 @@ func createGCMCypher(key []byte) (cipher.AEAD, error) {
 	return aead, nil
 }
 
-func (m *Manager) isWriteCounterOverMax() bool {
-	return m.writesCounter > maxWriteCount
+// fetchActiveDataKey returns the current data key and its key ID.
+// Each call results in activeKeyCounter being incremented by 1. When the
+// the activeKeyCounter exceeds maxWriteCount, the active data key is
+// rotated - before being returned.
+func (m *Manager) fetchActiveDataKey() ([]byte, uint32, error) {
+	m.counterLock.Lock()
+	defer m.counterLock.Unlock()
+
+	m.activeKeyCounter++
+	if m.activeKeyCounter >= maxWriteCount {
+		return m.newDataEncryptionKey()
+	}
+
+	return m.activeKey()
 }
 
-// fetchUpToDateDataKey returns the current data key if writeCounter has not exceeded maxWriteCount. If it has then the
-// data key is rotated. Before exiting the writesCounter is incremented by 1. This means that one use of the key has
-// been accounted for. This is done so encryption does not block other processes from encrypting. The consequence is a
-// key should only be used once and fetchUpToDateDataKey should be used to ensure an up-to-date key for any subsequent
-// encryption.
-func (m *Manager) fetchUpToDateDataKey() ([]byte, error) {
+func (m *Manager) newDataEncryptionKey() ([]byte, uint32, error) {
+	dek := make([]byte, keySize)
+	_, err := rand.Read(dek)
+	if err != nil {
+		return nil, 0, err
+	}
+
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
-	if !m.isWriteCounterOverMax() {
-		m.writesCounter++
-		return m.dataEncryptionKey, nil
-	}
+	m.activeKeyCounter = 1
 
-	err := m.rotateDataEncryptionKey()
-	if err != nil {
-		return nil, err
-	}
-	m.writesCounter++
-	return m.dataEncryptionKey, nil
+	m.dataKeys = append(m.dataKeys, dek)
+	keyID := uint32(len(m.dataKeys) - 1)
+
+	return dek, keyID, nil
 }
 
-func (m *Manager) rotateDataEncryptionKey() error {
-	dek, err := genRandKey()
-	if err != nil {
-		return err
+func (m *Manager) activeKey() ([]byte, uint32, error) {
+	m.lock.RLock()
+	defer m.lock.RUnlock()
+
+	nk := len(m.dataKeys)
+	if nk == 0 {
+		return nil, 0, ErrKeyNotFound
 	}
-	m.dataEncryptionKey = dek
-	return nil
+	keyID := uint32(nk - 1)
+
+	return m.dataKeys[keyID], keyID, nil
 }
 
-func genRandKey() ([]byte, error) {
-	return genRandByteSlice(keySize)
-}
+func (m *Manager) key(keyID uint32) ([]byte, error) {
+	m.lock.RLock()
+	defer m.lock.RUnlock()
 
-func genRandByteSlice(size int) ([]byte, error) {
-	key := make([]byte, size)
-	_, err := rand.Read(key)
-	if err != nil {
-		return nil, err
+	if len(m.dataKeys) <= int(keyID) {
+		return nil, fmt.Errorf("%w: %v", ErrKeyNotFound, keyID)
 	}
-	return key, nil
+	return m.dataKeys[keyID], nil
 }
