@@ -34,24 +34,18 @@ type Manager struct {
 	dataKeys         [][]byte
 	activeKeyCounter int64
 
-	// lock works as the mutual exclusion lock for dataKeys, activeKey
-	// and the activeKeyCounter.
-	lock sync.Mutex
+	// lock works as the mutual exclusion lock for dataKeys.
+	lock sync.RWMutex
+	// counterLock works as the mutual exclusion lock for activeKeyCounter.
+	counterLock sync.Mutex
 }
 
 // NewManager returns Manager, which satisfies db.Encryptor and db.Decryptor
 func NewManager() (*Manager, error) {
-	dek := make([]byte, keySize, keySize)
-	_, err := rand.Read(dek)
-	if err != nil {
-		return nil, err
-	}
-
 	m := &Manager{
 		dataKeys: [][]byte{},
 	}
-
-	m.dataKeys = append(m.dataKeys, dek)
+	m.newDataEncryptionKey()
 
 	return m, nil
 }
@@ -75,10 +69,10 @@ func (m *Manager) Encrypt(data []byte) ([]byte, []byte, uint32, error) {
 
 // Decrypt accepts a chunk of encrypted data, the nonce used to encrypt it and the ID of the used key (as it rotates). It returns the decrypted data or an error.
 func (m *Manager) Decrypt(edata, nonce []byte, keyID uint32) ([]byte, error) {
-	if len(m.dataKeys) <= int(keyID) {
-		return nil, fmt.Errorf("%w: %v", ErrKeyNotFound, keyID)
+	dek, err := m.key(keyID)
+	if err != nil {
+		return nil, err
 	}
-	dek := m.dataKeys[keyID]
 
 	aead, err := createGCMCypher(dek)
 	if err != nil {
@@ -121,21 +115,15 @@ func createGCMCypher(key []byte) (cipher.AEAD, error) {
 // the activeKeyCounter exceeds maxWriteCount, the active data key is
 // rotated - before being returned.
 func (m *Manager) fetchActiveDataKey() ([]byte, uint32, error) {
-	m.lock.Lock()
-	defer m.lock.Unlock()
-	m.activeKeyCounter++
+	m.counterLock.Lock()
+	defer m.counterLock.Unlock()
 
+	m.activeKeyCounter++
 	if m.activeKeyCounter >= maxWriteCount {
 		return m.newDataEncryptionKey()
 	}
-	keyID := m.activeKey()
 
-	if len(m.dataKeys) <= int(keyID) {
-		return nil, 0, fmt.Errorf("%w: key ID %d", ErrKeyNotFound, m.activeKey())
-	}
-	dek := m.dataKeys[keyID]
-
-	return dek, keyID, nil
+	return m.activeKey()
 }
 
 func (m *Manager) newDataEncryptionKey() ([]byte, uint32, error) {
@@ -145,16 +133,36 @@ func (m *Manager) newDataEncryptionKey() ([]byte, uint32, error) {
 		return nil, 0, err
 	}
 
-	m.dataKeys = append(m.dataKeys, dek)
+	m.lock.Lock()
+	defer m.lock.Unlock()
+
 	m.activeKeyCounter = 1
 
-	return dek, m.activeKey(), nil
+	m.dataKeys = append(m.dataKeys, dek)
+	keyID := uint32(len(m.dataKeys) - 1)
+
+	return dek, keyID, nil
 }
 
-func (m *Manager) activeKey() uint32 {
+func (m *Manager) activeKey() ([]byte, uint32, error) {
+	m.lock.RLock()
+	defer m.lock.RUnlock()
+
 	nk := len(m.dataKeys)
 	if nk == 0 {
-		return 0
+		return nil, 0, ErrKeyNotFound
 	}
-	return uint32(nk - 1)
+	keyID := uint32(nk - 1)
+
+	return m.dataKeys[keyID], keyID, nil
+}
+
+func (m *Manager) key(keyID uint32) ([]byte, error) {
+	m.lock.RLock()
+	defer m.lock.RUnlock()
+
+	if len(m.dataKeys) <= int(keyID) {
+		return nil, fmt.Errorf("%w: %v", ErrKeyNotFound, keyID)
+	}
+	return m.dataKeys[keyID], nil
 }
