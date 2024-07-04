@@ -16,8 +16,11 @@ import (
 )
 
 var (
-	ErrKeyNotFound       = errors.New("data key not found")
-	maxWriteCount  int32 = 150000
+	ErrKeyNotFound = errors.New("data key not found")
+	// maxWriteCount holds the maximum amount of times the active key can be
+	// used, prior to it being rotated. 2^32 is the currently recommended key
+	// wear-out params by NIST for AES-GCM using random nonces.
+	maxWriteCount int64 = 1 << 32
 )
 
 const (
@@ -29,7 +32,7 @@ const (
 // used over a certain amount of times - defined by maxWriteCount.
 type Manager struct {
 	dataKeys         [][]byte
-	activeKeyCounter int32
+	activeKeyCounter int64
 
 	// lock works as the mutual exclusion lock for dataKeys, activeKey
 	// and the activeKeyCounter.
