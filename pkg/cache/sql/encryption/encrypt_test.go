@@ -105,6 +105,7 @@ func TestEncrypt(t *testing.T) {
 		cipher2, nonce2, keyID2, err := m.Encrypt(testData)
 		require.Nil(t, err)
 
+		assert.Equal(t, int64(1), m.activeKeyCounter)
 		assert.NotEqual(t, keyID1, keyID2)
 		assert.NotEqual(t, cipher1, cipher2, "each encrypt op must return a unique cipher")
 		assert.NotEqual(t, nonce1, nonce2, "each encrypt op must return a unique nonce")

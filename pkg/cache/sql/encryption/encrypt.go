@@ -146,6 +146,7 @@ func (m *Manager) newDataEncryptionKey() ([]byte, uint32, error) {
 	}
 
 	m.dataKeys = append(m.dataKeys, dek)
+	m.activeKeyCounter = 1
 
 	return dek, m.activeKey(), nil
 }
