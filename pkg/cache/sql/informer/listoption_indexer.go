@@ -383,8 +383,6 @@ func (l *ListOptionIndexer) ListByOptions(ctx context.Context, lo ListOptions, p
 		if err != nil {
 			return nil, 0, "", err
 		}
-	} else {
-		total = len(items)
 	}
 
 	continueToken := ""
