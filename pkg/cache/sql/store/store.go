@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/pkg/errors"
 	"github.com/rancher/lasso/pkg/cache/sql/db"
 	"github.com/rancher/lasso/pkg/cache/sql/db/transaction"
 	"k8s.io/client-go/tools/cache"
@@ -88,7 +87,7 @@ func NewStore(example any, keyFunc cache.KeyFunc, c DBClient, shouldEncrypt bool
 	createTableQuery := fmt.Sprintf(createTableFmt, s.name)
 	err = txC.Exec(createTableQuery)
 	if err != nil {
-		return nil, errors.Wrapf(err, "Error while executing query:\n %s", createTableQuery)
+		return nil, fmt.Errorf("while executing query: %s got error: %w", createTableQuery, err)
 	}
 
 	err = txC.Commit()
@@ -121,7 +120,7 @@ func (s *Store) upsert(key string, obj any) error {
 
 	err = s.Upsert(tx, s.upsertStmt, key, obj, s.shouldEncrypt)
 	if err != nil {
-		return errors.Wrapf(err, "Error while executing query:\n %s", s.upsertQuery)
+		return fmt.Errorf("while executing query: %s got error: %w", s.upsertQuery, err)
 	}
 
 	err = s.runAfterUpsert(key, obj, tx)
@@ -141,7 +140,7 @@ func (s *Store) deleteByKey(key string) error {
 
 	err = tx.StmtExec(tx.Stmt(s.deleteStmt), key)
 	if err != nil {
-		return errors.Wrapf(err, "Error while executing query:\n %s", s.deleteQuery)
+		return fmt.Errorf("while executing query: %s got error: %w", s.deleteQuery, err)
 	}
 
 	err = s.runAfterDelete(key, tx)
@@ -156,7 +155,7 @@ func (s *Store) deleteByKey(key string) error {
 func (s *Store) GetByKey(key string) (item any, exists bool, err error) {
 	rows, err := s.QueryForRows(context.TODO(), s.getStmt, key)
 	if err != nil {
-		return nil, false, errors.Wrapf(err, "Error while executing query:\n %s", s.getQuery)
+		return nil, false, fmt.Errorf("while executing query: %s got error: %w", s.getQuery, err)
 	}
 	result, err := s.ReadObjects(rows, s.typ, s.shouldEncrypt)
 	if err != nil {
@@ -202,11 +201,11 @@ func (s *Store) Delete(obj any) error {
 func (s *Store) List() []any {
 	rows, err := s.QueryForRows(context.TODO(), s.listStmt)
 	if err != nil {
-		panic(errors.Wrapf(err, "Error while executing query:\n %s", s.listQuery))
+		panic(fmt.Errorf("while executing query: %s got error: %w", s.listQuery, err))
 	}
 	result, err := s.ReadObjects(rows, s.typ, s.shouldEncrypt)
 	if err != nil {
-		panic(errors.Wrap(err, "Unexpected error in Store.List"))
+		panic(fmt.Errorf("error in Store.List: %w", err))
 	}
 	return result
 }
@@ -217,7 +216,7 @@ func (s *Store) List() []any {
 func (s *Store) ListKeys() []string {
 	rows, err := s.QueryForRows(context.TODO(), s.listKeysStmt)
 	if err != nil {
-		fmt.Printf("Unexpected error in store.ListKeys: %v\n", errors.Wrapf(err, "Error while executing query:\n %s", s.listKeysQuery))
+		fmt.Printf("Unexpected error in store.ListKeys: %v\n", fmt.Errorf("while executing query: %s got error: %w", s.listKeysQuery, err))
 		return []string{}
 	}
 	result, err := s.ReadStrings(rows)

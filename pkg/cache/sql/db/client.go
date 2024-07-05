@@ -9,6 +9,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/gob"
+	"fmt"
 	"os"
 	"reflect"
 	"sync"
@@ -251,7 +252,7 @@ func toBytes(obj any) []byte {
 	enc := gob.NewEncoder(&buf)
 	err := enc.Encode(obj)
 	if err != nil {
-		panic(errors.Wrap(err, "Error while gobbing object"))
+		panic(fmt.Errorf("error while gobbing object: %w", err))
 	}
 	bb := buf.Bytes()
 	return bb
@@ -269,7 +270,7 @@ func fromBytes(buf sql.RawBytes, typ reflect.Type) (reflect.Value, error) {
 func closeRowsOnError(rows Rows, err error) error {
 	ce := rows.Close()
 	if ce != nil {
-		return errors.Wrap(ce, "while handling "+err.Error())
+		return fmt.Errorf("error in closing rows while handling %s: %w", err.Error(), ce)
 	}
 
 	return err

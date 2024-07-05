@@ -99,12 +99,12 @@ func NewIndexer(indexers cache.Indexers, s Store) (*Indexer, error) {
 	createTableQuery := fmt.Sprintf(createTableFmt, db.Sanitize(s.GetName()))
 	err = tx.Exec(createTableQuery)
 	if err != nil {
-		return nil, errors.Wrapf(err, "Error while executing query:\n %s", createTableQuery)
+		return nil, fmt.Errorf("while executing query: %s got error: %w", createTableQuery, err)
 	}
 	createIndexQuery := fmt.Sprintf(createIndexFmt, db.Sanitize(s.GetName()))
 	err = tx.Exec(createIndexQuery)
 	if err != nil {
-		return nil, errors.Wrapf(err, "Error while executing query:\n %s", createIndexQuery)
+		return nil, fmt.Errorf("while executing query: %s got error: %w", createIndexQuery, err)
 	}
 	err = tx.Commit()
 	if err != nil {
@@ -139,7 +139,7 @@ func (i *Indexer) AfterUpsert(key string, obj any, tx db.TXClient) error {
 	// delete all
 	err := tx.StmtExec(tx.Stmt(i.deleteIndicesStmt), key)
 	if err != nil {
-		return errors.Wrapf(err, "Error while executing query:\n %s", i.deleteIndicesQuery)
+		return fmt.Errorf("while executing query: %s got error: %w", i.deleteIndicesQuery, err)
 	}
 
 	// re-insert all
@@ -154,7 +154,7 @@ func (i *Indexer) AfterUpsert(key string, obj any, tx db.TXClient) error {
 		for _, value := range values {
 			err = tx.StmtExec(tx.Stmt(i.addIndexStmt), indexName, value, key)
 			if err != nil {
-				return errors.Wrapf(err, "Error while executing query:\n %s", i.addIndexQuery)
+				return fmt.Errorf("while executing query: %s got error: %w", i.addIndexQuery, err)
 			}
 		}
 	}
@@ -199,7 +199,7 @@ func (i *Indexer) Index(indexName string, obj any) ([]any, error) {
 
 	rows, err := i.QueryForRows(context.TODO(), stmt, params...)
 	if err != nil {
-		return nil, errors.Wrapf(err, "Error while executing query:\n %s", query)
+		return nil, fmt.Errorf("while executing query: %s got error: %w", query, err)
 	}
 	return i.ReadObjects(rows, i.GetType(), i.GetShouldEncrypt())
 }
@@ -209,7 +209,7 @@ func (i *Indexer) Index(indexName string, obj any) ([]any, error) {
 func (i *Indexer) ByIndex(indexName, indexedValue string) ([]any, error) {
 	rows, err := i.QueryForRows(context.TODO(), i.listByIndexStmt, indexName, indexedValue)
 	if err != nil {
-		return nil, errors.Wrapf(err, "Error while executing query:\n %s", i.listByIndexQuery)
+		return nil, fmt.Errorf("while executing query: %s got error: %w", i.listByIndexQuery, err)
 	}
 	return i.ReadObjects(rows, i.GetType(), i.GetShouldEncrypt())
 }
@@ -225,7 +225,7 @@ func (i *Indexer) IndexKeys(indexName, indexedValue string) ([]string, error) {
 
 	rows, err := i.QueryForRows(context.TODO(), i.listKeysByIndexStmt, indexName, indexedValue)
 	if err != nil {
-		return nil, errors.Wrapf(err, "Error while executing query:\n %s", i.listKeysByIndexQuery)
+		return nil, fmt.Errorf("while executing query: %s got error: %w", i.listKeysByIndexQuery, err)
 	}
 	return i.ReadStrings(rows)
 }
@@ -243,7 +243,7 @@ func (i *Indexer) ListIndexFuncValues(name string) []string {
 func (i *Indexer) safeListIndexFuncValues(indexName string) ([]string, error) {
 	rows, err := i.QueryForRows(context.TODO(), i.listIndexValuesStmt, indexName)
 	if err != nil {
-		return nil, errors.Wrapf(err, "Error while executing query:\n %s", i.listIndexValuesQuery)
+		return nil, fmt.Errorf("while executing query: %s got error: %w", i.listIndexValuesQuery, err)
 	}
 	return i.ReadStrings(rows)
 }
