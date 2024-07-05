@@ -201,6 +201,34 @@ func (c *Client) ReadStrings(rows Rows) ([]string, error) {
 	return result, nil
 }
 
+// ReadInt scans the first of the given rows into a single int (eg. for COUNT() queries)
+func (c *Client) ReadInt(rows Rows) (int, error) {
+	c.connLock.RLock()
+	defer c.connLock.RUnlock()
+
+	if !rows.Next() {
+		return 0, closeRowsOnError(rows, sql.ErrNoRows)
+	}
+
+	var result int
+	err := rows.Scan(&result)
+	if err != nil {
+		return 0, closeRowsOnError(rows, err)
+	}
+
+	err = rows.Err()
+	if err != nil {
+		return 0, closeRowsOnError(rows, err)
+	}
+
+	err = rows.Close()
+	if err != nil {
+		return 0, err
+	}
+
+	return result, nil
+}
+
 // Begin attempt to begin a transaction, and returns it along with a function for unlocking the
 // database once the transaction is done.
 func (c *Client) Begin() (TXClient, error) {
