@@ -63,6 +63,7 @@ type DBClient interface {
 	QueryForRows(ctx context.Context, stmt transaction.Stmt, params ...any) (*sql.Rows, error)
 	ReadObjects(rows db.Rows, typ reflect.Type, shouldDecrypt bool) ([]any, error)
 	ReadStrings(rows db.Rows) ([]string, error)
+	ReadInt(rows db.Rows) (int, error)
 	Upsert(tx db.TXClient, stmt *sql.Stmt, key string, obj any, shouldEncrypt bool) error
 	CloseStmt(closable db.Closable) error
 }

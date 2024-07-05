@@ -185,9 +185,13 @@ func (l *ListOptionIndexer) afterDelete(key string, tx db.TXClient) error {
 	return nil
 }
 
-// ListByOptions returns objects according to the specified list options and partitions
-// result is an unstructured.UnstructuredList, the continue token for the next page (or an error)
-func (l *ListOptionIndexer) ListByOptions(ctx context.Context, lo ListOptions, partitions []partition.Partition, namespace string) (*unstructured.UnstructuredList, string, error) {
+// ListByOptions returns objects according to the specified list options and partitions.
+// Specifically:
+//   - an unstructured list of resources belonging to any of the specified partitions
+//   - the total number of resources (returned list might be a subset depending on pagination options in lo)
+//   - a continue token, if there are more pages after the returned one
+//   - an error instead of all of the above if anything went wrong
+func (l *ListOptionIndexer) ListByOptions(ctx context.Context, lo ListOptions, partitions []partition.Partition, namespace string) (*unstructured.UnstructuredList, int, string, error) {
 	// 1- Intro: SELECT and JOIN clauses
 	query := fmt.Sprintf(`SELECT o.object, o.objectnonce, o.dekid FROM "%s" o`, l.GetName())
 	query += "\n  "
@@ -199,7 +203,7 @@ func (l *ListOptionIndexer) ListByOptions(ctx context.Context, lo ListOptions, p
 	for _, orFilters := range lo.Filters {
 		orClause, orParams, err := l.buildORClauseFromFilters(orFilters)
 		if err != nil {
-			return nil, "", err
+			return nil, 0, "", err
 		}
 		if orClause == "" {
 			continue
@@ -271,7 +275,6 @@ func (l *ListOptionIndexer) ListByOptions(ctx context.Context, lo ListOptions, p
 			}
 			query += " AND\n    "
 		}
-		// query += strings.Join(whereClauses, " AND\n    ")
 	}
 
 	// 2- Sorting: ORDER BY clauses (from lo.Sort)
@@ -279,7 +282,7 @@ func (l *ListOptionIndexer) ListByOptions(ctx context.Context, lo ListOptions, p
 	if len(lo.Sort.PrimaryField) > 0 {
 		columnName := toColumnName(lo.Sort.PrimaryField)
 		if err := l.validateColumn(columnName); err != nil {
-			return nil, "", err
+			return nil, 0, "", err
 		}
 
 		direction := "ASC"
@@ -291,7 +294,7 @@ func (l *ListOptionIndexer) ListByOptions(ctx context.Context, lo ListOptions, p
 	if len(lo.Sort.SecondaryField) > 0 {
 		columnName := toColumnName(lo.Sort.SecondaryField)
 		if err := l.validateColumn(columnName); err != nil {
-			return nil, "", err
+			return nil, 0, "", err
 		}
 
 		direction := "ASC"
@@ -313,9 +316,14 @@ func (l *ListOptionIndexer) ListByOptions(ctx context.Context, lo ListOptions, p
 		}
 	}
 
-	// 3- Pagination: LIMIT clause (from lo.Pagination and/or lo.ChunkSize/lo.Resume)
+	// 4- Pagination: LIMIT clause (from lo.Pagination and/or lo.ChunkSize/lo.Resume)
+
+	// before proceeding, save a copy of the query and params without LIMIT/OFFSET
+	// for COUNTing all results later
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM (%s)", query)
+	countParams := params[:]
+
 	limitClause := ""
-	offsetClause := ""
 	// take the smallest limit between lo.Pagination and lo.ChunkSize
 	limit := lo.Pagination.PageSize
 	if limit == 0 || (lo.ChunkSize > 0 && lo.ChunkSize < limit) {
@@ -323,32 +331,30 @@ func (l *ListOptionIndexer) ListByOptions(ctx context.Context, lo ListOptions, p
 	}
 	if limit > 0 {
 		limitClause = "\n  LIMIT ?"
-		// note: retrieve one extra row. If it comes back, then there are more pages and a continueToken should be created
-		params = append(params, limit+1)
+		params = append(params, limit)
 	}
 
 	// OFFSET clause (from lo.Pagination and/or lo.Resume)
+	offsetClause := ""
 	offset := 0
 	if lo.Resume != "" {
 		offsetInt, err := strconv.Atoi(lo.Resume)
 		if err != nil {
-			return nil, "", err
+			return nil, 0, "", err
 		}
 		offset = offsetInt
 	}
 	if lo.Pagination.Page >= 1 {
 		offset += lo.Pagination.PageSize * (lo.Pagination.Page - 1)
 	}
-
 	if offset > 0 {
 		offsetClause = "\n  OFFSET ?"
 		params = append(params, offset)
 	}
 
+	// assemble and log the final query
 	query += limitClause
 	query += offsetClause
-
-	// log the final query
 	logrus.Debugf("ListOptionIndexer prepared statement: %v", query)
 	logrus.Debugf("Params: %v", params...)
 
@@ -357,21 +363,36 @@ func (l *ListOptionIndexer) ListByOptions(ctx context.Context, lo ListOptions, p
 	defer l.CloseStmt(stmt)
 	rows, err := l.QueryForRows(ctx, stmt, params...)
 	if err != nil {
-		return nil, "", fmt.Errorf("while executing query: %s got error: %w", query, err)
+		return nil, 0, "", fmt.Errorf("while executing query: %s got error: %w", query, err)
 	}
 	items, err := l.ReadObjects(rows, l.GetType(), l.GetShouldEncrypt())
 	if err != nil {
-		return nil, "", err
+		return nil, 0, "", err
+	}
+
+	total := len(items)
+	// if limit or offset were set, execute counting of all rows
+	if limit > 0 || offset > 0 {
+		countStmt := l.Prepare(countQuery)
+		defer l.CloseStmt(countStmt)
+		rows, err = l.QueryForRows(ctx, countStmt, countParams...)
+		if err != nil {
+			return nil, 0, "", errors.Wrapf(err, "Error while executing query:\n %s", countQuery)
+		}
+		total, err = l.ReadInt(rows)
+		if err != nil {
+			return nil, 0, "", err
+		}
+	} else {
+		total = len(items)
 	}
 
 	continueToken := ""
-	if limit > 0 && len(items) == limit+1 {
-		// remove extra row
-		items = items[:limit]
+	if limit > 0 && offset+len(items) < total {
 		continueToken = fmt.Sprintf("%d", offset+limit)
 	}
 
-	return toUnstructuredList(items), continueToken, nil
+	return toUnstructuredList(items), total, continueToken, nil
 }
 
 func (l *ListOptionIndexer) validateColumn(column string) error {
