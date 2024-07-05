@@ -165,16 +165,18 @@ func TestNewListOptionIndexer(t *testing.T) {
 
 func TestListByOptions(t *testing.T) {
 	type testCase struct {
-		description       string
-		listOptions       ListOptions
-		partitions        []partition.Partition
-		ns                string
-		expectedStmt      string
-		expectedStmtArgs  []any
-		expectedList      *unstructured.UnstructuredList
-		returnList        []any
-		expectedContToken string
-		expectedErr       error
+		description           string
+		listOptions           ListOptions
+		partitions            []partition.Partition
+		ns                    string
+		expectedCountStmt     string
+		expectedCountStmtArgs []any
+		expectedStmt          string
+		expectedStmtArgs      []any
+		expectedList          *unstructured.UnstructuredList
+		returnList            []any
+		expectedContToken     string
+		expectedErr           error
 	}
 
 	testObject := testStoreObject{Id: "something", Val: "a"}
@@ -224,11 +226,17 @@ func TestListByOptions(t *testing.T) {
     (FALSE)
   ORDER BY f."metadata.name" ASC 
   LIMIT ?`,
-		expectedStmtArgs:  []interface{}{3},
-		returnList:        []any{&unstructured.Unstructured{Object: unstrTestObjectMap}, &unstructured.Unstructured{Object: unstrTestObjectMap}},
-		expectedList:      &unstructured.UnstructuredList{Object: map[string]interface{}{"items": []map[string]interface{}{unstrTestObjectMap, unstrTestObjectMap}}, Items: []unstructured.Unstructured{{Object: unstrTestObjectMap}, {Object: unstrTestObjectMap}}},
-		expectedContToken: "",
-		expectedErr:       nil,
+		expectedStmtArgs: []interface{}{2},
+		expectedCountStmt: `SELECT COUNT(*) FROM (SELECT o.object, o.objectnonce, o.dekid FROM "something" o
+  JOIN db2."something_fields" f ON o.key = f.key
+  WHERE
+    (FALSE)
+  ORDER BY f."metadata.name" ASC )`,
+		expectedCountStmtArgs: []interface{}{},
+		returnList:            []any{&unstructured.Unstructured{Object: unstrTestObjectMap}, &unstructured.Unstructured{Object: unstrTestObjectMap}},
+		expectedList:          &unstructured.UnstructuredList{Object: map[string]interface{}{"items": []map[string]interface{}{unstrTestObjectMap, unstrTestObjectMap}}, Items: []unstructured.Unstructured{{Object: unstrTestObjectMap}, {Object: unstrTestObjectMap}}},
+		expectedContToken:     "",
+		expectedErr:           nil,
 	})
 	tests = append(tests, testCase{
 		description: "ListByOptions with Resume set should set offset in prepared sql.Stmt",
@@ -241,11 +249,17 @@ func TestListByOptions(t *testing.T) {
     (FALSE)
   ORDER BY f."metadata.name" ASC 
   OFFSET ?`,
-		expectedStmtArgs:  []interface{}{4},
-		returnList:        []any{&unstructured.Unstructured{Object: unstrTestObjectMap}, &unstructured.Unstructured{Object: unstrTestObjectMap}},
-		expectedList:      &unstructured.UnstructuredList{Object: map[string]interface{}{"items": []map[string]interface{}{unstrTestObjectMap, unstrTestObjectMap}}, Items: []unstructured.Unstructured{{Object: unstrTestObjectMap}, {Object: unstrTestObjectMap}}},
-		expectedContToken: "",
-		expectedErr:       nil,
+		expectedStmtArgs: []interface{}{4},
+		expectedCountStmt: `SELECT COUNT(*) FROM (SELECT o.object, o.objectnonce, o.dekid FROM "something" o
+  JOIN db2."something_fields" f ON o.key = f.key
+  WHERE
+    (FALSE)
+  ORDER BY f."metadata.name" ASC )`,
+		expectedCountStmtArgs: []interface{}{},
+		returnList:            []any{&unstructured.Unstructured{Object: unstrTestObjectMap}, &unstructured.Unstructured{Object: unstrTestObjectMap}},
+		expectedList:          &unstructured.UnstructuredList{Object: map[string]interface{}{"items": []map[string]interface{}{unstrTestObjectMap, unstrTestObjectMap}}, Items: []unstructured.Unstructured{{Object: unstrTestObjectMap}, {Object: unstrTestObjectMap}}},
+		expectedContToken:     "",
+		expectedErr:           nil,
 	})
 	tests = append(tests, testCase{
 		description: "ListByOptions with 1 OrFilter set with 1 filter should select where that filter is true in prepared sql.Stmt",
@@ -532,7 +546,7 @@ func TestListByOptions(t *testing.T) {
 		expectedErr:       nil,
 	})
 	tests = append(tests, testCase{
-		description: "ListByOptions with Pagination.PageSize set should set limit to PageSize + 1 in prepared sql.Stmt",
+		description: "ListByOptions with Pagination.PageSize set should set limit to PageSize in prepared sql.Stmt",
 		listOptions: ListOptions{
 			Pagination: Pagination{
 				PageSize: 10,
@@ -546,11 +560,17 @@ func TestListByOptions(t *testing.T) {
     (FALSE)
   ORDER BY f."metadata.name" ASC 
   LIMIT ?`,
-		expectedStmtArgs:  []any{11},
-		returnList:        []any{&unstructured.Unstructured{Object: unstrTestObjectMap}, &unstructured.Unstructured{Object: unstrTestObjectMap}},
-		expectedList:      &unstructured.UnstructuredList{Object: map[string]interface{}{"items": []map[string]interface{}{unstrTestObjectMap, unstrTestObjectMap}}, Items: []unstructured.Unstructured{{Object: unstrTestObjectMap}, {Object: unstrTestObjectMap}}},
-		expectedContToken: "",
-		expectedErr:       nil,
+		expectedStmtArgs: []any{10},
+		expectedCountStmt: `SELECT COUNT(*) FROM (SELECT o.object, o.objectnonce, o.dekid FROM "something" o
+  JOIN db2."something_fields" f ON o.key = f.key
+  WHERE
+    (FALSE)
+  ORDER BY f."metadata.name" ASC )`,
+		expectedCountStmtArgs: []interface{}{},
+		returnList:            []any{&unstructured.Unstructured{Object: unstrTestObjectMap}, &unstructured.Unstructured{Object: unstrTestObjectMap}},
+		expectedList:          &unstructured.UnstructuredList{Object: map[string]interface{}{"items": []map[string]interface{}{unstrTestObjectMap, unstrTestObjectMap}}, Items: []unstructured.Unstructured{{Object: unstrTestObjectMap}, {Object: unstrTestObjectMap}}},
+		expectedContToken:     "",
+		expectedErr:           nil,
 	})
 	tests = append(tests, testCase{
 		description: "ListByOptions with Pagination.Page and no PageSize set should not add anything to prepared sql.Stmt",
@@ -572,7 +592,7 @@ func TestListByOptions(t *testing.T) {
 		expectedErr:       nil,
 	})
 	tests = append(tests, testCase{
-		description: "ListByOptions with Pagination.Page and PageSize set limit to PageSize + 1 and offset to PageSize * (Page - 1) in prepared sql.Stmt",
+		description: "ListByOptions with Pagination.Page and PageSize set limit to PageSize and offset to PageSize * (Page - 1) in prepared sql.Stmt",
 		listOptions: ListOptions{
 			Pagination: Pagination{
 				PageSize: 10,
@@ -588,7 +608,15 @@ func TestListByOptions(t *testing.T) {
   ORDER BY f."metadata.name" ASC 
   LIMIT ?
   OFFSET ?`,
-		expectedStmtArgs:  []any{11, 10},
+		expectedStmtArgs: []any{10, 10},
+
+		expectedCountStmt: `SELECT COUNT(*) FROM (SELECT o.object, o.objectnonce, o.dekid FROM "something" o
+  JOIN db2."something_fields" f ON o.key = f.key
+  WHERE
+    (FALSE)
+  ORDER BY f."metadata.name" ASC )`,
+		expectedCountStmtArgs: []interface{}{},
+
 		returnList:        []any{&unstructured.Unstructured{Object: unstrTestObjectMap}, &unstructured.Unstructured{Object: unstrTestObjectMap}},
 		expectedList:      &unstructured.UnstructuredList{Object: map[string]interface{}{"items": []map[string]interface{}{unstrTestObjectMap, unstrTestObjectMap}}, Items: []unstructured.Unstructured{{Object: unstrTestObjectMap}, {Object: unstrTestObjectMap}}},
 		expectedContToken: "",
@@ -680,7 +708,7 @@ func TestListByOptions(t *testing.T) {
 			assert.Nil(t, err)
 			objType := reflect.TypeOf(testObject)
 			store.EXPECT().GetName().Return("something").AnyTimes()
-			store.EXPECT().Prepare(test.expectedStmt).AnyTimes().Do(func(a ...any) {
+			store.EXPECT().Prepare(test.expectedStmt).Do(func(a ...any) {
 				fmt.Println(a)
 			}).Return(stmt)
 			if args := test.expectedStmtArgs; args != nil {
@@ -692,13 +720,22 @@ func TestListByOptions(t *testing.T) {
 			store.EXPECT().GetShouldEncrypt().Return(false)
 			store.EXPECT().ReadObjects(rows, objType, false).Return(test.returnList, nil)
 			store.EXPECT().CloseStmt(stmt).Return(nil)
-			list, contToken, err := lii.ListByOptions(context.TODO(), test.listOptions, test.partitions, test.ns)
+
+			if test.expectedCountStmt != "" {
+				store.EXPECT().Prepare(test.expectedCountStmt).Return(stmt)
+				store.EXPECT().QueryForRows(context.TODO(), stmt, test.expectedCountStmtArgs...).Return(rows, nil)
+				store.EXPECT().ReadInt(rows).Return(len(test.expectedList.Items), nil)
+				store.EXPECT().CloseStmt(stmt).Return(nil)
+			}
+
+			list, total, contToken, err := lii.ListByOptions(context.TODO(), test.listOptions, test.partitions, test.ns)
 			if test.expectedErr == nil {
 				assert.Nil(t, err)
 			} else {
 				assert.Equal(t, test.expectedErr, err)
 			}
 			assert.Equal(t, test.expectedList, list)
+			assert.Equal(t, len(test.expectedList.Items), total)
 			assert.Equal(t, test.expectedContToken, contToken)
 		})
 	}

@@ -26,7 +26,7 @@ type Informer struct {
 }
 
 type ByOptionsLister interface {
-	ListByOptions(ctx context.Context, lo ListOptions, partitions []partition.Partition, namespace string) (*unstructured.UnstructuredList, string, error)
+	ListByOptions(ctx context.Context, lo ListOptions, partitions []partition.Partition, namespace string) (*unstructured.UnstructuredList, int, string, error)
 }
 
 // NewInformer returns a new SQLite-backed Informer for the type specified by schema in unstructured.Unstructured form
@@ -71,9 +71,13 @@ func NewInformer(client dynamic.ResourceInterface, fields [][]string, gvk schema
 	}, nil
 }
 
-// ListByOptions returns objects according to the specified list options and partitions
-// see ListOptionIndexer.ListByOptions
-func (i *Informer) ListByOptions(ctx context.Context, lo ListOptions, partitions []partition.Partition, namespace string) (*unstructured.UnstructuredList, string, error) {
+// ListByOptions returns objects according to the specified list options and partitions.
+// Specifically:
+//   - an unstructured list of resources belonging to any of the specified partitions
+//   - the total number of resources (returned list might be a subset depending on pagination options in lo)
+//   - a continue token, if there are more pages after the returned one
+//   - an error instead of all of the above if anything went wrong
+func (i *Informer) ListByOptions(ctx context.Context, lo ListOptions, partitions []partition.Partition, namespace string) (*unstructured.UnstructuredList, int, string, error) {
 	return i.ByOptionsLister.ListByOptions(ctx, lo, partitions, namespace)
 }
 

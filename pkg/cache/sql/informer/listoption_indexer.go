@@ -24,8 +24,12 @@ type ListOptionIndexer struct {
 
 	namespaced    bool
 	indexedFields []string
-	addField      *sql.Stmt
-	deleteField   *sql.Stmt
+
+	addFieldQuery    string
+	deleteFieldQuery string
+
+	addFieldStmt    *sql.Stmt
+	deleteFieldStmt *sql.Stmt
 }
 
 var (
@@ -122,14 +126,18 @@ func NewListOptionIndexer(fields [][]string, s Store, namespaced bool) (*ListOpt
 		return nil, err
 	}
 
-	l.addField = l.Prepare(fmt.Sprintf(
+	l.addFieldQuery = fmt.Sprintf(
 		`INSERT INTO db2."%s_fields"(key, %s) VALUES (?, %s) ON CONFLICT DO UPDATE SET %s`,
 		i.GetName(),
 		strings.Join(columns, ", "),
 		strings.Join(qmarks, ", "),
 		strings.Join(setStatements, ", "),
-	))
-	l.deleteField = l.Prepare(fmt.Sprintf(`DELETE FROM db2."%s_fields" WHERE key = ?`, s.GetName()))
+	)
+	l.deleteFieldQuery = fmt.Sprintf(`DELETE FROM db2."%s_fields" WHERE key = ?`, s.GetName())
+
+	l.addFieldStmt = l.Prepare(l.addFieldQuery)
+	l.deleteFieldStmt = l.Prepare(l.deleteFieldQuery)
+
 	return l, nil
 }
 
@@ -144,7 +152,7 @@ func (l *ListOptionIndexer) afterUpsert(key string, obj any, tx db.TXClient) err
 			logrus.Errorf("cannot index object of type [%s] with key [%s] for indexer [%s]: %v", l.GetType().String(), key, l.GetName(), err)
 			cErr := tx.Cancel()
 			if cErr != nil {
-				return errors.Wrap(err, cErr.Error())
+				return fmt.Errorf("could not cancel transaction: %s while recovering from error: %w", cErr.Error(), err)
 			}
 			return err
 		}
@@ -160,21 +168,34 @@ func (l *ListOptionIndexer) afterUpsert(key string, obj any, tx db.TXClient) err
 		}
 	}
 
-	return tx.StmtExec(tx.Stmt(l.addField), args...)
+	err := tx.StmtExec(tx.Stmt(l.addFieldStmt), args...)
+	if err != nil {
+		return fmt.Errorf("while executing query: %s got error: %w", l.addFieldQuery, err)
+	}
+	return nil
 }
 
 func (l *ListOptionIndexer) afterDelete(key string, tx db.TXClient) error {
 	args := []any{key}
-	return tx.StmtExec(tx.Stmt(l.deleteField), args...)
+
+	err := tx.StmtExec(tx.Stmt(l.deleteFieldStmt), args...)
+	if err != nil {
+		return fmt.Errorf("while executing query: %s got error: %w", l.deleteFieldQuery, err)
+	}
+	return nil
 }
 
-// ListByOptions returns objects according to the specified list options and partitions
-// result is an unstructured.UnstructuredList, the continue token for the next page (or an error)
-func (l *ListOptionIndexer) ListByOptions(ctx context.Context, lo ListOptions, partitions []partition.Partition, namespace string) (*unstructured.UnstructuredList, string, error) {
+// ListByOptions returns objects according to the specified list options and partitions.
+// Specifically:
+//   - an unstructured list of resources belonging to any of the specified partitions
+//   - the total number of resources (returned list might be a subset depending on pagination options in lo)
+//   - a continue token, if there are more pages after the returned one
+//   - an error instead of all of the above if anything went wrong
+func (l *ListOptionIndexer) ListByOptions(ctx context.Context, lo ListOptions, partitions []partition.Partition, namespace string) (*unstructured.UnstructuredList, int, string, error) {
 	// 1- Intro: SELECT and JOIN clauses
-	stmt := fmt.Sprintf(`SELECT o.object, o.objectnonce, o.dekid FROM "%s" o`, l.GetName())
-	stmt += "\n  "
-	stmt += fmt.Sprintf(`JOIN db2."%s_fields" f ON o.key = f.key`, l.GetName())
+	query := fmt.Sprintf(`SELECT o.object, o.objectnonce, o.dekid FROM "%s" o`, l.GetName())
+	query += "\n  "
+	query += fmt.Sprintf(`JOIN db2."%s_fields" f ON o.key = f.key`, l.GetName())
 	params := []any{}
 
 	// 2- Filtering: WHERE clauses (from lo.Filters)
@@ -182,7 +203,7 @@ func (l *ListOptionIndexer) ListByOptions(ctx context.Context, lo ListOptions, p
 	for _, orFilters := range lo.Filters {
 		orClause, orParams, err := l.buildORClauseFromFilters(orFilters)
 		if err != nil {
-			return nil, "", err
+			return nil, 0, "", err
 		}
 		if orClause == "" {
 			continue
@@ -246,15 +267,14 @@ func (l *ListOptionIndexer) ListByOptions(ctx context.Context, lo ListOptions, p
 	}
 
 	if len(whereClauses) > 0 {
-		stmt += "\n  WHERE\n    "
+		query += "\n  WHERE\n    "
 		for index, clause := range whereClauses {
-			stmt += fmt.Sprintf("(%s)", clause)
+			query += fmt.Sprintf("(%s)", clause)
 			if index == len(whereClauses)-1 {
 				break
 			}
-			stmt += " AND\n    "
+			query += " AND\n    "
 		}
-		// stmt += strings.Join(whereClauses, " AND\n    ")
 	}
 
 	// 2- Sorting: ORDER BY clauses (from lo.Sort)
@@ -262,7 +282,7 @@ func (l *ListOptionIndexer) ListByOptions(ctx context.Context, lo ListOptions, p
 	if len(lo.Sort.PrimaryField) > 0 {
 		columnName := toColumnName(lo.Sort.PrimaryField)
 		if err := l.validateColumn(columnName); err != nil {
-			return nil, "", err
+			return nil, 0, "", err
 		}
 
 		direction := "ASC"
@@ -274,7 +294,7 @@ func (l *ListOptionIndexer) ListByOptions(ctx context.Context, lo ListOptions, p
 	if len(lo.Sort.SecondaryField) > 0 {
 		columnName := toColumnName(lo.Sort.SecondaryField)
 		if err := l.validateColumn(columnName); err != nil {
-			return nil, "", err
+			return nil, 0, "", err
 		}
 
 		direction := "ASC"
@@ -285,20 +305,25 @@ func (l *ListOptionIndexer) ListByOptions(ctx context.Context, lo ListOptions, p
 	}
 
 	if len(orderByClauses) > 0 {
-		stmt += "\n  ORDER BY "
-		stmt += strings.Join(orderByClauses, ", ")
+		query += "\n  ORDER BY "
+		query += strings.Join(orderByClauses, ", ")
 	} else {
 		// make sure one default order is always picked
 		if l.namespaced {
-			stmt += "\n  ORDER BY f.\"metadata.namespace\" ASC, f.\"metadata.name\" ASC "
+			query += "\n  ORDER BY f.\"metadata.namespace\" ASC, f.\"metadata.name\" ASC "
 		} else {
-			stmt += "\n  ORDER BY f.\"metadata.name\" ASC "
+			query += "\n  ORDER BY f.\"metadata.name\" ASC "
 		}
 	}
 
-	// 3- Pagination: LIMIT clause (from lo.Pagination and/or lo.ChunkSize/lo.Resume)
+	// 4- Pagination: LIMIT clause (from lo.Pagination and/or lo.ChunkSize/lo.Resume)
+
+	// before proceeding, save a copy of the query and params without LIMIT/OFFSET
+	// for COUNTing all results later
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM (%s)", query)
+	countParams := params[:]
+
 	limitClause := ""
-	offsetClause := ""
 	// take the smallest limit between lo.Pagination and lo.ChunkSize
 	limit := lo.Pagination.PageSize
 	if limit == 0 || (lo.ChunkSize > 0 && lo.ChunkSize < limit) {
@@ -306,55 +331,66 @@ func (l *ListOptionIndexer) ListByOptions(ctx context.Context, lo ListOptions, p
 	}
 	if limit > 0 {
 		limitClause = "\n  LIMIT ?"
-		// note: retrieve one extra row. If it comes back, then there are more pages and a continueToken should be created
-		params = append(params, limit+1)
+		params = append(params, limit)
 	}
 
 	// OFFSET clause (from lo.Pagination and/or lo.Resume)
+	offsetClause := ""
 	offset := 0
 	if lo.Resume != "" {
 		offsetInt, err := strconv.Atoi(lo.Resume)
 		if err != nil {
-			return nil, "", err
+			return nil, 0, "", err
 		}
 		offset = offsetInt
 	}
 	if lo.Pagination.Page >= 1 {
 		offset += lo.Pagination.PageSize * (lo.Pagination.Page - 1)
 	}
-
 	if offset > 0 {
 		offsetClause = "\n  OFFSET ?"
 		params = append(params, offset)
 	}
 
-	stmt += limitClause
-	stmt += offsetClause
-
-	// log the final query
-	logrus.Debugf("ListOptionIndexer prepared statement: %v", stmt)
+	// assemble and log the final query
+	query += limitClause
+	query += offsetClause
+	logrus.Debugf("ListOptionIndexer prepared statement: %v", query)
 	logrus.Debugf("Params: %v", params...)
 
 	// execute
-	prepStmt := l.Prepare(stmt)
-	defer l.CloseStmt(prepStmt)
-	rows, err := l.QueryForRows(ctx, prepStmt, params...)
+	stmt := l.Prepare(query)
+	defer l.CloseStmt(stmt)
+	rows, err := l.QueryForRows(ctx, stmt, params...)
 	if err != nil {
-		return nil, "", err
+		return nil, 0, "", fmt.Errorf("while executing query: %s got error: %w", query, err)
 	}
 	items, err := l.ReadObjects(rows, l.GetType(), l.GetShouldEncrypt())
 	if err != nil {
-		return nil, "", err
+		return nil, 0, "", err
+	}
+
+	total := len(items)
+	// if limit or offset were set, execute counting of all rows
+	if limit > 0 || offset > 0 {
+		countStmt := l.Prepare(countQuery)
+		defer l.CloseStmt(countStmt)
+		rows, err = l.QueryForRows(ctx, countStmt, countParams...)
+		if err != nil {
+			return nil, 0, "", errors.Wrapf(err, "Error while executing query:\n %s", countQuery)
+		}
+		total, err = l.ReadInt(rows)
+		if err != nil {
+			return nil, 0, "", err
+		}
 	}
 
 	continueToken := ""
-	if limit > 0 && len(items) == limit+1 {
-		// remove extra row
-		items = items[:limit]
+	if limit > 0 && offset+len(items) < total {
 		continueToken = fmt.Sprintf("%d", offset+limit)
 	}
 
-	return toUnstructuredList(items), continueToken, nil
+	return toUnstructuredList(items), total, continueToken, nil
 }
 
 func (l *ListOptionIndexer) validateColumn(column string) error {
@@ -363,7 +399,7 @@ func (l *ListOptionIndexer) validateColumn(column string) error {
 			return nil
 		}
 	}
-	return errors.Wrapf(InvalidColumnErr, "column is invalid [%s]", column)
+	return fmt.Errorf("column is invalid [%s]: %w", column, InvalidColumnErr)
 }
 
 // buildORClause creates an SQLite compatible query that ORs conditions built from passed filters

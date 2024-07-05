@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/pkg/errors"
 	"github.com/rancher/lasso/pkg/cache/sql/db"
 	"github.com/rancher/lasso/pkg/cache/sql/db/transaction"
 	"k8s.io/client-go/tools/cache"
@@ -39,6 +38,12 @@ type Store struct {
 	keyFunc       cache.KeyFunc
 	shouldEncrypt bool
 
+	upsertQuery   string
+	deleteQuery   string
+	getQuery      string
+	listQuery     string
+	listKeysQuery string
+
 	upsertStmt   *sql.Stmt
 	deleteStmt   *sql.Stmt
 	getStmt      *sql.Stmt
@@ -58,6 +63,7 @@ type DBClient interface {
 	QueryForRows(ctx context.Context, stmt transaction.Stmt, params ...any) (*sql.Rows, error)
 	ReadObjects(rows db.Rows, typ reflect.Type, shouldDecrypt bool) ([]any, error)
 	ReadStrings(rows db.Rows) ([]string, error)
+	ReadInt(rows db.Rows) (int, error)
 	Upsert(tx db.TXClient, stmt *sql.Stmt, key string, obj any, shouldEncrypt bool) error
 	CloseStmt(closable db.Closable) error
 }
@@ -79,20 +85,28 @@ func NewStore(example any, keyFunc cache.KeyFunc, c DBClient, shouldEncrypt bool
 	if err != nil {
 		return nil, err
 	}
-	err = txC.Exec(fmt.Sprintf(createTableFmt, s.name))
+	createTableQuery := fmt.Sprintf(createTableFmt, s.name)
+	err = txC.Exec(createTableQuery)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("while executing query: %s got error: %w", createTableQuery, err)
 	}
 
 	err = txC.Commit()
 	if err != nil {
 		return nil, err
 	}
-	s.upsertStmt = s.Prepare(fmt.Sprintf(upsertStmtFmt, s.name))
-	s.deleteStmt = s.Prepare(fmt.Sprintf(deleteStmtFmt, s.name))
-	s.getStmt = s.Prepare(fmt.Sprintf(getStmtFmt, s.name))
-	s.listStmt = s.Prepare(fmt.Sprintf(listStmtFmt, s.name))
-	s.listKeysStmt = s.Prepare(fmt.Sprintf(listKeysStmtFmt, s.name))
+
+	s.upsertQuery = fmt.Sprintf(upsertStmtFmt, s.name)
+	s.deleteQuery = fmt.Sprintf(deleteStmtFmt, s.name)
+	s.getQuery = fmt.Sprintf(getStmtFmt, s.name)
+	s.listQuery = fmt.Sprintf(listStmtFmt, s.name)
+	s.listKeysQuery = fmt.Sprintf(listKeysStmtFmt, s.name)
+
+	s.upsertStmt = s.Prepare(s.upsertQuery)
+	s.deleteStmt = s.Prepare(s.deleteQuery)
+	s.getStmt = s.Prepare(s.getQuery)
+	s.listStmt = s.Prepare(s.listQuery)
+	s.listKeysStmt = s.Prepare(s.listKeysQuery)
 
 	return s, nil
 }
@@ -107,7 +121,7 @@ func (s *Store) upsert(key string, obj any) error {
 
 	err = s.Upsert(tx, s.upsertStmt, key, obj, s.shouldEncrypt)
 	if err != nil {
-		return err
+		return fmt.Errorf("while executing query: %s got error: %w", s.upsertQuery, err)
 	}
 
 	err = s.runAfterUpsert(key, obj, tx)
@@ -127,7 +141,7 @@ func (s *Store) deleteByKey(key string) error {
 
 	err = tx.StmtExec(tx.Stmt(s.deleteStmt), key)
 	if err != nil {
-		return err
+		return fmt.Errorf("while executing query: %s got error: %w", s.deleteQuery, err)
 	}
 
 	err = s.runAfterDelete(key, tx)
@@ -142,7 +156,7 @@ func (s *Store) deleteByKey(key string) error {
 func (s *Store) GetByKey(key string) (item any, exists bool, err error) {
 	rows, err := s.QueryForRows(context.TODO(), s.getStmt, key)
 	if err != nil {
-		return nil, false, err
+		return nil, false, fmt.Errorf("while executing query: %s got error: %w", s.getQuery, err)
 	}
 	result, err := s.ReadObjects(rows, s.typ, s.shouldEncrypt)
 	if err != nil {
@@ -188,11 +202,11 @@ func (s *Store) Delete(obj any) error {
 func (s *Store) List() []any {
 	rows, err := s.QueryForRows(context.TODO(), s.listStmt)
 	if err != nil {
-		panic(errors.Wrap(err, "Unexpected error in Store.List"))
+		panic(fmt.Errorf("while executing query: %s got error: %w", s.listQuery, err))
 	}
 	result, err := s.ReadObjects(rows, s.typ, s.shouldEncrypt)
 	if err != nil {
-		panic(errors.Wrap(err, "Unexpected error in Store.List"))
+		panic(fmt.Errorf("error in Store.List: %w", err))
 	}
 	return result
 }
@@ -203,7 +217,7 @@ func (s *Store) List() []any {
 func (s *Store) ListKeys() []string {
 	rows, err := s.QueryForRows(context.TODO(), s.listKeysStmt)
 	if err != nil {
-		fmt.Printf("Unexpected error in store.ListKeys: %v\n", err)
+		fmt.Printf("Unexpected error in store.ListKeys: %v\n", fmt.Errorf("while executing query: %s got error: %w", s.listKeysQuery, err))
 		return []string{}
 	}
 	result, err := s.ReadStrings(rows)

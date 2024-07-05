@@ -100,6 +100,21 @@ func (mr *MockDBClientMockRecorder) QueryForRows(arg0, arg1 interface{}, arg2 ..
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueryForRows", reflect.TypeOf((*MockDBClient)(nil).QueryForRows), varargs...)
 }
 
+// ReadInt mocks base method.
+func (m *MockDBClient) ReadInt(arg0 db.Rows) (int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReadInt", arg0)
+	ret0, _ := ret[0].(int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ReadInt indicates an expected call of ReadInt.
+func (mr *MockDBClientMockRecorder) ReadInt(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadInt", reflect.TypeOf((*MockDBClient)(nil).ReadInt), arg0)
+}
+
 // ReadObjects mocks base method.
 func (m *MockDBClient) ReadObjects(arg0 db.Rows, arg1 reflect.Type, arg2 bool) ([]interface{}, error) {
 	m.ctrl.T.Helper()

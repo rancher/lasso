@@ -296,6 +296,96 @@ func TestQueryStrings(t *testing.T) {
 	}
 }
 
+func TestReadInt(t *testing.T) {
+	type testCase struct {
+		description string
+		test        func(t *testing.T)
+	}
+
+	var tests []testCase
+
+	testResult := 42
+	tests = append(tests, testCase{description: "One row, no errors", test: func(t *testing.T) {
+		c := SetupMockConnection(t)
+		e := SetupMockEncryptor(t)
+		d := SetupMockDecryptor(t)
+		r := SetupMockRows(t)
+		r.EXPECT().Next().Return(true)
+		r.EXPECT().Scan(gomock.Any()).Do(func(a ...any) {
+			p := a[0].(*int)
+			*p = testResult
+		})
+		r.EXPECT().Err().Return(nil)
+		r.EXPECT().Close().Return(nil)
+		client := SetupClient(t, c, e, d)
+		result, err := client.ReadInt(r)
+		assert.Nil(t, err)
+		assert.Equal(t, 42, result)
+	},
+	})
+	tests = append(tests, testCase{description: "One row, Scan error", test: func(t *testing.T) {
+		c := SetupMockConnection(t)
+		e := SetupMockEncryptor(t)
+		d := SetupMockDecryptor(t)
+		r := SetupMockRows(t)
+		r.EXPECT().Next().Return(true)
+		r.EXPECT().Scan(gomock.Any()).Return(fmt.Errorf("error"))
+		r.EXPECT().Close().Return(nil)
+		client := SetupClient(t, c, e, d)
+		_, err := client.ReadInt(r)
+		assert.NotNil(t, err)
+	},
+	})
+	tests = append(tests, testCase{description: "One row, Err() error", test: func(t *testing.T) {
+		c := SetupMockConnection(t)
+		e := SetupMockEncryptor(t)
+		d := SetupMockDecryptor(t)
+		r := SetupMockRows(t)
+		r.EXPECT().Next().Return(true)
+		r.EXPECT().Scan(gomock.Any()).Do(func(a ...any) {
+			a[0] = testResult
+		})
+		r.EXPECT().Err().Return(fmt.Errorf("error"))
+		r.EXPECT().Close().Return(nil)
+		client := SetupClient(t, c, e, d)
+		_, err := client.ReadInt(r)
+		assert.NotNil(t, err)
+	},
+	})
+	tests = append(tests, testCase{description: "One row, Close() error", test: func(t *testing.T) {
+		c := SetupMockConnection(t)
+		e := SetupMockEncryptor(t)
+		d := SetupMockDecryptor(t)
+		r := SetupMockRows(t)
+		r.EXPECT().Next().Return(true)
+		r.EXPECT().Scan(gomock.Any()).Do(func(a ...any) {
+			a[0] = testResult
+		})
+		r.EXPECT().Err().Return(nil)
+		r.EXPECT().Close().Return(fmt.Errorf("error"))
+		client := SetupClient(t, c, e, d)
+		_, err := client.ReadInt(r)
+		assert.NotNil(t, err)
+	},
+	})
+	tests = append(tests, testCase{description: "No rows error", test: func(t *testing.T) {
+		c := SetupMockConnection(t)
+		e := SetupMockEncryptor(t)
+		d := SetupMockDecryptor(t)
+		r := SetupMockRows(t)
+		r.EXPECT().Next().Return(false)
+		r.EXPECT().Close().Return(nil)
+		client := SetupClient(t, c, e, d)
+		_, err := client.ReadInt(r)
+		assert.ErrorIs(t, err, sql.ErrNoRows)
+	},
+	})
+	t.Parallel()
+	for _, test := range tests {
+		t.Run(test.description, func(t *testing.T) { test.test(t) })
+	}
+}
+
 func TestBegin(t *testing.T) {
 	type testCase struct {
 		description string

@@ -9,6 +9,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/gob"
+	"fmt"
 	"os"
 	"reflect"
 	"sync"
@@ -125,7 +126,7 @@ func (c *Client) QueryForRows(ctx context.Context, stmt transaction.Stmt, params
 			if ok && sqlErr.Code() == sqlite3.SQLITE_BUSY {
 				return false, nil
 			}
-			return false, errors.Wrapf(err, "Error initializing Store DB")
+			return false, err
 		}
 		return true, nil
 	})
@@ -200,6 +201,34 @@ func (c *Client) ReadStrings(rows Rows) ([]string, error) {
 	return result, nil
 }
 
+// ReadInt scans the first of the given rows into a single int (eg. for COUNT() queries)
+func (c *Client) ReadInt(rows Rows) (int, error) {
+	c.connLock.RLock()
+	defer c.connLock.RUnlock()
+
+	if !rows.Next() {
+		return 0, closeRowsOnError(rows, sql.ErrNoRows)
+	}
+
+	var result int
+	err := rows.Scan(&result)
+	if err != nil {
+		return 0, closeRowsOnError(rows, err)
+	}
+
+	err = rows.Err()
+	if err != nil {
+		return 0, closeRowsOnError(rows, err)
+	}
+
+	err = rows.Close()
+	if err != nil {
+		return 0, err
+	}
+
+	return result, nil
+}
+
 // Begin attempt to begin a transaction, and returns it along with a function for unlocking the
 // database once the transaction is done.
 func (c *Client) Begin() (TXClient, error) {
@@ -251,7 +280,7 @@ func toBytes(obj any) []byte {
 	enc := gob.NewEncoder(&buf)
 	err := enc.Encode(obj)
 	if err != nil {
-		panic(errors.Wrap(err, "Error while gobbing object"))
+		panic(fmt.Errorf("error while gobbing object: %w", err))
 	}
 	bb := buf.Bytes()
 	return bb
@@ -269,7 +298,7 @@ func fromBytes(buf sql.RawBytes, typ reflect.Type) (reflect.Value, error) {
 func closeRowsOnError(rows Rows, err error) error {
 	ce := rows.Close()
 	if ce != nil {
-		return errors.Wrap(ce, "while handling "+err.Error())
+		return fmt.Errorf("error in closing rows while handling %s: %w", err.Error(), ce)
 	}
 
 	return err
