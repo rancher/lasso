@@ -93,7 +93,7 @@ func NewListOptionIndexer(fields [][]string, s Store, namespaced bool) (*ListOpt
 	if err != nil {
 		return nil, err
 	}
-	err = tx.Exec(fmt.Sprintf(createFieldsTableFmt, i.GetName(), strings.Join(columnDefs, ", ")))
+	err = tx.Exec(fmt.Sprintf(createFieldsTableFmt, db.Sanitize(i.GetName()), strings.Join(columnDefs, ", ")))
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +104,7 @@ func NewListOptionIndexer(fields [][]string, s Store, namespaced bool) (*ListOpt
 
 	for index, field := range indexedFields {
 		// create index for field
-		err = tx.Exec(fmt.Sprintf(createFieldsIndexFmt, i.GetName(), field, i.GetName(), field))
+		err = tx.Exec(fmt.Sprintf(createFieldsIndexFmt, db.Sanitize(i.GetName()), field, db.Sanitize(i.GetName()), field))
 		if err != nil {
 			return nil, err
 		}
@@ -128,12 +128,12 @@ func NewListOptionIndexer(fields [][]string, s Store, namespaced bool) (*ListOpt
 
 	l.addFieldQuery = fmt.Sprintf(
 		`INSERT INTO db2."%s_fields"(key, %s) VALUES (?, %s) ON CONFLICT DO UPDATE SET %s`,
-		i.GetName(),
+		db.Sanitize(i.GetName()),
 		strings.Join(columns, ", "),
 		strings.Join(qmarks, ", "),
 		strings.Join(setStatements, ", "),
 	)
-	l.deleteFieldQuery = fmt.Sprintf(`DELETE FROM db2."%s_fields" WHERE key = ?`, s.GetName())
+	l.deleteFieldQuery = fmt.Sprintf(`DELETE FROM db2."%s_fields" WHERE key = ?`, db.Sanitize(i.GetName()))
 
 	l.addFieldStmt = l.Prepare(l.addFieldQuery)
 	l.deleteFieldStmt = l.Prepare(l.deleteFieldQuery)
@@ -193,9 +193,9 @@ func (l *ListOptionIndexer) afterDelete(key string, tx db.TXClient) error {
 //   - an error instead of all of the above if anything went wrong
 func (l *ListOptionIndexer) ListByOptions(ctx context.Context, lo ListOptions, partitions []partition.Partition, namespace string) (*unstructured.UnstructuredList, int, string, error) {
 	// 1- Intro: SELECT and JOIN clauses
-	query := fmt.Sprintf(`SELECT o.object, o.objectnonce, o.dekid FROM "%s" o`, l.GetName())
+	query := fmt.Sprintf(`SELECT o.object, o.objectnonce, o.dekid FROM "%s" o`, db.Sanitize(l.GetName()))
 	query += "\n  "
-	query += fmt.Sprintf(`JOIN db2."%s_fields" f ON o.key = f.key`, l.GetName())
+	query += fmt.Sprintf(`JOIN db2."%s_fields" f ON o.key = f.key`, db.Sanitize(l.GetName()))
 	params := []any{}
 
 	// 2- Filtering: WHERE clauses (from lo.Filters)

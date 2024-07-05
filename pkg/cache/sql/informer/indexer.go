@@ -8,7 +8,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/pkg/errors"
 	"github.com/rancher/lasso/pkg/cache/sql/db"
 	"github.com/rancher/lasso/pkg/cache/sql/db/transaction"
 	"k8s.io/client-go/tools/cache"
@@ -86,13 +85,6 @@ type DBClient interface {
 
 // NewIndexer returns a cache.Indexer backed by SQLite for objects of the given example type
 func NewIndexer(indexers cache.Indexers, s Store) (*Indexer, error) {
-	// sanity checks first
-	for key := range indexers {
-		if strings.Contains(key, `"`) || strings.Contains(key, `'`) {
-			return nil, errors.Errorf("Quote characters (\") or (') in indexer names are not supported")
-		}
-	}
-
 	tx, err := s.Begin()
 	if err != nil {
 		return nil, err

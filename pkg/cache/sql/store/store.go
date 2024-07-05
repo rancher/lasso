@@ -71,7 +71,7 @@ type DBClient interface {
 // NewStore creates a SQLite-backed cache.Store for objects of the given example type
 func NewStore(example any, keyFunc cache.KeyFunc, c DBClient, shouldEncrypt bool, name string) (*Store, error) {
 	s := &Store{
-		name:          db.Sanitize(name),
+		name:          name,
 		typ:           reflect.TypeOf(example),
 		DBClient:      c,
 		keyFunc:       keyFunc,
@@ -85,7 +85,7 @@ func NewStore(example any, keyFunc cache.KeyFunc, c DBClient, shouldEncrypt bool
 	if err != nil {
 		return nil, err
 	}
-	createTableQuery := fmt.Sprintf(createTableFmt, s.name)
+	createTableQuery := fmt.Sprintf(createTableFmt, db.Sanitize(s.name))
 	err = txC.Exec(createTableQuery)
 	if err != nil {
 		return nil, fmt.Errorf("while executing query: %s got error: %w", createTableQuery, err)
@@ -96,11 +96,11 @@ func NewStore(example any, keyFunc cache.KeyFunc, c DBClient, shouldEncrypt bool
 		return nil, err
 	}
 
-	s.upsertQuery = fmt.Sprintf(upsertStmtFmt, s.name)
-	s.deleteQuery = fmt.Sprintf(deleteStmtFmt, s.name)
-	s.getQuery = fmt.Sprintf(getStmtFmt, s.name)
-	s.listQuery = fmt.Sprintf(listStmtFmt, s.name)
-	s.listKeysQuery = fmt.Sprintf(listKeysStmtFmt, s.name)
+	s.upsertQuery = fmt.Sprintf(upsertStmtFmt, db.Sanitize(s.name))
+	s.deleteQuery = fmt.Sprintf(deleteStmtFmt, db.Sanitize(s.name))
+	s.getQuery = fmt.Sprintf(getStmtFmt, db.Sanitize(s.name))
+	s.listQuery = fmt.Sprintf(listStmtFmt, db.Sanitize(s.name))
+	s.listKeysQuery = fmt.Sprintf(listKeysStmtFmt, db.Sanitize(s.name))
 
 	s.upsertStmt = s.Prepare(s.upsertQuery)
 	s.deleteStmt = s.Prepare(s.deleteQuery)
