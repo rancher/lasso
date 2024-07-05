@@ -167,11 +167,13 @@ func TestInformerListByOptions(t *testing.T) {
 				Object: map[string]interface{}{"s": 2},
 			}},
 		}
+		expectedTotal := len(expectedList.Items)
 		expectedContinueToken := "123"
-		indexer.EXPECT().ListByOptions(context.TODO(), lo, partitions, ns).Return(expectedList, expectedContinueToken, nil)
-		list, continueToken, err := informer.ListByOptions(context.TODO(), lo, partitions, ns)
+		indexer.EXPECT().ListByOptions(context.TODO(), lo, partitions, ns).Return(expectedList, expectedTotal, expectedContinueToken, nil)
+		list, total, continueToken, err := informer.ListByOptions(context.TODO(), lo, partitions, ns)
 		assert.Nil(t, err)
 		assert.Equal(t, expectedList, list)
+		assert.Equal(t, len(expectedList.Items), total)
 		assert.Equal(t, expectedContinueToken, continueToken)
 	}})
 	tests = append(tests, testCase{description: "ListByOptions() with indexer ListByOptions error, should return error", test: func(t *testing.T) {
@@ -182,8 +184,8 @@ func TestInformerListByOptions(t *testing.T) {
 		lo := ListOptions{}
 		var partitions []partition.Partition
 		ns := "somens"
-		indexer.EXPECT().ListByOptions(context.TODO(), lo, partitions, ns).Return(nil, "", fmt.Errorf("error"))
-		_, _, err := informer.ListByOptions(context.TODO(), lo, partitions, ns)
+		indexer.EXPECT().ListByOptions(context.TODO(), lo, partitions, ns).Return(nil, 0, "", fmt.Errorf("error"))
+		_, _, _, err := informer.ListByOptions(context.TODO(), lo, partitions, ns)
 		assert.NotNil(t, err)
 	}})
 	t.Parallel()
