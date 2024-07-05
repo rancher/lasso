@@ -39,6 +39,12 @@ type Store struct {
 	keyFunc       cache.KeyFunc
 	shouldEncrypt bool
 
+	upsertQuery   string
+	deleteQuery   string
+	getQuery      string
+	listQuery     string
+	listKeysQuery string
+
 	upsertStmt   *sql.Stmt
 	deleteStmt   *sql.Stmt
 	getStmt      *sql.Stmt
@@ -79,20 +85,28 @@ func NewStore(example any, keyFunc cache.KeyFunc, c DBClient, shouldEncrypt bool
 	if err != nil {
 		return nil, err
 	}
-	err = txC.Exec(fmt.Sprintf(createTableFmt, s.name))
+	createTableQuery := fmt.Sprintf(createTableFmt, s.name)
+	err = txC.Exec(createTableQuery)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "Error while executing query:\n %s", createTableQuery)
 	}
 
 	err = txC.Commit()
 	if err != nil {
 		return nil, err
 	}
-	s.upsertStmt = s.Prepare(fmt.Sprintf(upsertStmtFmt, s.name))
-	s.deleteStmt = s.Prepare(fmt.Sprintf(deleteStmtFmt, s.name))
-	s.getStmt = s.Prepare(fmt.Sprintf(getStmtFmt, s.name))
-	s.listStmt = s.Prepare(fmt.Sprintf(listStmtFmt, s.name))
-	s.listKeysStmt = s.Prepare(fmt.Sprintf(listKeysStmtFmt, s.name))
+
+	s.upsertQuery = fmt.Sprintf(upsertStmtFmt, s.name)
+	s.deleteQuery = fmt.Sprintf(deleteStmtFmt, s.name)
+	s.getQuery = fmt.Sprintf(getStmtFmt, s.name)
+	s.listQuery = fmt.Sprintf(listStmtFmt, s.name)
+	s.listKeysQuery = fmt.Sprintf(listKeysStmtFmt, s.name)
+
+	s.upsertStmt = s.Prepare(s.upsertQuery)
+	s.deleteStmt = s.Prepare(s.deleteQuery)
+	s.getStmt = s.Prepare(s.getQuery)
+	s.listStmt = s.Prepare(s.listQuery)
+	s.listKeysStmt = s.Prepare(s.listKeysQuery)
 
 	return s, nil
 }
@@ -107,7 +121,7 @@ func (s *Store) upsert(key string, obj any) error {
 
 	err = s.Upsert(tx, s.upsertStmt, key, obj, s.shouldEncrypt)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "Error while executing query:\n %s", s.upsertQuery)
 	}
 
 	err = s.runAfterUpsert(key, obj, tx)
@@ -127,7 +141,7 @@ func (s *Store) deleteByKey(key string) error {
 
 	err = tx.StmtExec(tx.Stmt(s.deleteStmt), key)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "Error while executing query:\n %s", s.deleteQuery)
 	}
 
 	err = s.runAfterDelete(key, tx)
@@ -142,7 +156,7 @@ func (s *Store) deleteByKey(key string) error {
 func (s *Store) GetByKey(key string) (item any, exists bool, err error) {
 	rows, err := s.QueryForRows(context.TODO(), s.getStmt, key)
 	if err != nil {
-		return nil, false, err
+		return nil, false, errors.Wrapf(err, "Error while executing query:\n %s", s.getQuery)
 	}
 	result, err := s.ReadObjects(rows, s.typ, s.shouldEncrypt)
 	if err != nil {
@@ -188,7 +202,7 @@ func (s *Store) Delete(obj any) error {
 func (s *Store) List() []any {
 	rows, err := s.QueryForRows(context.TODO(), s.listStmt)
 	if err != nil {
-		panic(errors.Wrap(err, "Unexpected error in Store.List"))
+		panic(errors.Wrapf(err, "Error while executing query:\n %s", s.listQuery))
 	}
 	result, err := s.ReadObjects(rows, s.typ, s.shouldEncrypt)
 	if err != nil {
@@ -203,7 +217,7 @@ func (s *Store) List() []any {
 func (s *Store) ListKeys() []string {
 	rows, err := s.QueryForRows(context.TODO(), s.listKeysStmt)
 	if err != nil {
-		fmt.Printf("Unexpected error in store.ListKeys: %v\n", err)
+		fmt.Printf("Unexpected error in store.ListKeys: %v\n", errors.Wrapf(err, "Error while executing query:\n %s", s.listKeysQuery))
 		return []string{}
 	}
 	result, err := s.ReadStrings(rows)

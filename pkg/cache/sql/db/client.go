@@ -125,7 +125,7 @@ func (c *Client) QueryForRows(ctx context.Context, stmt transaction.Stmt, params
 			if ok && sqlErr.Code() == sqlite3.SQLITE_BUSY {
 				return false, nil
 			}
-			return false, errors.Wrapf(err, "Error initializing Store DB")
+			return false, err
 		}
 		return true, nil
 	})

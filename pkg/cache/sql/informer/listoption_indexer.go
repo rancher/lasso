@@ -24,8 +24,12 @@ type ListOptionIndexer struct {
 
 	namespaced    bool
 	indexedFields []string
-	addField      *sql.Stmt
-	deleteField   *sql.Stmt
+
+	addFieldQuery    string
+	deleteFieldQuery string
+
+	addFieldStmt    *sql.Stmt
+	deleteFieldStmt *sql.Stmt
 }
 
 var (
@@ -122,14 +126,18 @@ func NewListOptionIndexer(fields [][]string, s Store, namespaced bool) (*ListOpt
 		return nil, err
 	}
 
-	l.addField = l.Prepare(fmt.Sprintf(
+	l.addFieldQuery = fmt.Sprintf(
 		`INSERT INTO db2."%s_fields"(key, %s) VALUES (?, %s) ON CONFLICT DO UPDATE SET %s`,
 		i.GetName(),
 		strings.Join(columns, ", "),
 		strings.Join(qmarks, ", "),
 		strings.Join(setStatements, ", "),
-	))
-	l.deleteField = l.Prepare(fmt.Sprintf(`DELETE FROM db2."%s_fields" WHERE key = ?`, s.GetName()))
+	)
+	l.deleteFieldQuery = fmt.Sprintf(`DELETE FROM db2."%s_fields" WHERE key = ?`, s.GetName())
+
+	l.addFieldStmt = l.Prepare(l.addFieldQuery)
+	l.deleteFieldStmt = l.Prepare(l.deleteFieldQuery)
+
 	return l, nil
 }
 
@@ -160,21 +168,30 @@ func (l *ListOptionIndexer) afterUpsert(key string, obj any, tx db.TXClient) err
 		}
 	}
 
-	return tx.StmtExec(tx.Stmt(l.addField), args...)
+	err := tx.StmtExec(tx.Stmt(l.addFieldStmt), args...)
+	if err != nil {
+		return errors.Wrapf(err, "Error while executing query:\n %s", l.addFieldQuery)
+	}
+	return nil
 }
 
 func (l *ListOptionIndexer) afterDelete(key string, tx db.TXClient) error {
 	args := []any{key}
-	return tx.StmtExec(tx.Stmt(l.deleteField), args...)
+
+	err := tx.StmtExec(tx.Stmt(l.deleteFieldStmt), args...)
+	if err != nil {
+		return errors.Wrapf(err, "Error while executing query:\n %s", l.deleteFieldQuery)
+	}
+	return nil
 }
 
 // ListByOptions returns objects according to the specified list options and partitions
 // result is an unstructured.UnstructuredList, the continue token for the next page (or an error)
 func (l *ListOptionIndexer) ListByOptions(ctx context.Context, lo ListOptions, partitions []partition.Partition, namespace string) (*unstructured.UnstructuredList, string, error) {
 	// 1- Intro: SELECT and JOIN clauses
-	stmt := fmt.Sprintf(`SELECT o.object, o.objectnonce, o.dekid FROM "%s" o`, l.GetName())
-	stmt += "\n  "
-	stmt += fmt.Sprintf(`JOIN db2."%s_fields" f ON o.key = f.key`, l.GetName())
+	query := fmt.Sprintf(`SELECT o.object, o.objectnonce, o.dekid FROM "%s" o`, l.GetName())
+	query += "\n  "
+	query += fmt.Sprintf(`JOIN db2."%s_fields" f ON o.key = f.key`, l.GetName())
 	params := []any{}
 
 	// 2- Filtering: WHERE clauses (from lo.Filters)
@@ -246,15 +263,15 @@ func (l *ListOptionIndexer) ListByOptions(ctx context.Context, lo ListOptions, p
 	}
 
 	if len(whereClauses) > 0 {
-		stmt += "\n  WHERE\n    "
+		query += "\n  WHERE\n    "
 		for index, clause := range whereClauses {
-			stmt += fmt.Sprintf("(%s)", clause)
+			query += fmt.Sprintf("(%s)", clause)
 			if index == len(whereClauses)-1 {
 				break
 			}
-			stmt += " AND\n    "
+			query += " AND\n    "
 		}
-		// stmt += strings.Join(whereClauses, " AND\n    ")
+		// query += strings.Join(whereClauses, " AND\n    ")
 	}
 
 	// 2- Sorting: ORDER BY clauses (from lo.Sort)
@@ -285,14 +302,14 @@ func (l *ListOptionIndexer) ListByOptions(ctx context.Context, lo ListOptions, p
 	}
 
 	if len(orderByClauses) > 0 {
-		stmt += "\n  ORDER BY "
-		stmt += strings.Join(orderByClauses, ", ")
+		query += "\n  ORDER BY "
+		query += strings.Join(orderByClauses, ", ")
 	} else {
 		// make sure one default order is always picked
 		if l.namespaced {
-			stmt += "\n  ORDER BY f.\"metadata.namespace\" ASC, f.\"metadata.name\" ASC "
+			query += "\n  ORDER BY f.\"metadata.namespace\" ASC, f.\"metadata.name\" ASC "
 		} else {
-			stmt += "\n  ORDER BY f.\"metadata.name\" ASC "
+			query += "\n  ORDER BY f.\"metadata.name\" ASC "
 		}
 	}
 
@@ -328,19 +345,19 @@ func (l *ListOptionIndexer) ListByOptions(ctx context.Context, lo ListOptions, p
 		params = append(params, offset)
 	}
 
-	stmt += limitClause
-	stmt += offsetClause
+	query += limitClause
+	query += offsetClause
 
 	// log the final query
-	logrus.Debugf("ListOptionIndexer prepared statement: %v", stmt)
+	logrus.Debugf("ListOptionIndexer prepared statement: %v", query)
 	logrus.Debugf("Params: %v", params...)
 
 	// execute
-	prepStmt := l.Prepare(stmt)
-	defer l.CloseStmt(prepStmt)
-	rows, err := l.QueryForRows(ctx, prepStmt, params...)
+	stmt := l.Prepare(query)
+	defer l.CloseStmt(stmt)
+	rows, err := l.QueryForRows(ctx, stmt, params...)
 	if err != nil {
-		return nil, "", err
+		return nil, "", errors.Wrapf(err, "Error while executing query:\n %s", query)
 	}
 	items, err := l.ReadObjects(rows, l.GetType(), l.GetShouldEncrypt())
 	if err != nil {
