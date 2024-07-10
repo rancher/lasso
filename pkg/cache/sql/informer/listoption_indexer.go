@@ -356,7 +356,7 @@ func (l *ListOptionIndexer) ListByOptions(ctx context.Context, lo ListOptions, p
 	query += limitClause
 	query += offsetClause
 	logrus.Debugf("ListOptionIndexer prepared statement: %v", query)
-	logrus.Debugf("Params: %v", params)
+	logrus.Debugf("Params: %v", params...)
 
 	// execute
 	stmt := l.Prepare(query)
