@@ -25,6 +25,9 @@ type Options struct {
 	Resync      time.Duration
 	TweakList   TweakListOptionsFunc
 	WaitHealthy func(ctx context.Context)
+
+	isUserContext bool
+	isDownstream  bool
 }
 
 func NewCache(obj, listObj runtime.Object, client *client.Client, opts *Options) cache.SharedIndexInformer {
@@ -37,11 +40,13 @@ func NewCache(obj, listObj runtime.Object, client *client.Client, opts *Options)
 	opts = applyDefaultCacheOptions(opts)
 
 	lw := &deferredListWatcher{
-		client:      client,
-		tweakList:   opts.TweakList,
-		namespace:   opts.Namespace,
-		listObj:     listObj,
-		waitHealthy: opts.WaitHealthy,
+		client:        client,
+		tweakList:     opts.TweakList,
+		namespace:     opts.Namespace,
+		listObj:       listObj,
+		waitHealthy:   opts.WaitHealthy,
+		isUserContext: opts.isUserContext,
+		isDownstream:  opts.isDownstream,
 	}
 
 	return &deferredCache{
@@ -88,18 +93,38 @@ type deferredCache struct {
 }
 
 type deferredListWatcher struct {
-	lw          cache.ListerWatcher
-	client      *client.Client
-	tweakList   TweakListOptionsFunc
-	namespace   string
-	listObj     runtime.Object
-	waitHealthy func(ctx context.Context)
+	lw            cache.ListerWatcher
+	client        *client.Client
+	tweakList     TweakListOptionsFunc
+	namespace     string
+	listObj       runtime.Object
+	waitHealthy   func(ctx context.Context)
+	isUserContext bool
+	isDownstream  bool
 }
 
 func (d *deferredListWatcher) List(options metav1.ListOptions) (runtime.Object, error) {
 	if d.lw == nil {
 		return nil, fmt.Errorf("cache not started")
 	}
+	if d.isUserContext {
+		if d.isDownstream {
+			return d.userContextDownstreamList(options)
+		}
+		return d.userContextUpstreamList(options)
+	}
+	return d.managementContextList(options)
+}
+
+func (d *deferredListWatcher) userContextDownstreamList(options metav1.ListOptions) (runtime.Object, error) {
+	return d.lw.List(options)
+}
+
+func (d *deferredListWatcher) userContextUpstreamList(options metav1.ListOptions) (runtime.Object, error) {
+	return d.lw.List(options)
+}
+
+func (d *deferredListWatcher) managementContextList(options metav1.ListOptions) (runtime.Object, error) {
 	return d.lw.List(options)
 }
 
