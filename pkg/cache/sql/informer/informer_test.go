@@ -196,6 +196,9 @@ func TestInformerListByOptions(t *testing.T) {
 	}
 }
 
+// Note: SQLite based caching uses an Informer that unsafely sets the Indexer as the ability to set it is not present 
+// in client-go at the moment. Long term, we look forward contribute a patch to client-go to make that configurable.
+// Until then, we are adding this canary test that will panic in case the indexer cannot be set.
 func TestUnsafeSet(t *testing.T) {
 	listWatcher := &cache.ListWatch{
 		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
