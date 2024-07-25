@@ -433,7 +433,7 @@ func (l *ListOptionIndexer) buildORClauseFromFilters(orFilters OrFilter) (string
 
 // toColumnName returns the column name corresponding to a field expressed as string slice
 func toColumnName(s []string) string {
-	return strings.Join(s, ".")
+	return db.Sanitize(strings.Join(s, "."))
 }
 
 // getField extracts the value of a field expressed as a string path from an unstructured object
