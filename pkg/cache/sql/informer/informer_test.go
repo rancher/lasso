@@ -9,8 +9,12 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/rancher/lasso/pkg/cache/sql/partition"
 	"github.com/stretchr/testify/assert"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/tools/cache"
 )
 
 //go:generate mockgen --build_flags=--mod=mod -package informer -destination ./informer_mocks_test.go github.com/rancher/lasso/pkg/cache/sql/informer ByOptionsLister
@@ -192,4 +196,34 @@ func TestInformerListByOptions(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) { test.test(t) })
 	}
+}
+
+// Note: SQLite based caching uses an Informer that unsafely sets the Indexer as the ability to set it is not present 
+// in client-go at the moment. Long term, we look forward contribute a patch to client-go to make that configurable.
+// Until then, we are adding this canary test that will panic in case the indexer cannot be set.
+func TestUnsafeSet(t *testing.T) {
+	listWatcher := &cache.ListWatch{
+		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+			return &unstructured.UnstructuredList{}, nil
+		},
+		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+			return dummyWatch{}, nil
+		},
+	}
+
+	sii := cache.NewSharedIndexInformer(listWatcher, &unstructured.Unstructured{}, 0, cache.Indexers{})
+
+	// will panic if SharedIndexInformer stops having a *Indexer field called "indexer"
+	UnsafeSet(sii, "indexer", &Indexer{})
+}
+
+type dummyWatch struct{}
+
+func (dummyWatch) Stop() {
+}
+
+func (dummyWatch) ResultChan() <-chan watch.Event {
+	result := make(chan watch.Event)
+	defer close(result)
+	return result
 }
