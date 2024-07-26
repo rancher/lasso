@@ -57,7 +57,7 @@ func (ad AttachDriver) Open(name string) (driver.Conn, error) {
 func closeConnOnError(c driver.Conn, err error) error {
 	ce := c.Close()
 	if ce != nil {
-		return fmt.Errorf("failed to connection: %v, while handling error %w", ce, err)
+		return fmt.Errorf("failed to close connection: %v, while handling error %w", ce, err)
 	}
 
 	return err
