@@ -60,6 +60,22 @@ type Rows interface {
 	Scan(dest ...any) error
 }
 
+// QueryError encapsulates an error while executing a query
+type QueryError struct {
+	QueryString string
+	Err         error
+}
+
+// Error returns a string representation of this QueryError
+func (e *QueryError) Error() string {
+	return "while executing query: " + e.QueryString + " got error: " + e.Err.Error()
+}
+
+// Unwrap returns the underlying error
+func (e *QueryError) Unwrap() error {
+	return e.Err
+}
+
 // TXClient represents a sql transaction. The TXClient must manage rollbacks as rollback functionality is not exposed.
 type TXClient interface {
 	StmtExec(stmt transaction.Stmt, args ...any) error

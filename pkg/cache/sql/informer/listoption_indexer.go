@@ -152,7 +152,7 @@ func (l *ListOptionIndexer) afterUpsert(key string, obj any, tx db.TXClient) err
 			logrus.Errorf("cannot index object of type [%s] with key [%s] for indexer [%s]: %v", l.GetType().String(), key, l.GetName(), err)
 			cErr := tx.Cancel()
 			if cErr != nil {
-				return fmt.Errorf("could not cancel transaction: %s while recovering from error: %w", cErr.Error(), err)
+				return fmt.Errorf("could not cancel transaction: %s while recovering from error: %w", cErr, err)
 			}
 			return err
 		}
@@ -170,7 +170,7 @@ func (l *ListOptionIndexer) afterUpsert(key string, obj any, tx db.TXClient) err
 
 	err := tx.StmtExec(tx.Stmt(l.addFieldStmt), args...)
 	if err != nil {
-		return fmt.Errorf("while executing query: %s got error: %w", l.addFieldQuery, err)
+		return &db.QueryError{QueryString: l.addFieldQuery, Err: err}
 	}
 	return nil
 }
@@ -180,7 +180,7 @@ func (l *ListOptionIndexer) afterDelete(key string, tx db.TXClient) error {
 
 	err := tx.StmtExec(tx.Stmt(l.deleteFieldStmt), args...)
 	if err != nil {
-		return fmt.Errorf("while executing query: %s got error: %w", l.deleteFieldQuery, err)
+		return &db.QueryError{QueryString: l.deleteFieldQuery, Err: err}
 	}
 	return nil
 }
@@ -363,7 +363,7 @@ func (l *ListOptionIndexer) ListByOptions(ctx context.Context, lo ListOptions, p
 	defer l.CloseStmt(stmt)
 	rows, err := l.QueryForRows(ctx, stmt, params...)
 	if err != nil {
-		return nil, 0, "", fmt.Errorf("while executing query: %s got error: %w", query, err)
+		return nil, 0, "", &db.QueryError{QueryString: query, Err: err}
 	}
 	items, err := l.ReadObjects(rows, l.GetType(), l.GetShouldEncrypt())
 	if err != nil {

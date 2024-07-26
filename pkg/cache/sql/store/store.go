@@ -88,7 +88,7 @@ func NewStore(example any, keyFunc cache.KeyFunc, c DBClient, shouldEncrypt bool
 	createTableQuery := fmt.Sprintf(createTableFmt, s.name)
 	err = txC.Exec(createTableQuery)
 	if err != nil {
-		return nil, fmt.Errorf("while executing query: %s got error: %w", createTableQuery, err)
+		return nil, &db.QueryError{QueryString: createTableQuery, Err: err}
 	}
 
 	err = txC.Commit()
@@ -121,7 +121,7 @@ func (s *Store) upsert(key string, obj any) error {
 
 	err = s.Upsert(tx, s.upsertStmt, key, obj, s.shouldEncrypt)
 	if err != nil {
-		return fmt.Errorf("while executing query: %s got error: %w", s.upsertQuery, err)
+		return &db.QueryError{QueryString: s.upsertQuery, Err: err}
 	}
 
 	err = s.runAfterUpsert(key, obj, tx)
@@ -141,7 +141,7 @@ func (s *Store) deleteByKey(key string) error {
 
 	err = tx.StmtExec(tx.Stmt(s.deleteStmt), key)
 	if err != nil {
-		return fmt.Errorf("while executing query: %s got error: %w", s.deleteQuery, err)
+		return &db.QueryError{QueryString: s.deleteQuery, Err: err}
 	}
 
 	err = s.runAfterDelete(key, tx)
@@ -156,7 +156,7 @@ func (s *Store) deleteByKey(key string) error {
 func (s *Store) GetByKey(key string) (item any, exists bool, err error) {
 	rows, err := s.QueryForRows(context.TODO(), s.getStmt, key)
 	if err != nil {
-		return nil, false, fmt.Errorf("while executing query: %s got error: %w", s.getQuery, err)
+		return nil, false, &db.QueryError{QueryString: s.getQuery, Err: err}
 	}
 	result, err := s.ReadObjects(rows, s.typ, s.shouldEncrypt)
 	if err != nil {
@@ -202,7 +202,7 @@ func (s *Store) Delete(obj any) error {
 func (s *Store) List() []any {
 	rows, err := s.QueryForRows(context.TODO(), s.listStmt)
 	if err != nil {
-		panic(fmt.Errorf("while executing query: %s got error: %w", s.listQuery, err))
+		panic(&db.QueryError{QueryString: s.listQuery, Err: err})
 	}
 	result, err := s.ReadObjects(rows, s.typ, s.shouldEncrypt)
 	if err != nil {
@@ -217,7 +217,7 @@ func (s *Store) List() []any {
 func (s *Store) ListKeys() []string {
 	rows, err := s.QueryForRows(context.TODO(), s.listKeysStmt)
 	if err != nil {
-		fmt.Printf("Unexpected error in store.ListKeys: %v\n", fmt.Errorf("while executing query: %s got error: %w", s.listKeysQuery, err))
+		fmt.Printf("Unexpected error in store.ListKeys: while executing query: %s got error: %v", s.listKeysQuery, err)
 		return []string{}
 	}
 	result, err := s.ReadStrings(rows)
