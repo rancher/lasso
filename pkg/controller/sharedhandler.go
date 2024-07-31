@@ -64,8 +64,11 @@ func (h *SharedHandler) OnChange(key string, obj runtime.Object) error {
 	var (
 		errs errorList
 	)
+	handlers := make([]handlerEntry, len(h.handlers))
 	h.lock.RLock()
-	handlers := h.handlers
+	for i, x := range h.handlers {
+		handlers[i] = x
+	}
 	h.lock.RUnlock()
 
 	for _, handler := range handlers {
