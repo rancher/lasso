@@ -33,7 +33,7 @@ type CacheFactory struct {
 	cache map[schema.GroupVersionKind]*informer.Informer
 }
 
-type newInformer func(client dynamic.ResourceInterface, fields [][]string, gvk schema.GroupVersionKind, db sqlStore.DBClient, shouldEncrypt bool, namespace bool) (*informer.Informer, error)
+type newInformer func(client dynamic.ResourceInterface, fields [][]string, transform cache.TransformFunc, gvk schema.GroupVersionKind, db sqlStore.DBClient, shouldEncrypt bool, namespace bool) (*informer.Informer, error)
 
 type DBClient interface {
 	informer.DBClient
@@ -88,8 +88,9 @@ func NewCacheFactory() (*CacheFactory, error) {
 	}, nil
 }
 
-// CacheFor returns an informer for given GVK, using sql store indexed with fields, using the specified client
-func (f *CacheFactory) CacheFor(fields [][]string, client dynamic.ResourceInterface, gvk schema.GroupVersionKind, namespaced bool) (Cache, error) {
+// CacheFor returns an informer for given GVK, using sql store indexed with fields, using the specified client. For virtual fields, they must be added by the transform function
+// and specified by fields to be used for later fields.
+func (f *CacheFactory) CacheFor(fields [][]string, transform cache.TransformFunc, client dynamic.ResourceInterface, gvk schema.GroupVersionKind, namespaced bool) (Cache, error) {
 	result, ok := f.getCacheIfExists(gvk)
 	if ok {
 		return Cache{ByOptionsLister: result}, nil
@@ -100,7 +101,7 @@ func (f *CacheFactory) CacheFor(fields [][]string, client dynamic.ResourceInterf
 
 	_, encryptResourceAlways := defaultEncryptedResourceTypes[gvk]
 	shouldEncrypt := f.encryptAll || encryptResourceAlways
-	i, err := f.newInformer(client, fields, gvk, f.dbClient, shouldEncrypt, namespaced)
+	i, err := f.newInformer(client, fields, transform, gvk, f.dbClient, shouldEncrypt, namespaced)
 	if err != nil {
 		return Cache{}, err
 	}
