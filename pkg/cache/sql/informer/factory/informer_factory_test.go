@@ -64,14 +64,10 @@ func TestInformerFor(t *testing.T) {
 		sii := NewMockSharedIndexInformer(gomock.NewController(t))
 		sii.EXPECT().HasSynced().Return(true)
 		sii.EXPECT().Run(gomock.Any()).MinTimes(1)
-		i := &informer.Informer{
-			// need to set this so Run function is not nil
-			SharedIndexInformer: sii,
-		}
-		expectedC := Cache{
-			ByOptionsLister: i,
-		}
-		testNewInformer := func(client dynamic.ResourceInterface, fields [][]string, gvk schema.GroupVersionKind, db sqlStore.DBClient, shouldEncrypt bool, namespaced bool) (*informer.Informer, error) {
+		// need to set this so Run function is not nil
+		i := informer.NewInformerFromComponents(sii, nil)
+
+		testNewInformer := func(client dynamic.ResourceInterface, fields [][]string, gvk schema.GroupVersionKind, db sqlStore.DBClient, shouldEncrypt bool, namespaced bool) (informer.Informer, error) {
 			assert.Equal(t, client, dynamicClient)
 			assert.Equal(t, fields, fields)
 			assert.Equal(t, expectedGVK, gvk)
@@ -90,11 +86,10 @@ func TestInformerFor(t *testing.T) {
 			time.Sleep(5 * time.Second)
 			close(f.stopCh)
 		}()
-		var c Cache
-		var err error
-		c, err = f.CacheFor(fields, dynamicClient, expectedGVK, false)
+
+		c, err := f.CacheFor(fields, dynamicClient, expectedGVK, false)
 		assert.Nil(t, err)
-		assert.Equal(t, expectedC, c)
+		assert.Equal(t, i, c)
 		// this sleep is critical to the test. It ensure there has been enough time for expected function like Run to be invoked in their go routines.
 		time.Sleep(1 * time.Second)
 		c2, err := f.CacheFor(fields, dynamicClient, expectedGVK, false)
@@ -110,11 +105,9 @@ func TestInformerFor(t *testing.T) {
 		sii := NewMockSharedIndexInformer(gomock.NewController(t))
 		sii.EXPECT().HasSynced().Return(false).AnyTimes()
 		sii.EXPECT().Run(gomock.Any())
-		expectedI := &informer.Informer{
-			// need to set this so Run function is not nil
-			SharedIndexInformer: sii,
-		}
-		testNewInformer := func(client dynamic.ResourceInterface, fields [][]string, gvk schema.GroupVersionKind, db sqlStore.DBClient, shouldEncrypt, namespaced bool) (*informer.Informer, error) {
+		// need to set this so Run function is not nil
+		expectedI := informer.NewInformerFromComponents(sii, nil)
+		testNewInformer := func(client dynamic.ResourceInterface, fields [][]string, gvk schema.GroupVersionKind, db sqlStore.DBClient, shouldEncrypt, namespaced bool) (informer.Informer, error) {
 			assert.Equal(t, client, dynamicClient)
 			assert.Equal(t, fields, fields)
 			assert.Equal(t, expectedGVK, gvk)
@@ -147,14 +140,9 @@ func TestInformerFor(t *testing.T) {
 		sii.EXPECT().HasSynced().Return(true).AnyTimes()
 		// may or may not call run initially
 		sii.EXPECT().Run(gomock.Any()).MaxTimes(1)
-		i := &informer.Informer{
-			// need to set this so Run function is not nil
-			SharedIndexInformer: sii,
-		}
-		expectedC := Cache{
-			ByOptionsLister: i,
-		}
-		testNewInformer := func(client dynamic.ResourceInterface, fields [][]string, gvk schema.GroupVersionKind, db sqlStore.DBClient, shouldEncrypt, namespaced bool) (*informer.Informer, error) {
+		// need to set this so Run function is not nil
+		i := informer.NewInformerFromComponents(sii, nil)
+		testNewInformer := func(client dynamic.ResourceInterface, fields [][]string, gvk schema.GroupVersionKind, db sqlStore.DBClient, shouldEncrypt, namespaced bool) (informer.Informer, error) {
 			assert.Equal(t, client, dynamicClient)
 			assert.Equal(t, fields, fields)
 			assert.Equal(t, expectedGVK, gvk)
@@ -169,11 +157,9 @@ func TestInformerFor(t *testing.T) {
 		}
 
 		close(f.stopCh)
-		var c Cache
-		var err error
-		c, err = f.CacheFor(fields, dynamicClient, expectedGVK, false)
+		c, err := f.CacheFor(fields, dynamicClient, expectedGVK, false)
 		assert.Nil(t, err)
-		assert.Equal(t, expectedC, c)
+		assert.Equal(t, i, c)
 		time.Sleep(1 * time.Second)
 	}})
 	tests = append(tests, testCase{description: "CacheFor() with no errors returned and encryptAll set to true, should return no error and pass shouldEncrypt as true to newInformer func", test: func(t *testing.T) {
@@ -184,14 +170,9 @@ func TestInformerFor(t *testing.T) {
 		sii := NewMockSharedIndexInformer(gomock.NewController(t))
 		sii.EXPECT().HasSynced().Return(true)
 		sii.EXPECT().Run(gomock.Any()).MinTimes(1).AnyTimes()
-		i := &informer.Informer{
-			// need to set this so Run function is not nil
-			SharedIndexInformer: sii,
-		}
-		expectedC := Cache{
-			ByOptionsLister: i,
-		}
-		testNewInformer := func(client dynamic.ResourceInterface, fields [][]string, gvk schema.GroupVersionKind, db sqlStore.DBClient, shouldEncrypt, namespaced bool) (*informer.Informer, error) {
+		// need to set this so Run function is not nil
+		i := informer.NewInformerFromComponents(sii, nil)
+		testNewInformer := func(client dynamic.ResourceInterface, fields [][]string, gvk schema.GroupVersionKind, db sqlStore.DBClient, shouldEncrypt, namespaced bool) (informer.Informer, error) {
 			assert.Equal(t, client, dynamicClient)
 			assert.Equal(t, fields, fields)
 			assert.Equal(t, expectedGVK, gvk)
@@ -210,11 +191,10 @@ func TestInformerFor(t *testing.T) {
 			time.Sleep(10 * time.Second)
 			close(f.stopCh)
 		}()
-		var c Cache
-		var err error
-		c, err = f.CacheFor(fields, dynamicClient, expectedGVK, false)
+
+		c, err := f.CacheFor(fields, dynamicClient, expectedGVK, false)
 		assert.Nil(t, err)
-		assert.Equal(t, expectedC, c)
+		assert.Equal(t, i, c)
 		time.Sleep(1 * time.Second)
 	}})
 	t.Parallel()

@@ -61,10 +61,11 @@ func TestNewInformer(t *testing.T) {
 		txClient.EXPECT().Exec(gomock.Any(), gomock.Any()).Return(nil)
 		txClient.EXPECT().Commit().Return(nil)
 
-		informer, err := NewInformer(dynamicClient, fields, gvk, dbClient, false, true)
+		i, err := NewInformer(dynamicClient, fields, gvk, dbClient, false, true)
 		assert.Nil(t, err)
-		assert.NotNil(t, informer.ByOptionsLister)
-		assert.NotNil(t, informer.SharedIndexInformer)
+		inf := i.(*informer)
+		assert.NotNil(t, inf.ByOptionsLister)
+		assert.NotNil(t, inf.SharedIndexInformer)
 	}})
 	tests = append(tests, testCase{description: "NewInformer() with errors returned from NewStore(), should return an error", test: func(t *testing.T) {
 		dbClient := NewMockDBClient(gomock.NewController(t))
@@ -159,7 +160,7 @@ func TestInformerListByOptions(t *testing.T) {
 
 	tests = append(tests, testCase{description: "ListByOptions() with no errors returned, should return no error and return value from indexer's ListByOptions()", test: func(t *testing.T) {
 		indexer := NewMockByOptionsLister(gomock.NewController(t))
-		informer := &Informer{
+		informer := &informer{
 			ByOptionsLister: indexer,
 		}
 		lo := ListOptions{}
@@ -182,7 +183,7 @@ func TestInformerListByOptions(t *testing.T) {
 	}})
 	tests = append(tests, testCase{description: "ListByOptions() with indexer ListByOptions error, should return error", test: func(t *testing.T) {
 		indexer := NewMockByOptionsLister(gomock.NewController(t))
-		informer := &Informer{
+		informer := &informer{
 			ByOptionsLister: indexer,
 		}
 		lo := ListOptions{}
@@ -198,7 +199,7 @@ func TestInformerListByOptions(t *testing.T) {
 	}
 }
 
-// Note: SQLite based caching uses an Informer that unsafely sets the Indexer as the ability to set it is not present 
+// Note: SQLite based caching uses an Informer that unsafely sets the Indexer as the ability to set it is not present
 // in client-go at the moment. Long term, we look forward contribute a patch to client-go to make that configurable.
 // Until then, we are adding this canary test that will panic in case the indexer cannot be set.
 func TestUnsafeSet(t *testing.T) {

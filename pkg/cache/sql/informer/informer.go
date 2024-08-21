@@ -112,6 +112,14 @@ func NewInformer(client dynamic.ResourceInterface, fields [][]string, gvk schema
 	return result, nil
 }
 
+// NewInformerFromComponents returns an informer instance from its components for testing purposes
+func NewInformerFromComponents(sil cache.SharedIndexInformer, bol ByOptionsLister) Informer {
+	return &informer{
+		SharedIndexInformer: sil,
+		ByOptionsLister:     bol,
+	}
+}
+
 func (i *informer) IsWatchable() bool {
 	i.unwatchableMutex.RLock()
 	defer i.unwatchableMutex.RUnlock()
