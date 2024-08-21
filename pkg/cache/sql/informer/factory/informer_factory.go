@@ -30,19 +30,15 @@ type CacheFactory struct {
 
 	newInformer newInformer
 
-	cache map[schema.GroupVersionKind]*informer.Informer
+	cache map[schema.GroupVersionKind]informer.Informer
 }
 
-type newInformer func(client dynamic.ResourceInterface, fields [][]string, gvk schema.GroupVersionKind, db sqlStore.DBClient, shouldEncrypt bool, namespace bool) (*informer.Informer, error)
+type newInformer func(client dynamic.ResourceInterface, fields [][]string, gvk schema.GroupVersionKind, db sqlStore.DBClient, shouldEncrypt bool, namespace bool) (informer.Informer, error)
 
 type DBClient interface {
 	informer.DBClient
 	sqlStore.DBClient
 	connector
-}
-
-type Cache struct {
-	informer.ByOptionsLister
 }
 
 type connector interface {
@@ -81,7 +77,7 @@ func NewCacheFactory() (*CacheFactory, error) {
 	return &CacheFactory{
 		wg:          wait.Group{},
 		stopCh:      make(chan struct{}),
-		cache:       map[schema.GroupVersionKind]*informer.Informer{},
+		cache:       map[schema.GroupVersionKind]informer.Informer{},
 		encryptAll:  os.Getenv(EncryptAllEnvVar) == "true",
 		dbClient:    dbClient,
 		newInformer: informer.NewInformer,
@@ -89,10 +85,10 @@ func NewCacheFactory() (*CacheFactory, error) {
 }
 
 // CacheFor returns an informer for given GVK, using sql store indexed with fields, using the specified client
-func (f *CacheFactory) CacheFor(fields [][]string, client dynamic.ResourceInterface, gvk schema.GroupVersionKind, namespaced bool) (Cache, error) {
+func (f *CacheFactory) CacheFor(fields [][]string, client dynamic.ResourceInterface, gvk schema.GroupVersionKind, namespaced bool) (informer.Informer, error) {
 	result, ok := f.getCacheIfExists(gvk)
 	if ok {
-		return Cache{ByOptionsLister: result}, nil
+		return result, nil
 	}
 
 	f.informerCreateLock.Lock()
@@ -102,22 +98,22 @@ func (f *CacheFactory) CacheFor(fields [][]string, client dynamic.ResourceInterf
 	shouldEncrypt := f.encryptAll || encryptResourceAlways
 	i, err := f.newInformer(client, fields, gvk, f.dbClient, shouldEncrypt, namespaced)
 	if err != nil {
-		return Cache{}, err
+		return nil, err
 	}
 
 	if f.cache == nil {
-		f.cache = make(map[schema.GroupVersionKind]*informer.Informer)
+		f.cache = make(map[schema.GroupVersionKind]informer.Informer)
 	}
 	f.cache[gvk] = i
 	f.wg.StartWithChannel(f.stopCh, i.Run)
 	if !cache.WaitForCacheSync(f.stopCh, i.HasSynced) {
-		return Cache{}, fmt.Errorf("failed to sync SQLite Informer cache for GVK %v", gvk)
+		return nil, fmt.Errorf("failed to sync SQLite Informer cache for GVK %v", gvk)
 	}
 
-	return Cache{ByOptionsLister: i}, nil
+	return i, nil
 }
 
-func (f *CacheFactory) getCacheIfExists(gvk schema.GroupVersionKind) (*informer.Informer, bool) {
+func (f *CacheFactory) getCacheIfExists(gvk schema.GroupVersionKind) (informer.Informer, bool) {
 	f.informerCreateLock.RLock()
 	defer f.informerCreateLock.RUnlock()
 
@@ -141,7 +137,7 @@ func (f *CacheFactory) Reset() error {
 
 	close(f.stopCh)
 	f.stopCh = make(chan struct{})
-	f.cache = make(map[schema.GroupVersionKind]*informer.Informer)
+	f.cache = make(map[schema.GroupVersionKind]informer.Informer)
 	err := f.dbClient.NewConnection()
 	if err != nil {
 		return err

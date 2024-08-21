@@ -6,10 +6,12 @@ package informer
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/rancher/lasso/pkg/cache/sql/partition"
 	sqlStore "github.com/rancher/lasso/pkg/cache/sql/store"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -19,10 +21,22 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-// Informer is a SQLite-backed cache.SharedIndexInformer that can execute queries on listprocessor structs
-type Informer struct {
+// Informer exposes read methods for a SQLite-backed cache.SharedIndexInformer that can execute queries on ListOptions structs
+type Informer interface {
+	cache.SharedIndexInformer
+	IsWatchable() bool
+	ListByOptions(ctx context.Context, lo ListOptions, partitions []partition.Partition, namespace string) (*unstructured.UnstructuredList, int, string, error)
+}
+
+// Informer is a SQLite-backed cache.SharedIndexInformer that can execute queries on ListOptions structs
+type informer struct {
 	cache.SharedIndexInformer
 	ByOptionsLister
+
+	// Indicates the informer failed to open a watch to the resource because it is not watchable
+	// (will be retried)
+	unwatchable      bool
+	unwatchableMutex sync.RWMutex
 }
 
 type ByOptionsLister interface {
@@ -31,7 +45,7 @@ type ByOptionsLister interface {
 
 // NewInformer returns a new SQLite-backed Informer for the type specified by schema in unstructured.Unstructured form
 // using the specified client
-func NewInformer(client dynamic.ResourceInterface, fields [][]string, gvk schema.GroupVersionKind, db sqlStore.DBClient, shouldEncrypt bool, namespaced bool) (*Informer, error) {
+func NewInformer(client dynamic.ResourceInterface, fields [][]string, gvk schema.GroupVersionKind, db sqlStore.DBClient, shouldEncrypt bool, namespaced bool) (Informer, error) {
 	listWatcher := &cache.ListWatch{
 		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 			a, err := client.List(context.Background(), options)
@@ -65,10 +79,55 @@ func NewInformer(client dynamic.ResourceInterface, fields [][]string, gvk schema
 	// HACK: replace the default informer's indexer with the SQL based one
 	UnsafeSet(sii, "indexer", loi)
 
-	return &Informer{
+	result := &informer{
 		SharedIndexInformer: sii,
 		ByOptionsLister:     loi,
-	}, nil
+	}
+
+	err = sii.SetWatchErrorHandler(func(r *cache.Reflector, err error) {
+		if errors.IsMethodNotSupported(err) {
+			result.setUnwatchable()
+			return
+		}
+		cache.DefaultWatchErrorHandler(r, err)
+	})
+	if err != nil {
+		return nil, err
+	}
+	_, err = sii.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			result.setWatchable()
+		},
+		UpdateFunc: func(old, new interface{}) {
+			result.setWatchable()
+		},
+		DeleteFunc: func(obj interface{}) {
+			result.setWatchable()
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func (i *informer) IsWatchable() bool {
+	i.unwatchableMutex.RLock()
+	defer i.unwatchableMutex.RUnlock()
+	return !i.unwatchable
+}
+
+func (i *informer) setWatchable() {
+	i.unwatchableMutex.Lock()
+	defer i.unwatchableMutex.Unlock()
+	i.unwatchable = false
+}
+
+func (i *informer) setUnwatchable() {
+	i.unwatchableMutex.Lock()
+	defer i.unwatchableMutex.Unlock()
+	i.unwatchable = true
 }
 
 // ListByOptions returns objects according to the specified list options and partitions.
@@ -77,7 +136,7 @@ func NewInformer(client dynamic.ResourceInterface, fields [][]string, gvk schema
 //   - the total number of resources (returned list might be a subset depending on pagination options in lo)
 //   - a continue token, if there are more pages after the returned one
 //   - an error instead of all of the above if anything went wrong
-func (i *Informer) ListByOptions(ctx context.Context, lo ListOptions, partitions []partition.Partition, namespace string) (*unstructured.UnstructuredList, int, string, error) {
+func (i *informer) ListByOptions(ctx context.Context, lo ListOptions, partitions []partition.Partition, namespace string) (*unstructured.UnstructuredList, int, string, error) {
 	return i.ByOptionsLister.ListByOptions(ctx, lo, partitions, namespace)
 }
 
