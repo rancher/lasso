@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/rancher/lasso/pkg/client"
+	"github.com/rancher/lasso/pkg/metrics"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -106,7 +107,7 @@ func (f *sharedCacheFactory) Start(ctx context.Context) error {
 		}
 	}
 
-	if !f.metricsCollectionStarted {
+	if metrics.Enabled() && !f.metricsCollectionStarted {
 		f.startMetricsCollection(ctx)
 		f.metricsCollectionStarted = true
 	}
