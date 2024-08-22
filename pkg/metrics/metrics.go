@@ -19,18 +19,18 @@ const (
 	groupLabel   = "group"
 	versionLabel = "version"
 	kindLabel    = "kind"
-
-	contextIDKey = "cache_context_id"
 )
+
+type contextIDKey struct{}
 
 // WithContextID stores an identifier within the Context for later use when collecting metrics
 func WithContextID(ctx context.Context, id string) context.Context {
-	return context.WithValue(ctx, contextIDKey, id)
+	return context.WithValue(ctx, contextIDKey{}, id)
 }
 
 // ContextID extracts the identifier previously set by WithContextID, returning an empty string otherwise
 func ContextID(ctx context.Context) string {
-	id, _ := ctx.Value(contextIDKey).(string)
+	id, _ := ctx.Value(contextIDKey{}).(string)
 	return id
 }
 
