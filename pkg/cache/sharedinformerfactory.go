@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/rancher/lasso/pkg/client"
-	"github.com/rancher/lasso/pkg/metrics"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -27,7 +26,7 @@ type SharedCacheFactoryOptions struct {
 }
 
 type sharedCacheFactory struct {
-	lock sync.Mutex
+	lock sync.RWMutex
 
 	tweakList           TweakListOptionsFunc
 	defaultResync       time.Duration
@@ -40,6 +39,8 @@ type sharedCacheFactory struct {
 
 	caches        map[schema.GroupVersionKind]cache.SharedIndexInformer
 	startedCaches map[schema.GroupVersionKind]bool
+
+	metricsCollectionStarted bool
 }
 
 // NewSharedInformerFactoryWithOptions constructs a new instance of a SharedInformerFactory with additional options.
@@ -47,7 +48,6 @@ func NewSharedCachedFactory(sharedClientFactory client.SharedClientFactory, opts
 	opts = applyDefaults(opts)
 
 	factory := &sharedCacheFactory{
-		lock:                sync.Mutex{},
 		tweakList:           opts.DefaultTweakList,
 		defaultResync:       opts.DefaultResync,
 		defaultNamespace:    opts.DefaultNamespace,
@@ -106,6 +106,11 @@ func (f *sharedCacheFactory) Start(ctx context.Context) error {
 		}
 	}
 
+	if !f.metricsCollectionStarted {
+		f.startMetricsCollection(ctx)
+		f.metricsCollectionStarted = true
+	}
+
 	return nil
 }
 
@@ -116,7 +121,6 @@ func (f *sharedCacheFactory) WaitForCacheSync(ctx context.Context) map[schema.Gr
 
 		informers := map[schema.GroupVersionKind]cache.SharedIndexInformer{}
 		for informerType, informer := range f.caches {
-			metrics.IncTotalCachedObjects(informerType.Group, informerType.Version, informerType.Kind, float64(len(informer.GetStore().List())))
 			if f.startedCaches[informerType] {
 				informers[informerType] = informer
 			}
