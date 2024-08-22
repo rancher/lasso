@@ -39,14 +39,14 @@ func (f *sharedCacheFactory) startMetricsCollection(ctx context.Context) {
 		for {
 			factoryMetrics := f.collectMetrics()
 			for gvk, count := range factoryMetrics.gvks {
-				metrics.IncTotalCachedObjects(contextID, gvk.Group, gvk.Version, gvk.Kind, float64(count))
+				metrics.IncTotalCachedObjects(contextID, gvk, count)
 			}
 
 			timer.Reset(cacheMetricsCollectionPeriod)
 			select {
 			case <-ctx.Done():
 				for gvk := range factoryMetrics.gvks {
-					metrics.DelTotalCachedObjects(contextID, gvk.Group, gvk.Version, gvk.Kind)
+					metrics.DelTotalCachedObjects(contextID, gvk)
 				}
 				return
 			case <-timer.C:

@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 var prometheusMetrics = false
@@ -76,29 +77,29 @@ func IncTotalHandlerExecutions(controllerName, handlerName string, hasError bool
 	}
 }
 
-// IncTotalCachedObjects sets the metrics value for the labels specified
-func IncTotalCachedObjects(ctxID, group, version, kind string, val float64) {
+// IncTotalCachedObjects sets the cached items count for the specified context and GroupVersionKind
+func IncTotalCachedObjects(ctxID string, gvk schema.GroupVersionKind, count int) {
 	if prometheusMetrics {
 		TotalCachedObjects.With(
 			prometheus.Labels{
 				contextLabel: ctxID,
-				groupLabel:   group,
-				versionLabel: version,
-				kindLabel:    kind,
+				groupLabel:   gvk.Group,
+				versionLabel: gvk.Version,
+				kindLabel:    gvk.Kind,
 			},
-		).Set(val)
+		).Set(float64(count))
 	}
 }
 
-// DelTotalCachedObjects deletes the total cached object metric matching the provided values
-func DelTotalCachedObjects(ctxID, group, version, kind string) {
+// DelTotalCachedObjects deletes the cached items count metric matching the provided content and GroupVersionKind
+func DelTotalCachedObjects(ctxID string, gvk schema.GroupVersionKind) {
 	if prometheusMetrics {
 		TotalCachedObjects.Delete(
 			prometheus.Labels{
 				contextLabel: ctxID,
-				groupLabel:   group,
-				versionLabel: version,
-				kindLabel:    kind,
+				groupLabel:   gvk.Group,
+				versionLabel: gvk.Version,
+				kindLabel:    gvk.Kind,
 			},
 		)
 	}
