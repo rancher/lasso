@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	cacheMetricsCollectionPeriod = 1 * time.Minute
+	defaultCacheMetricsCollectionPeriod = 1 * time.Minute
 )
 
 func (f *sharedCacheFactory) collectMetrics() sharedCacheFactoryMetrics {
@@ -34,23 +34,29 @@ type sharedCacheFactoryMetrics struct {
 func (f *sharedCacheFactory) startMetricsCollection(ctx context.Context) {
 	go func() {
 		contextID := metrics.ContextID(ctx)
-		timer := time.NewTimer(cacheMetricsCollectionPeriod)
+		timer := time.NewTimer(f.metricsCollectionPeriod)
 		defer timer.Stop()
 		for {
 			factoryMetrics := f.collectMetrics()
-			for gvk, count := range factoryMetrics.gvks {
-				metrics.IncTotalCachedObjects(contextID, gvk.Group, gvk.Version, gvk.Kind, float64(count))
-			}
-
-			timer.Reset(cacheMetricsCollectionPeriod)
+			f.recordMetricsForContext(factoryMetrics, contextID)
+			timer.Reset(f.metricsCollectionPeriod)
 			select {
 			case <-ctx.Done():
-				for gvk := range factoryMetrics.gvks {
-					metrics.DelTotalCachedObjects(contextID, gvk.Group, gvk.Version, gvk.Kind)
-				}
 				return
 			case <-timer.C:
 			}
 		}
 	}()
+}
+
+func (f *sharedCacheFactory) recordMetricsForContext(fm sharedCacheFactoryMetrics, contextID string) {
+	for gvk, count := range fm.gvks {
+		metrics.IncTotalCachedObjects(contextID, gvk.Group, gvk.Version, gvk.Kind, float64(count))
+	}
+}
+
+func (f *sharedCacheFactory) cleanupMetricsForContext(fm sharedCacheFactoryMetrics, contextID string) {
+	for gvk := range fm.gvks {
+		metrics.DelTotalCachedObjects(contextID, gvk.Group, gvk.Version, gvk.Kind)
+	}
 }
