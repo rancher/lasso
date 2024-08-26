@@ -24,6 +24,10 @@ type SharedCacheFactoryOptions struct {
 	KindNamespace  map[schema.GroupVersionKind]string
 	KindTweakList  map[schema.GroupVersionKind]TweakListOptionsFunc
 	HealthCallback func(healthy bool)
+
+	// Determines how often metrics are gathered about how many resources are
+	// cached by gvk across all caches in the sharedCacheFactory
+	MetricsCollectionPeriod time.Duration
 }
 
 type sharedCacheFactory struct {
@@ -42,6 +46,7 @@ type sharedCacheFactory struct {
 	startedCaches map[schema.GroupVersionKind]bool
 
 	metricsCollectionStarted bool
+	metricsCollectionPeriod  time.Duration
 }
 
 // NewSharedInformerFactoryWithOptions constructs a new instance of a SharedInformerFactory with additional options.
@@ -61,6 +66,7 @@ func NewSharedCachedFactory(sharedClientFactory client.SharedClientFactory, opts
 		healthcheck: healthcheck{
 			callback: opts.HealthCallback,
 		},
+		metricsCollectionPeriod: opts.MetricsCollectionPeriod,
 	}
 
 	return factory
@@ -70,6 +76,10 @@ func applyDefaults(opts *SharedCacheFactoryOptions) *SharedCacheFactoryOptions {
 	var newOpts SharedCacheFactoryOptions
 	if opts != nil {
 		newOpts = *opts
+	}
+
+	if newOpts.MetricsCollectionPeriod == 0 {
+		newOpts.MetricsCollectionPeriod = defaultCacheMetricsCollectionPeriod
 	}
 
 	return &newOpts
