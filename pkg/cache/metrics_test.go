@@ -7,20 +7,20 @@ import (
 	"testing"
 	"time"
 
-	gomock "github.com/golang/mock/gomock"
+	"github.com/golang/mock/gomock"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/rancher/lasso/pkg/client"
 	"github.com/rancher/lasso/pkg/metrics"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 )
 
-func setupMockSharedClientFactory(t *testing.T, gvr schema.GroupVersionResource, gvk schema.GroupVersionKind) client.SharedClientFactory {
+func setupMockSharedClientFactory(t *testing.T, cf *MockSharedClientFactory, gvr schema.GroupVersionResource, gvk schema.GroupVersionKind) {
 	t.Helper()
-	cf := NewMockSharedClientFactory(gomock.NewController(t))
 
 	testClient := &client.Client{}
 	scheme := runtime.NewScheme()
@@ -50,18 +50,18 @@ func setupMockSharedClientFactory(t *testing.T, gvr schema.GroupVersionResource,
 	cf.EXPECT().ForResourceKind(gvr, gvk.Kind, true).DoAndReturn(func(gvr schema.GroupVersionResource, kind string, namespaced bool) *client.Client {
 		return testClient
 	})
-
-	return cf
 }
 
 func Test_sharedCacheFactory_metrics_collection(t *testing.T) {
-	gvr := corev1.SchemeGroupVersion.WithResource("configmaps")
-	gvk := corev1.SchemeGroupVersion.WithKind("ConfigMap")
+	cf := NewMockSharedClientFactory(gomock.NewController(t))
+	setupMockSharedClientFactory(t, cf, corev1.SchemeGroupVersion.WithResource("configmaps"), corev1.SchemeGroupVersion.WithKind("ConfigMap"))
+	setupMockSharedClientFactory(t, cf, rbacv1.SchemeGroupVersion.WithResource("roles"), rbacv1.SchemeGroupVersion.WithKind("Role"))
 
-	cf := setupMockSharedClientFactory(t, gvr, gvk)
 	scf := NewSharedCachedFactory(cf, &SharedCacheFactoryOptions{MetricsCollectionPeriod: time.Millisecond * 200}).(*sharedCacheFactory)
-	_, err := scf.ForKind(gvk)
-	if err != nil {
+	if _, err := scf.ForKind(corev1.SchemeGroupVersion.WithKind("ConfigMap")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := scf.ForKind(rbacv1.SchemeGroupVersion.WithKind("Role")); err != nil {
 		t.Fatal(err)
 	}
 
@@ -78,10 +78,11 @@ func Test_sharedCacheFactory_metrics_collection(t *testing.T) {
 
 	time.Sleep(time.Second)
 
-	if err = testutil.GatherAndCompare(reg, strings.NewReader(`
+	if err := testutil.GatherAndCompare(reg, strings.NewReader(`
 # HELP lasso_controller_total_cached_object Total count of cached objects
 # TYPE lasso_controller_total_cached_object gauge
 lasso_controller_total_cached_object{ctx="test-ctx",group="",kind="ConfigMap",version="v1"} 0
+lasso_controller_total_cached_object{ctx="test-ctx",group="rbac.authorization.k8s.io",kind="Role",version="v1"} 0
 `)); err != nil {
 		t.Fatal(err)
 	}
@@ -90,7 +91,7 @@ lasso_controller_total_cached_object{ctx="test-ctx",group="",kind="ConfigMap",ve
 	cancel()
 	time.Sleep(time.Second)
 
-	if err = testutil.GatherAndCompare(reg, strings.NewReader("")); err != nil {
+	if err := testutil.GatherAndCompare(reg, strings.NewReader("")); err != nil {
 		t.Fatal(err)
 	}
 }
