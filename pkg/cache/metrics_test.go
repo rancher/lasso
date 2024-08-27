@@ -71,7 +71,7 @@ func Test_sharedCacheFactory_metrics_collection(t *testing.T) {
 	ctx = metrics.WithContextID(ctx, "test-ctx")
 
 	// Start metrics collection:
-	// It will report 0 items for every kind, since indexers is registered byt not started, which is enough for testing
+	// It will report 0 items for every kind, since indexers is registered but not started, which is enough for testing
 	reg := prometheus.NewPedanticRegistry()
 	metrics.MustRegister(reg)
 	scf.startMetricsCollection(ctx)
