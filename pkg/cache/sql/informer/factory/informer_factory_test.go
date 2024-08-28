@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/tools/cache"
 )
 
 //go:generate mockgen --build_flags=--mod=mod -package factory -destination ./factory_mocks_test.go github.com/rancher/lasso/pkg/cache/sql/informer/factory DBClient
@@ -48,7 +49,7 @@ func TestNewCacheFactory(t *testing.T) {
 	}
 }
 
-func TestInformerFor(t *testing.T) {
+func TestCacheFor(t *testing.T) {
 	type testCase struct {
 		description string
 		test        func(t *testing.T)
@@ -56,7 +57,7 @@ func TestInformerFor(t *testing.T) {
 
 	var tests []testCase
 
-	tests = append(tests, testCase{description: "CacheFor() with no errors returned, HasSync returning true, and stopCh not closed, should return no error and should cal Informer.Run(). A subsequent call to CacheFor() should return same informer", test: func(t *testing.T) {
+	tests = append(tests, testCase{description: "CacheFor() with no errors returned, HasSync returning true, and stopCh not closed, should return no error and should call Informer.Run(). A subsequent call to CacheFor() should return same informer", test: func(t *testing.T) {
 		dbClient := NewMockDBClient(gomock.NewController(t))
 		dynamicClient := NewMockResourceInterface(gomock.NewController(t))
 		fields := [][]string{{"something"}}
@@ -71,7 +72,7 @@ func TestInformerFor(t *testing.T) {
 		expectedC := Cache{
 			ByOptionsLister: i,
 		}
-		testNewInformer := func(client dynamic.ResourceInterface, fields [][]string, gvk schema.GroupVersionKind, db sqlStore.DBClient, shouldEncrypt bool, namespaced bool) (*informer.Informer, error) {
+		testNewInformer := func(client dynamic.ResourceInterface, fields [][]string, transform cache.TransformFunc, gvk schema.GroupVersionKind, db sqlStore.DBClient, shouldEncrypt bool, namespaced bool) (*informer.Informer, error) {
 			assert.Equal(t, client, dynamicClient)
 			assert.Equal(t, fields, fields)
 			assert.Equal(t, expectedGVK, gvk)
@@ -92,12 +93,12 @@ func TestInformerFor(t *testing.T) {
 		}()
 		var c Cache
 		var err error
-		c, err = f.CacheFor(fields, dynamicClient, expectedGVK, false)
+		c, err = f.CacheFor(fields, nil, dynamicClient, expectedGVK, false)
 		assert.Nil(t, err)
 		assert.Equal(t, expectedC, c)
 		// this sleep is critical to the test. It ensure there has been enough time for expected function like Run to be invoked in their go routines.
 		time.Sleep(1 * time.Second)
-		c2, err := f.CacheFor(fields, dynamicClient, expectedGVK, false)
+		c2, err := f.CacheFor(fields, nil, dynamicClient, expectedGVK, false)
 		assert.Nil(t, err)
 		assert.Equal(t, c, c2)
 	}})
@@ -114,7 +115,7 @@ func TestInformerFor(t *testing.T) {
 			// need to set this so Run function is not nil
 			SharedIndexInformer: sii,
 		}
-		testNewInformer := func(client dynamic.ResourceInterface, fields [][]string, gvk schema.GroupVersionKind, db sqlStore.DBClient, shouldEncrypt, namespaced bool) (*informer.Informer, error) {
+		testNewInformer := func(client dynamic.ResourceInterface, fields [][]string, transform cache.TransformFunc, gvk schema.GroupVersionKind, db sqlStore.DBClient, shouldEncrypt, namespaced bool) (*informer.Informer, error) {
 			assert.Equal(t, client, dynamicClient)
 			assert.Equal(t, fields, fields)
 			assert.Equal(t, expectedGVK, gvk)
@@ -133,7 +134,7 @@ func TestInformerFor(t *testing.T) {
 			close(f.stopCh)
 		}()
 		var err error
-		_, err = f.CacheFor(fields, dynamicClient, expectedGVK, false)
+		_, err = f.CacheFor(fields, nil, dynamicClient, expectedGVK, false)
 		assert.NotNil(t, err)
 		time.Sleep(2 * time.Second)
 	}})
@@ -154,7 +155,7 @@ func TestInformerFor(t *testing.T) {
 		expectedC := Cache{
 			ByOptionsLister: i,
 		}
-		testNewInformer := func(client dynamic.ResourceInterface, fields [][]string, gvk schema.GroupVersionKind, db sqlStore.DBClient, shouldEncrypt, namespaced bool) (*informer.Informer, error) {
+		testNewInformer := func(client dynamic.ResourceInterface, fields [][]string, transform cache.TransformFunc, gvk schema.GroupVersionKind, db sqlStore.DBClient, shouldEncrypt, namespaced bool) (*informer.Informer, error) {
 			assert.Equal(t, client, dynamicClient)
 			assert.Equal(t, fields, fields)
 			assert.Equal(t, expectedGVK, gvk)
@@ -171,7 +172,7 @@ func TestInformerFor(t *testing.T) {
 		close(f.stopCh)
 		var c Cache
 		var err error
-		c, err = f.CacheFor(fields, dynamicClient, expectedGVK, false)
+		c, err = f.CacheFor(fields, nil, dynamicClient, expectedGVK, false)
 		assert.Nil(t, err)
 		assert.Equal(t, expectedC, c)
 		time.Sleep(1 * time.Second)
@@ -191,7 +192,7 @@ func TestInformerFor(t *testing.T) {
 		expectedC := Cache{
 			ByOptionsLister: i,
 		}
-		testNewInformer := func(client dynamic.ResourceInterface, fields [][]string, gvk schema.GroupVersionKind, db sqlStore.DBClient, shouldEncrypt, namespaced bool) (*informer.Informer, error) {
+		testNewInformer := func(client dynamic.ResourceInterface, fields [][]string, transform cache.TransformFunc, gvk schema.GroupVersionKind, db sqlStore.DBClient, shouldEncrypt, namespaced bool) (*informer.Informer, error) {
 			assert.Equal(t, client, dynamicClient)
 			assert.Equal(t, fields, fields)
 			assert.Equal(t, expectedGVK, gvk)
@@ -212,7 +213,59 @@ func TestInformerFor(t *testing.T) {
 		}()
 		var c Cache
 		var err error
-		c, err = f.CacheFor(fields, dynamicClient, expectedGVK, false)
+		c, err = f.CacheFor(fields, nil, dynamicClient, expectedGVK, false)
+		assert.Nil(t, err)
+		assert.Equal(t, expectedC, c)
+		time.Sleep(1 * time.Second)
+	}})
+	tests = append(tests, testCase{description: "CacheFor() with no errors returned, HasSync returning true, stopCh not closed, and transform func should return no error", test: func(t *testing.T) {
+		dbClient := NewMockDBClient(gomock.NewController(t))
+		dynamicClient := NewMockResourceInterface(gomock.NewController(t))
+		fields := [][]string{{"something"}}
+		expectedGVK := schema.GroupVersionKind{}
+		sii := NewMockSharedIndexInformer(gomock.NewController(t))
+		sii.EXPECT().HasSynced().Return(true)
+		sii.EXPECT().Run(gomock.Any()).MinTimes(1)
+		transformFunc := func(input interface{}) (interface{}, error) {
+			return "someoutput", nil
+		}
+		i := &informer.Informer{
+			// need to set this so Run function is not nil
+			SharedIndexInformer: sii,
+		}
+		expectedC := Cache{
+			ByOptionsLister: i,
+		}
+		testNewInformer := func(client dynamic.ResourceInterface, fields [][]string, transform cache.TransformFunc, gvk schema.GroupVersionKind, db sqlStore.DBClient, shouldEncrypt bool, namespaced bool) (*informer.Informer, error) {
+			// we can't test func == func, so instead we check if the output was as expected
+			input := "someinput"
+			ouput, err := transform(input)
+			assert.Nil(t, err)
+			outputStr, ok := ouput.(string)
+			assert.True(t, ok, "ouput from transform was expected to be a string")
+			assert.Equal(t, "someoutput", outputStr)
+
+			assert.Equal(t, client, dynamicClient)
+			assert.Equal(t, fields, fields)
+			assert.Equal(t, expectedGVK, gvk)
+			assert.Equal(t, db, dbClient)
+			assert.Equal(t, false, shouldEncrypt)
+			return i, nil
+		}
+		f := &CacheFactory{
+			dbClient:    dbClient,
+			stopCh:      make(chan struct{}),
+			newInformer: testNewInformer,
+		}
+
+		go func() {
+			// this function ensures that stopCh is open for the duration of this test but if part of a longer process it will be closed eventually
+			time.Sleep(5 * time.Second)
+			close(f.stopCh)
+		}()
+		var c Cache
+		var err error
+		c, err = f.CacheFor(fields, transformFunc, dynamicClient, expectedGVK, false)
 		assert.Nil(t, err)
 		assert.Equal(t, expectedC, c)
 		time.Sleep(1 * time.Second)
