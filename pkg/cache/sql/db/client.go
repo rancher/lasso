@@ -13,13 +13,10 @@ import (
 	"os"
 	"reflect"
 	"sync"
-	"time"
 
 	"github.com/pkg/errors"
 	"github.com/rancher/lasso/pkg/cache/sql/db/transaction"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"modernc.org/sqlite"
-	sqlite3 "modernc.org/sqlite/lib"
+	_ "modernc.org/sqlite"
 )
 
 const (
@@ -93,8 +90,6 @@ type Decryptor interface {
 	Decrypt([]byte, []byte, uint32) ([]byte, error)
 }
 
-var backoffRetry = wait.Backoff{Duration: 50 * time.Millisecond, Factor: 2, Steps: 10}
-
 // NewClient returns a Client. If the given connection is nil then a default one will be created.
 func NewClient(c Connection, encryptor Encryptor, decryptor Decryptor) (*Client, error) {
 	client := &Client{
@@ -128,24 +123,8 @@ func (c *Client) Prepare(stmt string) *sql.Stmt {
 func (c *Client) QueryForRows(ctx context.Context, stmt transaction.Stmt, params ...any) (*sql.Rows, error) {
 	c.connLock.RLock()
 	defer c.connLock.RUnlock()
-	var rows *sql.Rows
-	var err error
 
-	err = wait.ExponentialBackoff(backoffRetry, func() (bool, error) {
-		rows, err = stmt.QueryContext(ctx, params...)
-		if err != nil {
-			sqlErr, ok := err.(*sqlite.Error)
-			if ok && sqlErr.Code() == sqlite3.SQLITE_BUSY {
-				return false, nil
-			}
-			return false, err
-		}
-		return true, nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	return rows, nil
+	return stmt.QueryContext(ctx, params...)
 }
 
 // CloseStmt will call close on the given Closable. It is intended to be used with a sql statement. This function is meant
