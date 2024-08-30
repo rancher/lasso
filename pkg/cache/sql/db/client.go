@@ -332,7 +332,7 @@ func (c *Client) NewConnection() error {
 		return err
 	}
 
-	sqlDB, err := sql.Open("sqlite", "file:"+InformerObjectCacheDBPath+"?mode=rwc&cache=shared&_journal_mode=wal&_synchronous=off&_foreign_keys=on&_busy_timeout=1000000")
+	sqlDB, err := sql.Open("sqlite", "file:"+InformerObjectCacheDBPath+"?mode=rwc&_pragma=journal_mode=wal&_pragma=synchronous=off&_pragma=foreign_keys=on&_pragma=busy_timeout=1000000")
 	if err != nil {
 		return err
 	}
