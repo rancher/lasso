@@ -1,13 +1,16 @@
 package controller
 
+//go:generate mockgen --build_flags=--mod=mod -package controller -destination ./mocks_test.go github.com/rancher/lasso/pkg/controller SharedController
+
 import (
+	"net/http"
+	"testing"
+
 	"github.com/golang/mock/gomock"
 	"github.com/rancher/lasso/pkg/client"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/rest"
-	"net/http"
-	"testing"
 )
 
 func TestNewSharedControllerFactoryWithAgent(t *testing.T) {
