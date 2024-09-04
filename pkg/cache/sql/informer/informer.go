@@ -23,13 +23,19 @@ import (
 type Informer struct {
 	cache.SharedIndexInformer
 	ByOptionsLister
+
+	listeners *listeners
 }
 
 type ByOptionsLister interface {
 	ListByOptions(ctx context.Context, lo ListOptions, partitions []partition.Partition, namespace string) (*unstructured.UnstructuredList, int, string, error)
 }
 
-// this is set to a var so that it can be overridden by test code for mocking purposes
+type Watcher interface {
+	Watch(ctx context.Context, listener Listener)
+}
+
+// this is set to a var so that it can be overriden by test code for mocking purposes
 var newInformer = cache.NewSharedIndexInformer
 
 // NewInformer returns a new SQLite-backed Informer for the type specified by schema in unstructured.Unstructured form
@@ -70,12 +76,26 @@ func NewInformer(client dynamic.ResourceInterface, fields [][]string, transform 
 		return nil, err
 	}
 
+	listeners := newlisteners()
+	sii.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj any) {
+			listeners.Notify(obj)
+		},
+		UpdateFunc: func(obj any, newObj any) {
+			listeners.Notify(newObj)
+		},
+		DeleteFunc: func(obj any) {
+			listeners.Notify(obj)
+		},
+	})
+
 	// HACK: replace the default informer's indexer with the SQL based one
 	UnsafeSet(sii, "indexer", loi)
 
 	return &Informer{
 		SharedIndexInformer: sii,
 		ByOptionsLister:     loi,
+		listeners:           listeners,
 	}, nil
 }
 
@@ -87,6 +107,15 @@ func NewInformer(client dynamic.ResourceInterface, fields [][]string, transform 
 //   - an error instead of all of the above if anything went wrong
 func (i *Informer) ListByOptions(ctx context.Context, lo ListOptions, partitions []partition.Partition, namespace string) (*unstructured.UnstructuredList, int, string, error) {
 	return i.ByOptionsLister.ListByOptions(ctx, lo, partitions, namespace)
+}
+
+func (i *Informer) Watch(ctx context.Context, listener Listener) {
+	i.listeners.AddListener(listener)
+	go func() {
+		<-ctx.Done()
+		i.listeners.RemoveListener(listener)
+		listener.Close()
+	}()
 }
 
 func informerNameFromGVK(gvk schema.GroupVersionKind) string {
