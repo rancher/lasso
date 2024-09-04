@@ -43,6 +43,7 @@ type DBClient interface {
 
 type Cache struct {
 	informer.ByOptionsLister
+	informer.Watcher
 }
 
 type connector interface {
@@ -93,7 +94,7 @@ func NewCacheFactory() (*CacheFactory, error) {
 func (f *CacheFactory) CacheFor(fields [][]string, transform cache.TransformFunc, client dynamic.ResourceInterface, gvk schema.GroupVersionKind, namespaced bool) (Cache, error) {
 	result, ok := f.getCacheIfExists(gvk)
 	if ok {
-		return Cache{ByOptionsLister: result}, nil
+		return Cache{ByOptionsLister: result, Watcher: result}, nil
 	}
 
 	f.informerCreateLock.Lock()
@@ -115,7 +116,7 @@ func (f *CacheFactory) CacheFor(fields [][]string, transform cache.TransformFunc
 		return Cache{}, fmt.Errorf("failed to sync SQLite Informer cache for GVK %v", gvk)
 	}
 
-	return Cache{ByOptionsLister: i}, nil
+	return Cache{ByOptionsLister: i, Watcher: i}, nil
 }
 
 func (f *CacheFactory) getCacheIfExists(gvk schema.GroupVersionKind) (*informer.Informer, bool) {
