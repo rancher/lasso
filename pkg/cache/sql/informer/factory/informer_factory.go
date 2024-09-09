@@ -20,7 +20,7 @@ import (
 )
 
 // EncryptAllEnvVar is set to "true" if users want all types' data blobs to be encrypted in SQLite
-// otherwise only variables in defaultEncryptedResourceTypes have their blobs encrypted
+// otherwise only variables in defaultEncryptedResourceTypes will have their blobs encrypted
 const EncryptAllEnvVar = "CATTLE_ENCRYPT_CACHE_ALL"
 
 // CacheFactory builds Informer instances and keeps a cache of instances it created
