@@ -17,6 +17,8 @@ Lasso
 	- [Lasso Shared Controller Factory](#lasso-shared-controller-factory)
 	- [Deferred Controller Function](#deferred-controller-function)
 - [How to use Lasso](#how-to-use-lasso)
+- [Developing](#developing)
+    - [Running Tests](#running-tests)
 - [Credits and Resources](#credits-and-resources)
 
 # Overview
@@ -192,6 +194,26 @@ func main() {
 	}
 }
 
+```
+
+# Developing
+
+## Running Tests
+
+Some of lasso's tests make use of [envtest](https://book.kubebuilder.io/reference/envtest) to run. Envtest allows tests to run against a "fake" kubernetes server with little/no overhead. 
+
+To install the required `setup-envtest` binary, use the following command:
+
+```bash
+go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+```
+
+Before running the tests, you must run the following command to setup the fake server:
+
+```bash
+# note that this will use a new/latest version of k8s. Our CI will run against the version of k8s that corresponds to lasso's
+# current client-go version, as seen in scripts/test.sh
+export KUBEBUILDER_ASSETS=$(setup-envtest use -p path)
 ```
 
 # Credits and Resources
