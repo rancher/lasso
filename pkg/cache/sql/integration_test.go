@@ -88,7 +88,8 @@ func (i *IntegrationSuite) TestSQLCacheFilters() {
 	matches := configMapWithAnnotations("matches-filter", map[string]string{"somekey": "somevalue"})
 	// partial match for somekey == somevalue (different suffix)
 	partialMatches := configMapWithAnnotations("partial-matches", map[string]string{"somekey": "somevaluehere"})
-	createConfigMaps(matches, partialMatches)
+	specialCharacterMatch := configMapWithAnnotations("special-character-matches", map[string]string{"somekey": "c%%l_value"})
+	createConfigMaps(matches, partialMatches, specialCharacterMatch)
 
 	cache, cacheFactory, err := i.createCacheAndFactory(fields, nil)
 	require.NoError(err)
@@ -100,7 +101,7 @@ func (i *IntegrationSuite) TestSQLCacheFilters() {
 	missing := configMapWithAnnotations("missing", nil)
 	createConfigMaps(notMatches, missing)
 
-	configMapNames := []string{matches.Name, partialMatches.Name, notMatches.Name, missing.Name}
+	configMapNames := []string{matches.Name, partialMatches.Name, notMatches.Name, missing.Name, specialCharacterMatch.Name}
 	err = i.waitForCacheReady(configMapNames, testNamespace, cache)
 	require.NoError(err)
 
@@ -137,6 +138,36 @@ func (i *IntegrationSuite) TestSQLCacheFilters() {
 			wantNames: []string{"matches-filter", "partial-matches"},
 		},
 		{
+			name: "no matches for filter with underscore as it is interpreted literally",
+			filters: orFiltersForFilters(informer.Filter{
+				Field:   []string{`metadata`, `annotations[somekey]`},
+				Match:   "somevalu_",
+				Op:      informer.Eq,
+				Partial: true,
+			}),
+			wantNames: nil,
+		},
+		{
+			name: "no matches for filter with percent sign as it is interpreted literally",
+			filters: orFiltersForFilters(informer.Filter{
+				Field:   []string{`metadata`, `annotations[somekey]`},
+				Match:   "somevalu%",
+				Op:      informer.Eq,
+				Partial: true,
+			}),
+			wantNames: nil,
+		},
+		{
+			name: "match with special characters",
+			filters: orFiltersForFilters(informer.Filter{
+				Field:   []string{`metadata`, `annotations[somekey]`},
+				Match:   "c%%l_value",
+				Op:      informer.Eq,
+				Partial: true,
+			}),
+			wantNames: []string{"special-character-matches"},
+		},
+		{
 			name: "not eq filter",
 			filters: orFiltersForFilters(informer.Filter{
 				Field:   []string{`metadata`, `annotations[somekey]`},
@@ -144,7 +175,7 @@ func (i *IntegrationSuite) TestSQLCacheFilters() {
 				Op:      informer.NotEq,
 				Partial: false,
 			}),
-			wantNames: []string{"partial-matches", "not-matches-filter", "missing"},
+			wantNames: []string{"partial-matches", "not-matches-filter", "missing", "special-character-matches"},
 		},
 		{
 			name: "partial not eq filter",
@@ -154,7 +185,7 @@ func (i *IntegrationSuite) TestSQLCacheFilters() {
 				Op:      informer.NotEq,
 				Partial: true,
 			}),
-			wantNames: []string{"not-matches-filter", "missing"},
+			wantNames: []string{"not-matches-filter", "missing", "special-character-matches"},
 		},
 		{
 			name: "multiple or filters match",
