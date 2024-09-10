@@ -9,7 +9,6 @@
 - [How to Use](#how-to-use)
 - [Technical Information](#technical-information)
   - [SQL Tables](#sql-tables)
-  - [Attach Driver](#attach-driver)
   - [SQLite Driver](#sqlite-driver)
   - [Connection Pooling](#connection-pooling)
   - [Encryption Defaults](#encryption-defaults)
@@ -103,24 +102,13 @@ that it is desired to filter or order on.
 * indices table - the indices table stores indexes created and objects' values for each index. This backs the generic indexer
 that contains the functionality needed to conform to cache.Indexer.
 
-### Attach Driver
-The fields tables may contain sensitive information, but because we need to use its values for indexing it cannot be encrypted.
-The attach driver automatically attaches a second database on every real sqlite connection. The database is able to exist
-in memory while the primary object database in on-disk. The attach allows queries to be made to either in a single connection.
-An example of a query using both databases:
-```sqlite
-JOIN db2."secrets_fields" f ON o.key = f.key
-```
-
 ### SQLite Driver
 There are multiple SQLite drivers that this package could have used. One of the most, if not the most, popular SQLite golang
 drivers is [mattn/go-sqlite3](https://github.com/mattn/go-sqlite3). This driver is not being used because it requires enabling
 the cgo option when compiling and at the moment lasso's main consumer, rancher, does not compile with cgo. We did not want
 the SQL informer to be the sole driver in switching to using cgo. Instead, modernc's driver which is in pure golang. Side-by-side
 comparisons can be found indicating the cgo version is, as expected, more performant. If in the future it is deemed worthwhile
-then the driver can be easily switched following these steps:
-1. Replace empty import in `pkg/cache/sql/store`. Change `_ "modernc.org/sqlite"` to `_ "github.com/mattn/go-sqlite3"`.
-2. In `attachdriver` package, register `SQLDriver` struct from `mattn/gosqlite3` instead of `Driver` from `modernc.org/sqlite`.
+then the driver can be easily switched by replacing the empty import in `pkg/cache/sql/store` from `_ "modernc.org/sqlite"` to `_ "github.com/mattn/go-sqlite3"`.
 
 ### Connection Pooling
 While working with the `database/sql` package for go, it is important to understand how sql.Open() and other methods manage
@@ -166,6 +154,4 @@ of a query that may be user supplied, such as columns, should be carefully valid
 
 ### Troubleshooting SQLite
 A useful tool for troubleshooting the database files is the sqlite command line tool. Another useful tool is the goland
-sqlite plugin. Both of these tools can be used with the database files. If running a database in-memory, there is no option
-for navigating records. In-memory databases are used for the non-object database when `CATTLE_ENCRYPT_CACHE_ALL` is set to
-"true".
+sqlite plugin. Both of these tools can be used with the database files.

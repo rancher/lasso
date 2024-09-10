@@ -10,7 +10,6 @@ import (
 
 	"github.com/rancher/lasso/pkg/cache/sql/informer"
 
-	"github.com/rancher/lasso/pkg/cache/sql/attachdriver"
 	"github.com/rancher/lasso/pkg/cache/sql/db"
 	"github.com/rancher/lasso/pkg/cache/sql/encryption"
 	sqlStore "github.com/rancher/lasso/pkg/cache/sql/store"
@@ -19,6 +18,10 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/tools/cache"
 )
+
+// EncryptAllEnvVar is set to "true" if users want all types' data blobs to be encrypted in SQLite
+// otherwise only variables in defaultEncryptedResourceTypes will have their blobs encrypted
+const EncryptAllEnvVar = "CATTLE_ENCRYPT_CACHE_ALL"
 
 // CacheFactory builds Informer instances and keeps a cache of instances it created
 type CacheFactory struct {
@@ -54,18 +57,6 @@ var defaultEncryptedResourceTypes = map[schema.GroupVersionKind]struct{}{
 		Version: "v1",
 		Kind:    "Secret",
 	}: {},
-}
-
-const (
-	EncryptAllEnvVar = "CATTLE_ENCRYPT_CACHE_ALL"
-)
-
-func init() {
-	indexedFieldDBPath := db.OnDiskInformerIndexedFieldDBPath
-	if os.Getenv(EncryptAllEnvVar) == "true" {
-		indexedFieldDBPath = ":memory:"
-	}
-	attachdriver.Register("file:" + indexedFieldDBPath + "?cache=shared")
 }
 
 // NewCacheFactory returns an informer factory instance
