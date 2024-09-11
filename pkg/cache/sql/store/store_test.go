@@ -20,8 +20,8 @@ import (
 
 	"github.com/rancher/lasso/pkg/cache/sql/db"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 )
 
 const ()

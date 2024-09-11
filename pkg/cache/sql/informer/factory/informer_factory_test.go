@@ -7,9 +7,9 @@ import (
 
 	"github.com/rancher/lasso/pkg/cache/sql/informer"
 
-	"github.com/golang/mock/gomock"
 	sqlStore "github.com/rancher/lasso/pkg/cache/sql/store"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/tools/cache"

@@ -13,9 +13,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/rancher/lasso/pkg/cache/sql/partition"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"

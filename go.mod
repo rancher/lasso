@@ -5,11 +5,11 @@ go 1.22.0
 toolchain go1.22.7
 
 require (
-	github.com/golang/mock v1.6.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.16.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.9.0
+	go.uber.org/mock v0.4.0
 	k8s.io/api v0.30.1
 	k8s.io/apimachinery v0.30.1
 	k8s.io/client-go v0.30.1
