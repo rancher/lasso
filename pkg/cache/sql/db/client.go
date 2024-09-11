@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/rancher/lasso/pkg/cache/sql/attachdriver"
 	"github.com/rancher/lasso/pkg/cache/sql/db/transaction"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"modernc.org/sqlite"
@@ -26,9 +25,6 @@ import (
 const (
 	// InformerObjectCacheDBPath is where SQLite's object database file will be stored relative to process running lasso
 	InformerObjectCacheDBPath = "informer_object_cache.db"
-	// OnDiskInformerIndexedFieldDBPath is where SQLite's indexed fields database file will be stored if, env var value
-	// found at EncryptAllEnvVar is "false".
-	OnDiskInformerIndexedFieldDBPath = "informer_object_fields.db"
 )
 
 // Client is a database client that provides encrypting, decrypting, and database resetting.
@@ -336,11 +332,7 @@ func (c *Client) NewConnection() error {
 		return err
 	}
 
-	err = os.RemoveAll(OnDiskInformerIndexedFieldDBPath)
-	if err != nil {
-		return err
-	}
-	sqlDB, err := sql.Open(attachdriver.Name, "file:"+InformerObjectCacheDBPath+"?mode=rwc&cache=shared&_journal_mode=wal&_synchronous=off&_foreign_keys=on&_busy_timeout=1000000")
+	sqlDB, err := sql.Open("sqlite", "file:"+InformerObjectCacheDBPath+"?mode=rwc&cache=shared&_journal_mode=wal&_synchronous=off&_foreign_keys=on&_busy_timeout=1000000")
 	if err != nil {
 		return err
 	}

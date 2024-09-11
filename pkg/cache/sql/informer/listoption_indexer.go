@@ -43,11 +43,11 @@ var (
 const (
 	matchFmt             = `%%%s%%`
 	strictMatchFmt       = `%s`
-	createFieldsTableFmt = `CREATE TABLE db2."%s_fields" (
+	createFieldsTableFmt = `CREATE TABLE "%s_fields" (
 			key TEXT NOT NULL PRIMARY KEY,
             %s
 	   )`
-	createFieldsIndexFmt = `CREATE INDEX db2."%s_%s_index" ON "%s_fields"("%s")`
+	createFieldsIndexFmt = `CREATE INDEX "%s_%s_index" ON "%s_fields"("%s")`
 
 	failedToGetFromSliceFmt = "[listoption indexer] failed to get subfield [%s] from slice items: %w"
 )
@@ -127,13 +127,13 @@ func NewListOptionIndexer(fields [][]string, s Store, namespaced bool) (*ListOpt
 	}
 
 	l.addFieldQuery = fmt.Sprintf(
-		`INSERT INTO db2."%s_fields"(key, %s) VALUES (?, %s) ON CONFLICT DO UPDATE SET %s`,
+		`INSERT INTO "%s_fields"(key, %s) VALUES (?, %s) ON CONFLICT DO UPDATE SET %s`,
 		db.Sanitize(i.GetName()),
 		strings.Join(columns, ", "),
 		strings.Join(qmarks, ", "),
 		strings.Join(setStatements, ", "),
 	)
-	l.deleteFieldQuery = fmt.Sprintf(`DELETE FROM db2."%s_fields" WHERE key = ?`, db.Sanitize(i.GetName()))
+	l.deleteFieldQuery = fmt.Sprintf(`DELETE FROM "%s_fields" WHERE key = ?`, db.Sanitize(i.GetName()))
 
 	l.addFieldStmt = l.Prepare(l.addFieldQuery)
 	l.deleteFieldStmt = l.Prepare(l.deleteFieldQuery)
@@ -195,7 +195,7 @@ func (l *ListOptionIndexer) ListByOptions(ctx context.Context, lo ListOptions, p
 	// 1- Intro: SELECT and JOIN clauses
 	query := fmt.Sprintf(`SELECT o.object, o.objectnonce, o.dekid FROM "%s" o`, db.Sanitize(l.GetName()))
 	query += "\n  "
-	query += fmt.Sprintf(`JOIN db2."%s_fields" f ON o.key = f.key`, db.Sanitize(l.GetName()))
+	query += fmt.Sprintf(`JOIN "%s_fields" f ON o.key = f.key`, db.Sanitize(l.GetName()))
 	params := []any{}
 
 	// 2- Filtering: WHERE clauses (from lo.Filters)
