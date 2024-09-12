@@ -424,6 +424,9 @@ func (l *ListOptionIndexer) buildORClauseFromFilters(orFilters OrFilter) (string
 			format = matchFmt
 		}
 		match := filter.Match
+		// To allow matches on the backslash itself, the character needs to be replaced first.
+		// Otherwise, it will undo the following replacements.
+		match = strings.ReplaceAll(match, `\`, `\\`)
 		match = strings.ReplaceAll(match, `_`, `\_`)
 		match = strings.ReplaceAll(match, `%`, `\%`)
 		params = append(params, fmt.Sprintf(format, match))

@@ -6,9 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rancher/lasso/pkg/cache/sql/informer"
-	"github.com/rancher/lasso/pkg/cache/sql/informer/factory"
-	"github.com/rancher/lasso/pkg/cache/sql/partition"
 	"github.com/stretchr/testify/suite"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -20,6 +17,10 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
+
+	"github.com/rancher/lasso/pkg/cache/sql/informer"
+	"github.com/rancher/lasso/pkg/cache/sql/informer/factory"
+	"github.com/rancher/lasso/pkg/cache/sql/partition"
 )
 
 const testNamespace = "sql-test"
@@ -89,7 +90,8 @@ func (i *IntegrationSuite) TestSQLCacheFilters() {
 	// partial match for somekey == somevalue (different suffix)
 	partialMatches := configMapWithAnnotations("partial-matches", map[string]string{"somekey": "somevaluehere"})
 	specialCharacterMatch := configMapWithAnnotations("special-character-matches", map[string]string{"somekey": "c%%l_value"})
-	createConfigMaps(matches, partialMatches, specialCharacterMatch)
+	backSlashCharacterMatch := configMapWithAnnotations("backslash-character-matches", map[string]string{"somekey": `my\windows\path`})
+	createConfigMaps(matches, partialMatches, specialCharacterMatch, backSlashCharacterMatch)
 
 	cache, cacheFactory, err := i.createCacheAndFactory(fields, nil)
 	require.NoError(err)
@@ -101,7 +103,7 @@ func (i *IntegrationSuite) TestSQLCacheFilters() {
 	missing := configMapWithAnnotations("missing", nil)
 	createConfigMaps(notMatches, missing)
 
-	configMapNames := []string{matches.Name, partialMatches.Name, notMatches.Name, missing.Name, specialCharacterMatch.Name}
+	configMapNames := []string{matches.Name, partialMatches.Name, notMatches.Name, missing.Name, specialCharacterMatch.Name, backSlashCharacterMatch.Name}
 	err = i.waitForCacheReady(configMapNames, testNamespace, cache)
 	require.NoError(err)
 
@@ -168,6 +170,16 @@ func (i *IntegrationSuite) TestSQLCacheFilters() {
 			wantNames: []string{"special-character-matches"},
 		},
 		{
+			name: "match with literal backslash character",
+			filters: orFiltersForFilters(informer.Filter{
+				Field:   []string{`metadata`, `annotations[somekey]`},
+				Match:   `my\windows\path`,
+				Op:      informer.Eq,
+				Partial: true,
+			}),
+			wantNames: []string{"backslash-character-matches"},
+		},
+		{
 			name: "not eq filter",
 			filters: orFiltersForFilters(informer.Filter{
 				Field:   []string{`metadata`, `annotations[somekey]`},
@@ -175,7 +187,7 @@ func (i *IntegrationSuite) TestSQLCacheFilters() {
 				Op:      informer.NotEq,
 				Partial: false,
 			}),
-			wantNames: []string{"partial-matches", "not-matches-filter", "missing", "special-character-matches"},
+			wantNames: []string{"partial-matches", "not-matches-filter", "missing", "special-character-matches", "backslash-character-matches"},
 		},
 		{
 			name: "partial not eq filter",
@@ -185,7 +197,7 @@ func (i *IntegrationSuite) TestSQLCacheFilters() {
 				Op:      informer.NotEq,
 				Partial: true,
 			}),
-			wantNames: []string{"not-matches-filter", "missing", "special-character-matches"},
+			wantNames: []string{"not-matches-filter", "missing", "special-character-matches", "backslash-character-matches"},
 		},
 		{
 			name: "multiple or filters match",
