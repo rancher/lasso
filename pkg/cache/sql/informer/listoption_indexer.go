@@ -89,7 +89,7 @@ func NewListOptionIndexer(fields [][]string, s Store, namespaced bool) (*ListOpt
 		columnDefs[index] = column
 	}
 
-	tx, err := l.Begin()
+	tx, err := l.BeginTx(context.Background(), true)
 	if err != nil {
 		return nil, err
 	}

@@ -34,7 +34,7 @@ type Client struct {
 
 // Connection represents a connection pool.
 type Connection interface {
-	Begin() (*sql.Tx, error)
+	BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error)
 	Exec(query string, args ...any) (sql.Result, error)
 	Prepare(query string) (*sql.Stmt, error)
 	Close() error
@@ -220,12 +220,21 @@ func (c *Client) ReadInt(rows Rows) (int, error) {
 	return result, nil
 }
 
-// Begin attempt to begin a transaction, and returns it along with a function for unlocking the
-// database once the transaction is done.
-func (c *Client) Begin() (TXClient, error) {
+// BeginTx attempts to begin a transaction.
+// If forWriting is true, this method blocks until all other concurrent forWriting
+// transactions have either committed or rolled back.
+// If forWriting is false, it is assumed the returned transaction will exclusively
+// be used for DQL (eg. SELECT) queries.
+// Not respecting the above rule might result in transactions failing with unexpected
+// SQLITE_BUSY (5) errors (aka "Runtime error: database is locked").
+// See discussion in https://github.com/rancher/lasso/pull/98 for details
+func (c *Client) BeginTx(ctx context.Context, forWriting bool) (TXClient, error) {
 	c.connLock.RLock()
 	defer c.connLock.RUnlock()
-	sqlTx, err := c.conn.Begin()
+	// note: this assumes _txlock=immediate in the connection string, see NewConnection
+	sqlTx, err := c.conn.BeginTx(ctx, &sql.TxOptions{
+		ReadOnly: !forWriting,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -322,7 +331,11 @@ func (c *Client) NewConnection() error {
 		"_pragma=foreign_keys=on&"+
 		// if two transactions want to write at the same time, allow 2 minutes for the first to complete
 		// before baling out
-		"_pragma=busy_timeout=120000"+
+		"_pragma=busy_timeout=120000&"+
+		// default to IMMEDIATE mode for transactions. Setting this parameter is the only current way
+		// to be able to switch between DEFERRED and IMMEDIATE modes in modernc.org/sqlite's implementation
+		// of BeginTx
+		"_txlock=immediate")
 	if err != nil {
 		return err
 	}

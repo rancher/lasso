@@ -74,7 +74,7 @@ type Store interface {
 }
 
 type DBClient interface {
-	Begin() (db.TXClient, error)
+	BeginTx(ctx context.Context, forWriting bool) (db.TXClient, error)
 	QueryForRows(ctx context.Context, stmt transaction.Stmt, params ...any) (*sql.Rows, error)
 	ReadObjects(rows db.Rows, typ reflect.Type, shouldDecrypt bool) ([]any, error)
 	ReadStrings(rows db.Rows) ([]string, error)
@@ -85,7 +85,7 @@ type DBClient interface {
 
 // NewIndexer returns a cache.Indexer backed by SQLite for objects of the given example type
 func NewIndexer(indexers cache.Indexers, s Store) (*Indexer, error) {
-	tx, err := s.Begin()
+	tx, err := s.BeginTx(context.Background(), true)
 	if err != nil {
 		return nil, err
 	}
