@@ -311,7 +311,18 @@ func (c *Client) NewConnection() error {
 		return err
 	}
 
-	sqlDB, err := sql.Open("sqlite", "file:"+InformerObjectCacheDBPath+"?mode=rwc&_pragma=journal_mode=wal&_pragma=synchronous=off&_pragma=foreign_keys=on&_pragma=busy_timeout=120000")
+	sqlDB, err := sql.Open("sqlite", "file:"+InformerObjectCacheDBPath+"?"+
+		// open SQLite file in read-write mode, creating it if it does not exist
+		"mode=rwc&"+
+		// use the WAL journal mode for consistency and efficiency
+		"_pragma=journal_mode=wal&"+
+		// do not even attempt to attain durability. Database is thrown away at pod restart
+		"_pragma=synchronous=off&"+
+		// do check foreign keys and honor ON DELETE CASCADE
+		"_pragma=foreign_keys=on&"+
+		// if two transactions want to write at the same time, allow 2 minutes for the first to complete
+		// before baling out
+		"_pragma=busy_timeout=120000"+
 	if err != nil {
 		return err
 	}
