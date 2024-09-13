@@ -42,19 +42,19 @@ func (m *MockDBClient) EXPECT() *MockDBClientMockRecorder {
 	return m.recorder
 }
 
-// Begin mocks base method.
-func (m *MockDBClient) Begin() (db.TXClient, error) {
+// BeginTx mocks base method.
+func (m *MockDBClient) BeginTx(arg0 context.Context, arg1 bool) (db.TXClient, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Begin")
+	ret := m.ctrl.Call(m, "BeginTx", arg0, arg1)
 	ret0, _ := ret[0].(db.TXClient)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// Begin indicates an expected call of Begin.
-func (mr *MockDBClientMockRecorder) Begin() *gomock.Call {
+// BeginTx indicates an expected call of BeginTx.
+func (mr *MockDBClientMockRecorder) BeginTx(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Begin", reflect.TypeOf((*MockDBClient)(nil).Begin))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BeginTx", reflect.TypeOf((*MockDBClient)(nil).BeginTx), arg0, arg1)
 }
 
 // CloseStmt mocks base method.

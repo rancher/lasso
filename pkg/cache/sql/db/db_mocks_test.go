@@ -10,6 +10,7 @@
 package db
 
 import (
+	context "context"
 	sql "database/sql"
 	reflect "reflect"
 
@@ -123,19 +124,19 @@ func (m *MockConnection) EXPECT() *MockConnectionMockRecorder {
 	return m.recorder
 }
 
-// Begin mocks base method.
-func (m *MockConnection) Begin() (*sql.Tx, error) {
+// BeginTx mocks base method.
+func (m *MockConnection) BeginTx(arg0 context.Context, arg1 *sql.TxOptions) (*sql.Tx, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Begin")
+	ret := m.ctrl.Call(m, "BeginTx", arg0, arg1)
 	ret0, _ := ret[0].(*sql.Tx)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// Begin indicates an expected call of Begin.
-func (mr *MockConnectionMockRecorder) Begin() *gomock.Call {
+// BeginTx indicates an expected call of BeginTx.
+func (mr *MockConnectionMockRecorder) BeginTx(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Begin", reflect.TypeOf((*MockConnection)(nil).Begin))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BeginTx", reflect.TypeOf((*MockConnection)(nil).BeginTx), arg0, arg1)
 }
 
 // Close mocks base method.
