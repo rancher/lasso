@@ -45,7 +45,7 @@ func TestNewIndexer(t *testing.T) {
 			},
 		}
 		storeName := "someStoreName"
-		store.EXPECT().Begin().Return(client, nil)
+		store.EXPECT().BeginTx(gomock.Any(), true).Return(client, nil)
 		store.EXPECT().GetName().AnyTimes().Return(storeName)
 		client.EXPECT().Exec(fmt.Sprintf(createTableFmt, storeName, storeName)).Return(nil)
 		client.EXPECT().Exec(fmt.Sprintf(createIndexFmt, storeName, storeName)).Return(nil)
@@ -69,7 +69,7 @@ func TestNewIndexer(t *testing.T) {
 				return []string{objKey}, nil
 			},
 		}
-		store.EXPECT().Begin().Return(nil, fmt.Errorf("error"))
+		store.EXPECT().BeginTx(gomock.Any(), true).Return(nil, fmt.Errorf("error"))
 		_, err := NewIndexer(indexers, store)
 		assert.NotNil(t, err)
 	}})
@@ -84,7 +84,7 @@ func TestNewIndexer(t *testing.T) {
 			},
 		}
 		storeName := "someStoreName"
-		store.EXPECT().Begin().Return(client, nil)
+		store.EXPECT().BeginTx(gomock.Any(), true).Return(client, nil)
 		store.EXPECT().GetName().AnyTimes().Return(storeName)
 		client.EXPECT().Exec(fmt.Sprintf(createTableFmt, storeName, storeName)).Return(fmt.Errorf("error"))
 		_, err := NewIndexer(indexers, store)
@@ -101,7 +101,7 @@ func TestNewIndexer(t *testing.T) {
 			},
 		}
 		storeName := "someStoreName"
-		store.EXPECT().Begin().Return(client, nil)
+		store.EXPECT().BeginTx(gomock.Any(), true).Return(client, nil)
 		store.EXPECT().GetName().AnyTimes().Return(storeName)
 		client.EXPECT().Exec(fmt.Sprintf(createTableFmt, storeName, storeName)).Return(nil)
 		client.EXPECT().Exec(fmt.Sprintf(createIndexFmt, storeName, storeName)).Return(fmt.Errorf("error"))
@@ -119,7 +119,7 @@ func TestNewIndexer(t *testing.T) {
 			},
 		}
 		storeName := "someStoreName"
-		store.EXPECT().Begin().Return(client, nil)
+		store.EXPECT().BeginTx(gomock.Any(), true).Return(client, nil)
 		store.EXPECT().GetName().AnyTimes().Return(storeName)
 		client.EXPECT().Exec(fmt.Sprintf(createTableFmt, storeName, storeName)).Return(nil)
 		client.EXPECT().Exec(fmt.Sprintf(createIndexFmt, storeName, storeName)).Return(nil)

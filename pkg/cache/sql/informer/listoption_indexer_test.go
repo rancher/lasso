@@ -35,7 +35,7 @@ func TestNewListOptionIndexer(t *testing.T) {
 		id := "somename"
 		stmt := &sql.Stmt{}
 		// logic for NewIndexer(), only interested in if this results in error or not
-		store.EXPECT().Begin().Return(txClient, nil)
+		store.EXPECT().BeginTx(gomock.Any(), true).Return(txClient, nil)
 		store.EXPECT().GetName().Return(id).AnyTimes()
 		txClient.EXPECT().Exec(gomock.Any(), gomock.Any()).Return(nil)
 		txClient.EXPECT().Exec(gomock.Any(), gomock.Any()).Return(nil)
@@ -47,7 +47,7 @@ func TestNewListOptionIndexer(t *testing.T) {
 		store.EXPECT().RegisterAfterUpsert(gomock.Any())
 		store.EXPECT().RegisterAfterDelete(gomock.Any())
 
-		store.EXPECT().Begin().Return(txClient, nil)
+		store.EXPECT().BeginTx(gomock.Any(), true).Return(txClient, nil)
 		// create field table
 		txClient.EXPECT().Exec(fmt.Sprintf(createFieldsTableFmt, id, `"metadata.name" TEXT, "metadata.creationTimestamp" TEXT, "metadata.namespace" TEXT, "something" TEXT`)).Return(nil)
 		// create field table indexes
@@ -67,7 +67,7 @@ func TestNewListOptionIndexer(t *testing.T) {
 		fields := [][]string{{"something"}}
 		id := "somename"
 		// logic for NewIndexer(), only interested in if this results in error or not
-		store.EXPECT().Begin().Return(txClient, nil)
+		store.EXPECT().BeginTx(gomock.Any(), true).Return(txClient, nil)
 		store.EXPECT().GetName().Return(id).AnyTimes()
 		txClient.EXPECT().Exec(gomock.Any(), gomock.Any()).Return(nil)
 		txClient.EXPECT().Exec(gomock.Any(), gomock.Any()).Return(nil)
@@ -83,7 +83,7 @@ func TestNewListOptionIndexer(t *testing.T) {
 		id := "somename"
 		stmt := &sql.Stmt{}
 		// logic for NewIndexer(), only interested in if this results in error or not
-		store.EXPECT().Begin().Return(txClient, nil)
+		store.EXPECT().BeginTx(gomock.Any(), true).Return(txClient, nil)
 		store.EXPECT().GetName().Return(id).AnyTimes()
 		txClient.EXPECT().Exec(gomock.Any(), gomock.Any()).Return(nil)
 		txClient.EXPECT().Exec(gomock.Any(), gomock.Any()).Return(nil)
@@ -95,7 +95,7 @@ func TestNewListOptionIndexer(t *testing.T) {
 		store.EXPECT().RegisterAfterUpsert(gomock.Any())
 		store.EXPECT().RegisterAfterDelete(gomock.Any())
 
-		store.EXPECT().Begin().Return(txClient, fmt.Errorf("error"))
+		store.EXPECT().BeginTx(gomock.Any(), true).Return(txClient, fmt.Errorf("error"))
 
 		_, err := NewListOptionIndexer(fields, store, false)
 		assert.NotNil(t, err)
@@ -107,7 +107,7 @@ func TestNewListOptionIndexer(t *testing.T) {
 		id := "somename"
 		stmt := &sql.Stmt{}
 		// logic for NewIndexer(), only interested in if this results in error or not
-		store.EXPECT().Begin().Return(txClient, nil)
+		store.EXPECT().BeginTx(gomock.Any(), true).Return(txClient, nil)
 		store.EXPECT().GetName().Return(id).AnyTimes()
 		txClient.EXPECT().Exec(gomock.Any(), gomock.Any()).Return(nil)
 		txClient.EXPECT().Exec(gomock.Any(), gomock.Any()).Return(nil)
@@ -119,7 +119,7 @@ func TestNewListOptionIndexer(t *testing.T) {
 		store.EXPECT().RegisterAfterUpsert(gomock.Any())
 		store.EXPECT().RegisterAfterDelete(gomock.Any())
 
-		store.EXPECT().Begin().Return(txClient, nil)
+		store.EXPECT().BeginTx(gomock.Any(), true).Return(txClient, nil)
 		txClient.EXPECT().Exec(fmt.Sprintf(createFieldsTableFmt, id, `"metadata.name" TEXT, "metadata.creationTimestamp" TEXT, "metadata.namespace" TEXT, "something" TEXT`)).Return(nil)
 		txClient.EXPECT().Exec(fmt.Sprintf(createFieldsIndexFmt, id, "metadata.name", id, "metadata.name")).Return(fmt.Errorf("error"))
 
@@ -133,7 +133,7 @@ func TestNewListOptionIndexer(t *testing.T) {
 		id := "somename"
 		stmt := &sql.Stmt{}
 		// logic for NewIndexer(), only interested in if this results in error or not
-		store.EXPECT().Begin().Return(txClient, nil)
+		store.EXPECT().BeginTx(gomock.Any(), true).Return(txClient, nil)
 		store.EXPECT().GetName().Return(id).AnyTimes()
 		txClient.EXPECT().Exec(gomock.Any(), gomock.Any()).Return(nil)
 		txClient.EXPECT().Exec(gomock.Any(), gomock.Any()).Return(nil)
@@ -145,7 +145,7 @@ func TestNewListOptionIndexer(t *testing.T) {
 		store.EXPECT().RegisterAfterUpsert(gomock.Any())
 		store.EXPECT().RegisterAfterDelete(gomock.Any())
 
-		store.EXPECT().Begin().Return(txClient, nil)
+		store.EXPECT().BeginTx(gomock.Any(), true).Return(txClient, nil)
 		txClient.EXPECT().Exec(fmt.Sprintf(createFieldsTableFmt, id, `"metadata.name" TEXT, "metadata.creationTimestamp" TEXT, "metadata.namespace" TEXT, "something" TEXT`)).Return(nil)
 		txClient.EXPECT().Exec(fmt.Sprintf(createFieldsIndexFmt, id, "metadata.name", id, "metadata.name")).Return(nil)
 		txClient.EXPECT().Exec(fmt.Sprintf(createFieldsIndexFmt, id, "metadata.namespace", id, "metadata.namespace")).Return(nil)

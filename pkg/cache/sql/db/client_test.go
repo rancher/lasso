@@ -395,27 +395,40 @@ func TestBegin(t *testing.T) {
 	var tests []testCase
 
 	// Tests with shouldEncryptSet to false
-	tests = append(tests, testCase{description: "Begin(), with no errors", test: func(t *testing.T) {
+	tests = append(tests, testCase{description: "BeginTx(), with no errors", test: func(t *testing.T) {
 		c := SetupMockConnection(t)
 		e := SetupMockEncryptor(t)
 		d := SetupMockDecryptor(t)
 
 		sqlTx := &sql.Tx{}
-		c.EXPECT().Begin().Return(sqlTx, nil)
+		c.EXPECT().BeginTx(context.Background(), &sql.TxOptions{ReadOnly: true}).Return(sqlTx, nil)
 		client := SetupClient(t, c, e, d)
-		txC, err := client.Begin()
+		txC, err := client.BeginTx(context.Background(), false)
 		assert.Nil(t, err)
 		assert.NotNil(t, txC)
 	},
 	})
-	tests = append(tests, testCase{description: "Begin(), with connection Begin() error", test: func(t *testing.T) {
+	tests = append(tests, testCase{description: "BeginTx(), with forWriting option set", test: func(t *testing.T) {
 		c := SetupMockConnection(t)
 		e := SetupMockEncryptor(t)
 		d := SetupMockDecryptor(t)
 
-		c.EXPECT().Begin().Return(nil, fmt.Errorf("error"))
+		sqlTx := &sql.Tx{}
+		c.EXPECT().BeginTx(context.Background(), &sql.TxOptions{ReadOnly: false}).Return(sqlTx, nil)
 		client := SetupClient(t, c, e, d)
-		_, err := client.Begin()
+		txC, err := client.BeginTx(context.Background(), true)
+		assert.Nil(t, err)
+		assert.NotNil(t, txC)
+	},
+	})
+	tests = append(tests, testCase{description: "BeginTx(), with connection Begin() error", test: func(t *testing.T) {
+		c := SetupMockConnection(t)
+		e := SetupMockEncryptor(t)
+		d := SetupMockDecryptor(t)
+
+		c.EXPECT().BeginTx(context.Background(), &sql.TxOptions{ReadOnly: true}).Return(nil, fmt.Errorf("error"))
+		client := SetupClient(t, c, e, d)
+		_, err := client.BeginTx(context.Background(), false)
 		assert.NotNil(t, err)
 	},
 	})
