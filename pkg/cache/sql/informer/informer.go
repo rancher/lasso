@@ -6,6 +6,8 @@ package informer
 
 import (
 	"context"
+	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/rancher/lasso/pkg/cache/sql/partition"
@@ -32,7 +34,7 @@ type ByOptionsLister interface {
 }
 
 type Watcher interface {
-	Watch(ctx context.Context, listener Listener)
+	Watch(ctx context.Context, listener Listener) int
 }
 
 // this is set to a var so that it can be overriden by test code for mocking purposes
@@ -106,16 +108,20 @@ func NewInformer(client dynamic.ResourceInterface, fields [][]string, transform 
 //   - a continue token, if there are more pages after the returned one
 //   - an error instead of all of the above if anything went wrong
 func (i *Informer) ListByOptions(ctx context.Context, lo ListOptions, partitions []partition.Partition, namespace string) (*unstructured.UnstructuredList, int, string, error) {
-	return i.ByOptionsLister.ListByOptions(ctx, lo, partitions, namespace)
+	list, total, continueToken, err := i.ByOptionsLister.ListByOptions(ctx, lo, partitions, namespace)
+	count := i.listeners.Count()
+	fmt.Println("HITHERE replacing resourceVersion", list.GetResourceVersion(), count)
+	list.SetResourceVersion(strconv.Itoa(count))
+	return list, total, continueToken, err
 }
 
-func (i *Informer) Watch(ctx context.Context, listener Listener) {
-	i.listeners.AddListener(listener)
+func (i *Informer) Watch(ctx context.Context, listener Listener) int {
+	revision := i.listeners.AddListener(listener)
 	go func() {
 		<-ctx.Done()
 		i.listeners.RemoveListener(listener)
-		listener.Close()
 	}()
+	return revision
 }
 
 func informerNameFromGVK(gvk schema.GroupVersionKind) string {

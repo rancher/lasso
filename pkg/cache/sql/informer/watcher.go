@@ -3,8 +3,10 @@ package informer
 import "sync"
 
 type listeners struct {
-	lock      sync.RWMutex
+	lock      sync.Mutex
 	listeners map[Listener]struct{}
+	// count is incremented everytime Notify is called
+	count int
 }
 
 func newlisteners() *listeners {
@@ -14,19 +16,22 @@ func newlisteners() *listeners {
 }
 
 func (w *listeners) Notify(obj any) {
-	w.lock.RLock()
-	defer w.lock.RUnlock()
+	w.lock.Lock()
+	defer w.lock.Unlock()
+
+	w.count += 1
 
 	for listener := range w.listeners {
 		listener.Notify()
 	}
 }
 
-func (w *listeners) AddListener(listener Listener) {
+func (w *listeners) AddListener(listener Listener) int {
 	w.lock.Lock()
 	defer w.lock.Unlock()
 
 	w.listeners[listener] = struct{}{}
+	return w.count
 }
 
 func (w *listeners) RemoveListener(listener Listener) {
@@ -36,7 +41,13 @@ func (w *listeners) RemoveListener(listener Listener) {
 	delete(w.listeners, listener)
 }
 
+func (w *listeners) Count() int {
+	w.lock.Lock()
+	defer w.lock.Unlock()
+
+	return w.count
+}
+
 type Listener interface {
 	Notify()
-	Close()
 }
