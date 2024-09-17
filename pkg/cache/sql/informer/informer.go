@@ -6,7 +6,6 @@ package informer
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 	"time"
 
@@ -110,7 +109,6 @@ func NewInformer(client dynamic.ResourceInterface, fields [][]string, transform 
 func (i *Informer) ListByOptions(ctx context.Context, lo ListOptions, partitions []partition.Partition, namespace string) (*unstructured.UnstructuredList, int, string, error) {
 	list, total, continueToken, err := i.ByOptionsLister.ListByOptions(ctx, lo, partitions, namespace)
 	count := i.listeners.Count()
-	fmt.Println("HITHERE replacing resourceVersion", list.GetResourceVersion(), count)
 	list.SetResourceVersion(strconv.Itoa(count))
 	return list, total, continueToken, err
 }
