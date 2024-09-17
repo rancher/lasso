@@ -149,6 +149,15 @@ func (mr *MockDBClientMockRecorder) ReadObjects(arg0, arg1, arg2 any) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadObjects", reflect.TypeOf((*MockDBClient)(nil).ReadObjects), arg0, arg1, arg2)
 }
 
+// ReadColumnNames mocks base method.
+func (m *MockDBClient) ReadColumnNames(arg0 db.Rows) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReadColumnNames", arg0)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
 // ReadStrings mocks base method.
 func (m *MockDBClient) ReadStrings(arg0 db.Rows) ([]string, error) {
 	m.ctrl.T.Helper()

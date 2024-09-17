@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"reflect"
 	"strings"
 	"sync"
@@ -71,11 +72,13 @@ type Store interface {
 	RegisterAfterDelete(f func(key string, tx db.TXClient) error)
 	GetShouldEncrypt() bool
 	GetType() reflect.Type
+	AddLabels(tx db.TXClient, keys []string) error
 }
 
 type DBClient interface {
 	BeginTx(ctx context.Context, forWriting bool) (db.TXClient, error)
 	QueryForRows(ctx context.Context, stmt transaction.Stmt, params ...any) (*sql.Rows, error)
+	ReadColumnNames(rows db.Rows) ([]string, error)
 	ReadObjects(rows db.Rows, typ reflect.Type, shouldDecrypt bool) ([]any, error)
 	ReadStrings(rows db.Rows) ([]string, error)
 	ReadInt(rows db.Rows) (int, error)
@@ -133,6 +136,19 @@ func (i *Indexer) AfterUpsert(key string, obj any, tx db.TXClient) error {
 	err := tx.StmtExec(tx.Stmt(i.deleteIndicesStmt), key)
 	if err != nil {
 		return &db.QueryError{QueryString: i.deleteIndicesQuery, Err: err}
+	}
+
+	raw, ok := obj.(*unstructured.Unstructured)
+	if ok {
+		labels := raw.GetLabels()
+		keys := make([]string, 0, len(labels))
+		for k := range labels {
+			keys = append(keys, k)
+		}
+		err = i.Store.AddLabels(tx, keys)
+		if err != nil {
+			return &db.QueryError{QueryString: i.addIndexQuery, Err: err}
+		}
 	}
 
 	// re-insert all

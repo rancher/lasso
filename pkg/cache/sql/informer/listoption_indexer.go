@@ -105,7 +105,8 @@ func NewListOptionIndexer(fields [][]string, s Store, namespaced bool) (*ListOpt
 
 	for index, field := range indexedFields {
 		// create index for field
-		err = tx.Exec(fmt.Sprintf(createFieldsIndexFmt, db.Sanitize(i.GetName()), field, db.Sanitize(i.GetName()), field))
+		cmd := fmt.Sprintf(createFieldsIndexFmt, db.Sanitize(i.GetName()), field, db.Sanitize(i.GetName()), field)
+		err = tx.Exec(cmd)
 		if err != nil {
 			return nil, err
 		}

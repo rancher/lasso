@@ -50,6 +50,14 @@ func (m *MockStore) Add(arg0 any) error {
 	return ret0
 }
 
+// AddLabels mocks base method.
+func (m *MockStore) AddLabels(_ db.TXClient, labels []string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddLabels", labels)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
 // Add indicates an expected call of Add.
 func (mr *MockStoreMockRecorder) Add(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
@@ -263,6 +271,15 @@ func (m *MockStore) ReadObjects(arg0 db.Rows, arg1 reflect.Type, arg2 bool) ([]a
 func (mr *MockStoreMockRecorder) ReadObjects(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadObjects", reflect.TypeOf((*MockStore)(nil).ReadObjects), arg0, arg1, arg2)
+}
+
+// ReadColumnNames mocks base method.
+func (m *MockStore) ReadColumnNames(arg0 db.Rows) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReadColumnNames", arg0)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // ReadStrings mocks base method.
