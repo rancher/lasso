@@ -22,8 +22,7 @@ func (f *sharedCacheFactory) collectMetrics() sharedCacheFactoryMetrics {
 
 	gvks := make(map[schema.GroupVersionKind]int)
 	for gvk, c := range caches {
-		items := c.GetStore().List()
-		gvks[gvk] = len(items)
+		gvks[gvk] = len(c.GetStore().List())
 	}
 	return sharedCacheFactoryMetrics{
 		gvks: gvks,
