@@ -56,19 +56,19 @@ func (mr *MockStoreMockRecorder) Add(arg0 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Add", reflect.TypeOf((*MockStore)(nil).Add), arg0)
 }
 
-// Begin mocks base method.
-func (m *MockStore) Begin() (db.TXClient, error) {
+// BeginTx mocks base method.
+func (m *MockStore) BeginTx(arg0 context.Context, arg1 bool) (db.TXClient, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Begin")
+	ret := m.ctrl.Call(m, "BeginTx", arg0, arg1)
 	ret0, _ := ret[0].(db.TXClient)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// Begin indicates an expected call of Begin.
-func (mr *MockStoreMockRecorder) Begin() *gomock.Call {
+// BeginTx indicates an expected call of BeginTx.
+func (mr *MockStoreMockRecorder) BeginTx(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Begin", reflect.TypeOf((*MockStore)(nil).Begin))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BeginTx", reflect.TypeOf((*MockStore)(nil).BeginTx), arg0, arg1)
 }
 
 // CloseStmt mocks base method.

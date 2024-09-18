@@ -13,13 +13,10 @@ import (
 	"os"
 	"reflect"
 	"sync"
-	"time"
 
 	"github.com/pkg/errors"
 	"github.com/rancher/lasso/pkg/cache/sql/db/transaction"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"modernc.org/sqlite"
-	sqlite3 "modernc.org/sqlite/lib"
+	_ "modernc.org/sqlite"
 )
 
 const (
@@ -37,7 +34,7 @@ type Client struct {
 
 // Connection represents a connection pool.
 type Connection interface {
-	Begin() (*sql.Tx, error)
+	BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error)
 	Exec(query string, args ...any) (sql.Result, error)
 	Prepare(query string) (*sql.Stmt, error)
 	Close() error
@@ -93,8 +90,6 @@ type Decryptor interface {
 	Decrypt([]byte, []byte, uint32) ([]byte, error)
 }
 
-var backoffRetry = wait.Backoff{Duration: 50 * time.Millisecond, Factor: 2, Steps: 10}
-
 // NewClient returns a Client. If the given connection is nil then a default one will be created.
 func NewClient(c Connection, encryptor Encryptor, decryptor Decryptor) (*Client, error) {
 	client := &Client{
@@ -128,24 +123,8 @@ func (c *Client) Prepare(stmt string) *sql.Stmt {
 func (c *Client) QueryForRows(ctx context.Context, stmt transaction.Stmt, params ...any) (*sql.Rows, error) {
 	c.connLock.RLock()
 	defer c.connLock.RUnlock()
-	var rows *sql.Rows
-	var err error
 
-	err = wait.ExponentialBackoff(backoffRetry, func() (bool, error) {
-		rows, err = stmt.QueryContext(ctx, params...)
-		if err != nil {
-			sqlErr, ok := err.(*sqlite.Error)
-			if ok && sqlErr.Code() == sqlite3.SQLITE_BUSY {
-				return false, nil
-			}
-			return false, err
-		}
-		return true, nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	return rows, nil
+	return stmt.QueryContext(ctx, params...)
 }
 
 // CloseStmt will call close on the given Closable. It is intended to be used with a sql statement. This function is meant
@@ -241,12 +220,21 @@ func (c *Client) ReadInt(rows Rows) (int, error) {
 	return result, nil
 }
 
-// Begin attempt to begin a transaction, and returns it along with a function for unlocking the
-// database once the transaction is done.
-func (c *Client) Begin() (TXClient, error) {
+// BeginTx attempts to begin a transaction.
+// If forWriting is true, this method blocks until all other concurrent forWriting
+// transactions have either committed or rolled back.
+// If forWriting is false, it is assumed the returned transaction will exclusively
+// be used for DQL (eg. SELECT) queries.
+// Not respecting the above rule might result in transactions failing with unexpected
+// SQLITE_BUSY (5) errors (aka "Runtime error: database is locked").
+// See discussion in https://github.com/rancher/lasso/pull/98 for details
+func (c *Client) BeginTx(ctx context.Context, forWriting bool) (TXClient, error) {
 	c.connLock.RLock()
 	defer c.connLock.RUnlock()
-	sqlTx, err := c.conn.Begin()
+	// note: this assumes _txlock=immediate in the connection string, see NewConnection
+	sqlTx, err := c.conn.BeginTx(ctx, &sql.TxOptions{
+		ReadOnly: !forWriting,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -332,7 +320,22 @@ func (c *Client) NewConnection() error {
 		return err
 	}
 
-	sqlDB, err := sql.Open("sqlite", "file:"+InformerObjectCacheDBPath+"?mode=rwc&cache=shared&_journal_mode=wal&_synchronous=off&_foreign_keys=on&_busy_timeout=1000000")
+	sqlDB, err := sql.Open("sqlite", "file:"+InformerObjectCacheDBPath+"?"+
+		// open SQLite file in read-write mode, creating it if it does not exist
+		"mode=rwc&"+
+		// use the WAL journal mode for consistency and efficiency
+		"_pragma=journal_mode=wal&"+
+		// do not even attempt to attain durability. Database is thrown away at pod restart
+		"_pragma=synchronous=off&"+
+		// do check foreign keys and honor ON DELETE CASCADE
+		"_pragma=foreign_keys=on&"+
+		// if two transactions want to write at the same time, allow 2 minutes for the first to complete
+		// before baling out
+		"_pragma=busy_timeout=120000&"+
+		// default to IMMEDIATE mode for transactions. Setting this parameter is the only current way
+		// to be able to switch between DEFERRED and IMMEDIATE modes in modernc.org/sqlite's implementation
+		// of BeginTx
+		"_txlock=immediate")
 	if err != nil {
 		return err
 	}

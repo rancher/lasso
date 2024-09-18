@@ -58,7 +58,7 @@ type Store struct {
 var _ cache.Store = (*Store)(nil)
 
 type DBClient interface {
-	Begin() (db.TXClient, error)
+	BeginTx(ctx context.Context, forWriting bool) (db.TXClient, error)
 	Prepare(stmt string) *sql.Stmt
 	QueryForRows(ctx context.Context, stmt transaction.Stmt, params ...any) (*sql.Rows, error)
 	ReadObjects(rows db.Rows, typ reflect.Type, shouldDecrypt bool) ([]any, error)
@@ -81,7 +81,7 @@ func NewStore(example any, keyFunc cache.KeyFunc, c DBClient, shouldEncrypt bool
 	}
 
 	// once multiple informerfactories are needed, this can accept the case where table already exists error is received
-	txC, err := s.Begin()
+	txC, err := s.BeginTx(context.Background(), true)
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +114,7 @@ func NewStore(example any, keyFunc cache.KeyFunc, c DBClient, shouldEncrypt bool
 /* Core methods */
 // upsert saves an obj with its key, or updates key with obj if it exists in this Store
 func (s *Store) upsert(key string, obj any) error {
-	tx, err := s.Begin()
+	tx, err := s.BeginTx(context.Background(), true)
 	if err != nil {
 		return err
 	}
@@ -134,7 +134,7 @@ func (s *Store) upsert(key string, obj any) error {
 
 // deleteByKey deletes the object associated with key, if it exists in this Store
 func (s *Store) deleteByKey(key string) error {
-	tx, err := s.Begin()
+	tx, err := s.BeginTx(context.Background(), true)
 	if err != nil {
 		return err
 	}
@@ -254,7 +254,7 @@ func (s *Store) Replace(objects []any, _ string) error {
 
 // replaceByKey will delete the contents of the Store, using instead the given key to obj map
 func (s *Store) replaceByKey(objects map[string]any) error {
-	txC, err := s.Begin()
+	txC, err := s.BeginTx(context.Background(), true)
 	if err != nil {
 		return err
 	}
