@@ -11,11 +11,12 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
-	"github.com/rancher/lasso/pkg/cache/sql/db"
-	"github.com/rancher/lasso/pkg/cache/sql/partition"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/tools/cache"
+
+	"github.com/rancher/lasso/pkg/cache/sql/db"
+	"github.com/rancher/lasso/pkg/cache/sql/partition"
 )
 
 // ListOptionIndexer extends Indexer by allowing queries based on ListOption
@@ -417,12 +418,18 @@ func (l *ListOptionIndexer) buildORClauseFromFilters(orFilters OrFilter) (string
 			return "", nil, err
 		}
 
-		orWhereClause += fmt.Sprintf(`f."%s" %s ?`, columnName, opString)
+		orWhereClause += fmt.Sprintf(`f."%s" %s ? ESCAPE '\'`, columnName, opString)
 		format := strictMatchFmt
 		if filter.Partial {
 			format = matchFmt
 		}
-		params = append(params, fmt.Sprintf(format, filter.Match))
+		match := filter.Match
+		// To allow matches on the backslash itself, the character needs to be replaced first.
+		// Otherwise, it will undo the following replacements.
+		match = strings.ReplaceAll(match, `\`, `\\`)
+		match = strings.ReplaceAll(match, `_`, `\_`)
+		match = strings.ReplaceAll(match, `%`, `\%`)
+		params = append(params, fmt.Sprintf(format, match))
 		if index == len(orFilters.Filters)-1 {
 			continue
 		}

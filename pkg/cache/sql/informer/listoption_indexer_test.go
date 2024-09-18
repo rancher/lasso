@@ -13,12 +13,13 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/rancher/lasso/pkg/cache/sql/partition"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
+
+	"github.com/rancher/lasso/pkg/cache/sql/partition"
 )
 
 func TestNewListOptionIndexer(t *testing.T) {
@@ -279,7 +280,7 @@ func TestListByOptions(t *testing.T) {
 		expectedStmt: `SELECT o.object, o.objectnonce, o.dekid FROM "something" o
   JOIN "something_fields" f ON o.key = f.key
   WHERE
-    (f."metadata.somefield" LIKE ?) AND
+    (f."metadata.somefield" LIKE ? ESCAPE '\') AND
     (FALSE)
   ORDER BY f."metadata.name" ASC `,
 		expectedStmtArgs:  []any{"somevalue"},
@@ -307,7 +308,7 @@ func TestListByOptions(t *testing.T) {
 		expectedStmt: `SELECT o.object, o.objectnonce, o.dekid FROM "something" o
   JOIN "something_fields" f ON o.key = f.key
   WHERE
-    (f."metadata.somefield" NOT LIKE ?) AND
+    (f."metadata.somefield" NOT LIKE ? ESCAPE '\') AND
     (FALSE)
   ORDER BY f."metadata.name" ASC `,
 		expectedStmtArgs:  []any{"somevalue"},
@@ -335,7 +336,7 @@ func TestListByOptions(t *testing.T) {
 		expectedStmt: `SELECT o.object, o.objectnonce, o.dekid FROM "something" o
   JOIN "something_fields" f ON o.key = f.key
   WHERE
-    (f."metadata.somefield" LIKE ?) AND
+    (f."metadata.somefield" LIKE ? ESCAPE '\') AND
     (FALSE)
   ORDER BY f."metadata.name" ASC `,
 		expectedStmtArgs:  []any{"%somevalue%"},
@@ -372,7 +373,7 @@ func TestListByOptions(t *testing.T) {
 		expectedStmt: `SELECT o.object, o.objectnonce, o.dekid FROM "something" o
   JOIN "something_fields" f ON o.key = f.key
   WHERE
-    (f."metadata.somefield" LIKE ? OR f."metadata.somefield" LIKE ? OR f."metadata.somefield" NOT LIKE ?) AND
+    (f."metadata.somefield" LIKE ? ESCAPE '\' OR f."metadata.somefield" LIKE ? ESCAPE '\' OR f."metadata.somefield" NOT LIKE ? ESCAPE '\') AND
     (FALSE)
   ORDER BY f."metadata.name" ASC `,
 		expectedStmtArgs:  []any{"%somevalue%", "someothervalue", "somethirdvalue"},
@@ -414,8 +415,8 @@ func TestListByOptions(t *testing.T) {
 		expectedStmt: `SELECT o.object, o.objectnonce, o.dekid FROM "something" o
   JOIN "something_fields" f ON o.key = f.key
   WHERE
-    (f."metadata.somefield" LIKE ? OR f."status.someotherfield" NOT LIKE ?) AND
-    (f."metadata.somefield" LIKE ?) AND
+    (f."metadata.somefield" LIKE ? ESCAPE '\' OR f."status.someotherfield" NOT LIKE ? ESCAPE '\') AND
+    (f."metadata.somefield" LIKE ? ESCAPE '\') AND
     (f."metadata.namespace" = ?) AND
     (FALSE)
   ORDER BY f."metadata.name" ASC `,
@@ -705,7 +706,6 @@ func TestListByOptions(t *testing.T) {
 			}
 			stmt := &sql.Stmt{}
 			rows := &sql.Rows{}
-			assert.Nil(t, err)
 			objType := reflect.TypeOf(testObject)
 			store.EXPECT().GetName().Return("something").AnyTimes()
 			store.EXPECT().Prepare(test.expectedStmt).Do(func(a ...any) {
