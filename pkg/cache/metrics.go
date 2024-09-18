@@ -2,6 +2,7 @@ package cache
 
 import (
 	"context"
+	"maps"
 	"time"
 
 	"github.com/rancher/lasso/pkg/metrics"
@@ -13,11 +14,14 @@ const (
 )
 
 func (f *sharedCacheFactory) collectMetrics() sharedCacheFactoryMetrics {
+	// f.lock prevents concurrent read and write to the f.caches map
+	// Listing the cache store could be slow, so here we get a local copy of the map to minimize the locking time
 	f.lock.RLock()
-	defer f.lock.RUnlock()
+	caches := maps.Clone(f.caches)
+	f.lock.RUnlock()
 
 	gvks := make(map[schema.GroupVersionKind]int)
-	for gvk, c := range f.caches {
+	for gvk, c := range caches {
 		items := c.GetStore().List()
 		gvks[gvk] = len(items)
 	}
