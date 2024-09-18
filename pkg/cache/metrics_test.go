@@ -14,6 +14,7 @@ import (
 	"go.uber.org/mock/gomock"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -53,12 +54,17 @@ func setupMockSharedClientFactory(t *testing.T, cf *MockSharedClientFactory, gvr
 }
 
 func Test_sharedCacheFactory_metrics_collection(t *testing.T) {
+	const (
+		collectionPeriod = 200 * time.Millisecond
+		sleepPeriod      = 300 * time.Millisecond
+	)
 	cf := NewMockSharedClientFactory(gomock.NewController(t))
 	setupMockSharedClientFactory(t, cf, corev1.SchemeGroupVersion.WithResource("configmaps"), corev1.SchemeGroupVersion.WithKind("ConfigMap"))
 	setupMockSharedClientFactory(t, cf, rbacv1.SchemeGroupVersion.WithResource("roles"), rbacv1.SchemeGroupVersion.WithKind("Role"))
 
-	scf := NewSharedCachedFactory(cf, &SharedCacheFactoryOptions{MetricsCollectionPeriod: time.Millisecond * 200}).(*sharedCacheFactory)
-	if _, err := scf.ForKind(corev1.SchemeGroupVersion.WithKind("ConfigMap")); err != nil {
+	scf := NewSharedCachedFactory(cf, &SharedCacheFactoryOptions{MetricsCollectionPeriod: collectionPeriod}).(*sharedCacheFactory)
+	configMapsIndexer, err := scf.ForKind(corev1.SchemeGroupVersion.WithKind("ConfigMap"))
+	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err := scf.ForKind(rbacv1.SchemeGroupVersion.WithKind("Role")); err != nil {
@@ -75,8 +81,39 @@ func Test_sharedCacheFactory_metrics_collection(t *testing.T) {
 	reg := prometheus.NewPedanticRegistry()
 	metrics.MustRegister(reg)
 	scf.startMetricsCollection(ctx)
+	time.Sleep(sleepPeriod)
 
-	time.Sleep(time.Second)
+	// 1. Check initial count for registered kinds is 0
+	if err := testutil.GatherAndCompare(reg, strings.NewReader(`
+# HELP lasso_controller_total_cached_object Total count of cached objects
+# TYPE lasso_controller_total_cached_object gauge
+lasso_controller_total_cached_object{ctx="test-ctx",group="",kind="ConfigMap",version="v1"} 0
+lasso_controller_total_cached_object{ctx="test-ctx",group="rbac.authorization.k8s.io",kind="Role",version="v1"} 0
+`)); err != nil {
+		t.Fatal(err)
+	}
+
+	// 2. Add a new object to one of the stores and observe the count increase
+	cm := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "testns"}}
+	if err := configMapsIndexer.GetStore().Add(cm); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(sleepPeriod)
+
+	if err := testutil.GatherAndCompare(reg, strings.NewReader(`
+# HELP lasso_controller_total_cached_object Total count of cached objects
+# TYPE lasso_controller_total_cached_object gauge
+lasso_controller_total_cached_object{ctx="test-ctx",group="",kind="ConfigMap",version="v1"} 1
+lasso_controller_total_cached_object{ctx="test-ctx",group="rbac.authorization.k8s.io",kind="Role",version="v1"} 0
+`)); err != nil {
+		t.Fatal(err)
+	}
+
+	// 3. Delete previous object and observe the count decrease
+	if err := configMapsIndexer.GetStore().Delete(cm); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(sleepPeriod)
 
 	if err := testutil.GatherAndCompare(reg, strings.NewReader(`
 # HELP lasso_controller_total_cached_object Total count of cached objects
@@ -87,9 +124,9 @@ lasso_controller_total_cached_object{ctx="test-ctx",group="rbac.authorization.k8
 		t.Fatal(err)
 	}
 
-	// Cancelling the context should stop the collection and prune metrics
+	// 4. Cancelling the context should stop the collection and prune metrics
 	cancel()
-	time.Sleep(time.Second)
+	time.Sleep(sleepPeriod)
 
 	if err := testutil.GatherAndCompare(reg, strings.NewReader("")); err != nil {
 		t.Fatal(err)
