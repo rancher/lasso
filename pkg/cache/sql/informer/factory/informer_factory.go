@@ -34,8 +34,13 @@ type CacheFactory struct {
 
 	newInformer newInformer
 
-	informers       sync.Map
-	informerMutexes sync.Map
+	informers      map[schema.GroupVersionKind]*guardedInformer
+	informersMutex sync.Mutex
+}
+
+type guardedInformer struct {
+	informer *informer.Informer
+	mutex    *sync.Mutex
 }
 
 type newInformer func(client dynamic.ResourceInterface, fields [][]string, transform cache.TransformFunc, gvk schema.GroupVersionKind, db sqlStore.DBClient, shouldEncrypt bool, namespace bool) (*informer.Informer, error)
@@ -77,52 +82,64 @@ func NewCacheFactory() (*CacheFactory, error) {
 		encryptAll:  os.Getenv(EncryptAllEnvVar) == "true",
 		dbClient:    dbClient,
 		newInformer: informer.NewInformer,
+		informers:   map[schema.GroupVersionKind]*guardedInformer{},
 	}, nil
 }
 
 // CacheFor returns an informer for given GVK, using sql store indexed with fields, using the specified client. For virtual fields, they must be added by the transform function
 // and specified by fields to be used for later fields.
 func (f *CacheFactory) CacheFor(fields [][]string, transform cache.TransformFunc, client dynamic.ResourceInterface, gvk schema.GroupVersionKind, namespaced bool) (Cache, error) {
-	// first of all block Reset() until we are done
+	// First of all block Reset() until we are done
 	f.mutex.RLock()
 	defer f.mutex.RUnlock()
 
-	// then, block other concurrent calls to CacheFor for the same gvk
-	rmutex, _ := f.informerMutexes.LoadOrStore(gvk, &sync.Mutex{})
-	mutex := rmutex.(*sync.Mutex)
-	mutex.Lock()
-	defer mutex.Unlock()
+	// Second, check if the informer and its accompanying informer-specific mutex exist already in the informers cache
+	// If not, start by creating such informer-specific mutex. That is used later to ensure no two goroutines create
+	// informers for the same GVK at the same type
+	f.informersMutex.Lock()
+	// Note: the informers cache is protected by informersMutex, which we don't want to hold for very long because
+	// that blocks CacheFor for other GVKs, hence not deferring unlock here
+	gi, ok := f.informers[gvk]
+	if !ok {
+		gi = &guardedInformer{
+			informer: nil,
+			mutex:    &sync.Mutex{},
+		}
+		f.informers[gvk] = gi
+	}
+	f.informersMutex.Unlock()
 
-	// then, if we have a cached informer, return it right away
-	result, ok := f.informers.Load(gvk)
-	if ok {
-		return Cache{ByOptionsLister: result.(*informer.Informer)}, nil
+	// At this point an informer-specific mutex (gi.mutex) is guaranteed to exist. Lock it
+	gi.mutex.Lock()
+	defer gi.mutex.Unlock()
+
+	// Then: if the informer really was not created yet (first time here or previous times have errored out)
+	// actually create the informer
+	if gi.informer == nil {
+		start := time.Now()
+		log.Debugf("CacheFor STARTS creating informer for %v", gvk)
+		defer func() {
+			log.Debugf("CacheFor IS DONE creating informer for %v (took %v)", gvk, time.Now().Sub(start))
+		}()
+
+		_, encryptResourceAlways := defaultEncryptedResourceTypes[gvk]
+		shouldEncrypt := f.encryptAll || encryptResourceAlways
+		i, err := f.newInformer(client, fields, transform, gvk, f.dbClient, shouldEncrypt, namespaced)
+		if err != nil {
+			return Cache{}, err
+		}
+
+		f.wg.StartWithChannel(f.stopCh, i.Run)
+
+		gi.informer = i
 	}
 
-	// otherwise, create a new informer...
-	start := time.Now()
-	log.Infof("CacheFor STARTS creating informer for %v", gvk)
-	defer func() {
-		log.Infof("CacheFor ISDONE creating informer for %v (took %v)", gvk, time.Now().Sub(start))
-	}()
-
-	_, encryptResourceAlways := defaultEncryptedResourceTypes[gvk]
-	shouldEncrypt := f.encryptAll || encryptResourceAlways
-	i, err := f.newInformer(client, fields, transform, gvk, f.dbClient, shouldEncrypt, namespaced)
-	if err != nil {
-		return Cache{}, err
-	}
-
-	// ...store it in the informers cache...
-	f.informers.Store(gvk, i)
-
-	f.wg.StartWithChannel(f.stopCh, i.Run)
-	if !cache.WaitForCacheSync(f.stopCh, i.HasSynced) {
+	if !cache.WaitForCacheSync(f.stopCh, gi.informer.HasSynced) {
 		return Cache{}, fmt.Errorf("failed to sync SQLite Informer cache for GVK %v", gvk)
 	}
 
-	// ...and return it
-	return Cache{ByOptionsLister: i}, nil
+	// At this point the informer is ready, return it
+	return Cache{ByOptionsLister: gi.informer}, nil
 }
 
 // Reset closes the stopCh which stops any running informers, assigns a new stopCh, resets the GVK-informer cache, and resets
@@ -143,14 +160,9 @@ func (f *CacheFactory) Reset() error {
 	f.wg.Wait()
 
 	// and get rid of all references to those informers and their mutexes
-	f.informers.Range(func(key, value any) bool {
-		f.informers.Delete(key)
-		return true
-	})
-	f.informerMutexes.Range(func(key, value any) bool {
-		f.informerMutexes.Delete(key)
-		return true
-	})
+	f.informersMutex.Lock()
+	defer f.informersMutex.Unlock()
+	f.informers = make(map[schema.GroupVersionKind]*guardedInformer)
 
 	// finally, reset the DB connection
 	err := f.dbClient.NewConnection()
