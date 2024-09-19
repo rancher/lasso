@@ -26,11 +26,11 @@ const EncryptAllEnvVar = "CATTLE_ENCRYPT_CACHE_ALL"
 
 // CacheFactory builds Informer instances and keeps a cache of instances it created
 type CacheFactory struct {
-	wg          wait.Group
-	dbClient    DBClient
-	stopCh      chan struct{}
-	stopChMutex sync.RWMutex
-	encryptAll  bool
+	wg         wait.Group
+	dbClient   DBClient
+	stopCh     chan struct{}
+	mutex      sync.RWMutex
+	encryptAll bool
 
 	newInformer newInformer
 
@@ -84,8 +84,8 @@ func NewCacheFactory() (*CacheFactory, error) {
 // and specified by fields to be used for later fields.
 func (f *CacheFactory) CacheFor(fields [][]string, transform cache.TransformFunc, client dynamic.ResourceInterface, gvk schema.GroupVersionKind, namespaced bool) (Cache, error) {
 	// first of all block Reset() until we are done
-	f.stopChMutex.RLock()
-	defer f.stopChMutex.RUnlock()
+	f.mutex.RLock()
+	defer f.mutex.RUnlock()
 
 	// then, block other concurrent calls to CacheFor for the same gvk
 	rmutex, _ := f.informerMutexes.LoadOrStore(gvk, &sync.Mutex{})
@@ -134,8 +134,8 @@ func (f *CacheFactory) Reset() error {
 	}
 
 	// first of all wait until all CacheFor() calls that create new informers are finished. Also block any new ones
-	f.stopChMutex.Lock()
-	defer f.stopChMutex.Unlock()
+	f.mutex.Lock()
+	defer f.mutex.Unlock()
 
 	// now that we are alone, stop all informers created until this point
 	close(f.stopCh)
