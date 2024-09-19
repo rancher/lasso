@@ -140,6 +140,7 @@ func (f *CacheFactory) Reset() error {
 	// now that we are alone, stop all informers created until this point
 	close(f.stopCh)
 	f.stopCh = make(chan struct{})
+	f.wg.Wait()
 
 	// and get rid of all references to those informers and their mutexes
 	f.informers.Range(func(key, value any) bool {
