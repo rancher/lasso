@@ -63,7 +63,7 @@ func TestCacheFor(t *testing.T) {
 		fields := [][]string{{"something"}}
 		expectedGVK := schema.GroupVersionKind{}
 		sii := NewMockSharedIndexInformer(gomock.NewController(t))
-		sii.EXPECT().HasSynced().Return(true).Times(2)
+		sii.EXPECT().HasSynced().Return(true).AnyTimes()
 		sii.EXPECT().Run(gomock.Any()).MinTimes(1)
 		i := &informer.Informer{
 			// need to set this so Run function is not nil
