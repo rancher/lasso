@@ -63,7 +63,7 @@ func TestCacheFor(t *testing.T) {
 		fields := [][]string{{"something"}}
 		expectedGVK := schema.GroupVersionKind{}
 		sii := NewMockSharedIndexInformer(gomock.NewController(t))
-		sii.EXPECT().HasSynced().Return(true)
+		sii.EXPECT().HasSynced().Return(true).Times(2)
 		sii.EXPECT().Run(gomock.Any()).MinTimes(1)
 		i := &informer.Informer{
 			// need to set this so Run function is not nil
@@ -84,6 +84,7 @@ func TestCacheFor(t *testing.T) {
 			dbClient:    dbClient,
 			stopCh:      make(chan struct{}),
 			newInformer: testNewInformer,
+			informers:   map[schema.GroupVersionKind]*guardedInformer{},
 		}
 
 		go func() {
@@ -127,6 +128,7 @@ func TestCacheFor(t *testing.T) {
 			dbClient:    dbClient,
 			stopCh:      make(chan struct{}),
 			newInformer: testNewInformer,
+			informers:   map[schema.GroupVersionKind]*guardedInformer{},
 		}
 
 		go func() {
@@ -167,6 +169,7 @@ func TestCacheFor(t *testing.T) {
 			dbClient:    dbClient,
 			stopCh:      make(chan struct{}),
 			newInformer: testNewInformer,
+			informers:   map[schema.GroupVersionKind]*guardedInformer{},
 		}
 
 		close(f.stopCh)
@@ -205,6 +208,7 @@ func TestCacheFor(t *testing.T) {
 			stopCh:      make(chan struct{}),
 			newInformer: testNewInformer,
 			encryptAll:  true,
+			informers:   map[schema.GroupVersionKind]*guardedInformer{},
 		}
 
 		go func() {
@@ -256,6 +260,7 @@ func TestCacheFor(t *testing.T) {
 			dbClient:    dbClient,
 			stopCh:      make(chan struct{}),
 			newInformer: testNewInformer,
+			informers:   map[schema.GroupVersionKind]*guardedInformer{},
 		}
 
 		go func() {
