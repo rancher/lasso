@@ -6,6 +6,7 @@ package informer
 
 import (
 	"context"
+	"strconv"
 	"time"
 
 	"github.com/rancher/lasso/pkg/cache/sql/partition"
@@ -23,10 +24,16 @@ import (
 type Informer struct {
 	cache.SharedIndexInformer
 	ByOptionsLister
+
+	listeners *listeners
 }
 
 type ByOptionsLister interface {
 	ListByOptions(ctx context.Context, lo ListOptions, partitions []partition.Partition, namespace string) (*unstructured.UnstructuredList, int, string, error)
+}
+
+type Watcher interface {
+	Watch(ctx context.Context, listener Listener) int
 }
 
 // this is set to a var so that it can be overriden by test code for mocking purposes
@@ -70,12 +77,26 @@ func NewInformer(client dynamic.ResourceInterface, fields [][]string, transform 
 		return nil, err
 	}
 
+	listeners := newlisteners()
+	sii.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj any) {
+			listeners.Notify(obj)
+		},
+		UpdateFunc: func(obj any, newObj any) {
+			listeners.Notify(newObj)
+		},
+		DeleteFunc: func(obj any) {
+			listeners.Notify(obj)
+		},
+	})
+
 	// HACK: replace the default informer's indexer with the SQL based one
 	UnsafeSet(sii, "indexer", loi)
 
 	return &Informer{
 		SharedIndexInformer: sii,
 		ByOptionsLister:     loi,
+		listeners:           listeners,
 	}, nil
 }
 
@@ -86,7 +107,19 @@ func NewInformer(client dynamic.ResourceInterface, fields [][]string, transform 
 //   - a continue token, if there are more pages after the returned one
 //   - an error instead of all of the above if anything went wrong
 func (i *Informer) ListByOptions(ctx context.Context, lo ListOptions, partitions []partition.Partition, namespace string) (*unstructured.UnstructuredList, int, string, error) {
-	return i.ByOptionsLister.ListByOptions(ctx, lo, partitions, namespace)
+	list, total, continueToken, err := i.ByOptionsLister.ListByOptions(ctx, lo, partitions, namespace)
+	count := i.listeners.Count()
+	list.SetResourceVersion(strconv.Itoa(count))
+	return list, total, continueToken, err
+}
+
+func (i *Informer) Watch(ctx context.Context, listener Listener) int {
+	revision := i.listeners.AddListener(listener)
+	go func() {
+		<-ctx.Done()
+		i.listeners.RemoveListener(listener)
+	}()
+	return revision
 }
 
 func informerNameFromGVK(gvk schema.GroupVersionKind) string {
