@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/rancher/lasso/pkg/cache/sql/db"
 	"github.com/rancher/lasso/pkg/cache/sql/db/transaction"
@@ -27,6 +28,9 @@ const (
 		objectnonce BLOB,
 		dekid INTEGER
 	)`
+	addColumnFmt      = `ALTER TABLE "%s_fields" ADD COLUMN "%s" TEXT`
+	addIndexColumnFmt = `CREATE INDEX IF NOT EXISTS "%[1]s_%[2]s" ON "%[1]s_fields"("%[2]s")`
+	get_column_stmt   = `pragma table_info("%s_fields")`
 )
 
 // Store is a SQLite-backed cache.Store
@@ -61,6 +65,7 @@ type DBClient interface {
 	BeginTx(ctx context.Context, forWriting bool) (db.TXClient, error)
 	Prepare(stmt string) *sql.Stmt
 	QueryForRows(ctx context.Context, stmt transaction.Stmt, params ...any) (*sql.Rows, error)
+	ReadColumnNames(rows db.Rows) ([]string, error)
 	ReadObjects(rows db.Rows, typ reflect.Type, shouldDecrypt bool) ([]any, error)
 	ReadStrings(rows db.Rows) ([]string, error)
 	ReadInt(rows db.Rows) (int, error)
@@ -181,6 +186,63 @@ func (s *Store) Add(obj any) error {
 
 	err = s.upsert(key, obj)
 	return err
+}
+
+// AddLabels adds more columns to the current table
+func (s *Store) AddLabels(tx db.TXClient, incomingLabels []string) error {
+	tableName := db.Sanitize(s.GetName())
+	stmt := fmt.Sprintf(get_column_stmt, tableName)
+	pragmaStmt := s.Prepare(stmt)
+
+	rows, err := s.QueryForRows(context.TODO(), pragmaStmt)
+	if err != nil {
+		return &db.QueryError{QueryString: stmt, Err: err}
+	}
+	result, err := s.ReadColumnNames(rows)
+	if err != nil {
+		return &db.QueryError{QueryString: stmt, Err: err}
+	}
+	knownLabelColumns := make([]string, 0, len(result))
+	prefix := "metadata.labels["
+	prefixLen := len(prefix)
+	for _, label := range result {
+		if strings.HasPrefix(label, prefix) {
+			knownLabelColumns = append(knownLabelColumns, label[prefixLen:len(label)-1])
+		}
+	}
+	newLabels := make([]string, 0, len(incomingLabels))
+	for _, label := range incomingLabels {
+		if !sliceContains(knownLabelColumns, label) {
+			newLabels = append(newLabels, label)
+		}
+	}
+	if err != nil {
+		return err
+	}
+	for _, newLabel := range newLabels {
+		fullLabel := fmt.Sprintf("metadata.labels[%s]", newLabel)
+		stmt := fmt.Sprintf(addColumnFmt, tableName, fullLabel)
+		err = tx.Exec(stmt)
+		if err != nil {
+			return &db.QueryError{QueryString: stmt, Err: err}
+		}
+		stmt = fmt.Sprintf(addIndexColumnFmt, tableName, fullLabel)
+		err = tx.Exec(stmt)
+		if err != nil {
+			return &db.QueryError{QueryString: stmt, Err: err}
+		}
+	}
+
+	return nil
+}
+
+func sliceContains(s []string, str string) bool {
+	for _, v := range s {
+		if v == str {
+			return true
+		}
+	}
+	return false
 }
 
 // Update saves an obj, or updates it if it exists in this Store

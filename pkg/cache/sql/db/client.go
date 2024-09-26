@@ -164,6 +164,36 @@ func (c *Client) ReadObjects(rows Rows, typ reflect.Type, shouldDecrypt bool) ([
 	return result, nil
 }
 
+// ReadColumnNames scans for the column name in each row, and returns the names as a slice
+func (c *Client) ReadColumnNames(rows Rows) ([]string, error) {
+	c.connLock.RLock()
+	defer c.connLock.RUnlock()
+
+	var result []string
+	for rows.Next() {
+		var k1, k4, k6 int
+		var k2 string
+		var k3, k5 interface{}
+		err := rows.Scan(&k1, &k2, &k3, &k4, &k5, &k6)
+		if err != nil {
+			return nil, closeRowsOnError(rows, err)
+		}
+
+		result = append(result, k2)
+	}
+	err := rows.Err()
+	if err != nil {
+		return nil, closeRowsOnError(rows, err)
+	}
+
+	err = rows.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
 // ReadStrings scans the given rows into strings, and then returns the strings as a slice.
 func (c *Client) ReadStrings(rows Rows) ([]string, error) {
 	c.connLock.RLock()
