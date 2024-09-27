@@ -65,6 +65,7 @@ func TestCacheFor(t *testing.T) {
 		sii := NewMockSharedIndexInformer(gomock.NewController(t))
 		sii.EXPECT().HasSynced().Return(true).AnyTimes()
 		sii.EXPECT().Run(gomock.Any()).MinTimes(1)
+		sii.EXPECT().SetWatchErrorHandler(gomock.Any())
 		i := &informer.Informer{
 			// need to set this so Run function is not nil
 			SharedIndexInformer: sii,
@@ -94,12 +95,12 @@ func TestCacheFor(t *testing.T) {
 		}()
 		var c Cache
 		var err error
-		c, err = f.CacheFor(fields, nil, dynamicClient, expectedGVK, false)
+		c, err = f.CacheFor(fields, nil, dynamicClient, expectedGVK, false, true)
 		assert.Nil(t, err)
 		assert.Equal(t, expectedC, c)
 		// this sleep is critical to the test. It ensure there has been enough time for expected function like Run to be invoked in their go routines.
 		time.Sleep(1 * time.Second)
-		c2, err := f.CacheFor(fields, nil, dynamicClient, expectedGVK, false)
+		c2, err := f.CacheFor(fields, nil, dynamicClient, expectedGVK, false, true)
 		assert.Nil(t, err)
 		assert.Equal(t, c, c2)
 	}})
@@ -112,6 +113,7 @@ func TestCacheFor(t *testing.T) {
 		sii := NewMockSharedIndexInformer(gomock.NewController(t))
 		sii.EXPECT().HasSynced().Return(false).AnyTimes()
 		sii.EXPECT().Run(gomock.Any())
+		sii.EXPECT().SetWatchErrorHandler(gomock.Any())
 		expectedI := &informer.Informer{
 			// need to set this so Run function is not nil
 			SharedIndexInformer: sii,
@@ -136,7 +138,7 @@ func TestCacheFor(t *testing.T) {
 			close(f.stopCh)
 		}()
 		var err error
-		_, err = f.CacheFor(fields, nil, dynamicClient, expectedGVK, false)
+		_, err = f.CacheFor(fields, nil, dynamicClient, expectedGVK, false, true)
 		assert.NotNil(t, err)
 		time.Sleep(2 * time.Second)
 	}})
@@ -150,6 +152,7 @@ func TestCacheFor(t *testing.T) {
 		sii.EXPECT().HasSynced().Return(true).AnyTimes()
 		// may or may not call run initially
 		sii.EXPECT().Run(gomock.Any()).MaxTimes(1)
+		sii.EXPECT().SetWatchErrorHandler(gomock.Any())
 		i := &informer.Informer{
 			// need to set this so Run function is not nil
 			SharedIndexInformer: sii,
@@ -175,7 +178,7 @@ func TestCacheFor(t *testing.T) {
 		close(f.stopCh)
 		var c Cache
 		var err error
-		c, err = f.CacheFor(fields, nil, dynamicClient, expectedGVK, false)
+		c, err = f.CacheFor(fields, nil, dynamicClient, expectedGVK, false, true)
 		assert.Nil(t, err)
 		assert.Equal(t, expectedC, c)
 		time.Sleep(1 * time.Second)
@@ -188,6 +191,7 @@ func TestCacheFor(t *testing.T) {
 		sii := NewMockSharedIndexInformer(gomock.NewController(t))
 		sii.EXPECT().HasSynced().Return(true)
 		sii.EXPECT().Run(gomock.Any()).MinTimes(1).AnyTimes()
+		sii.EXPECT().SetWatchErrorHandler(gomock.Any())
 		i := &informer.Informer{
 			// need to set this so Run function is not nil
 			SharedIndexInformer: sii,
@@ -217,7 +221,7 @@ func TestCacheFor(t *testing.T) {
 		}()
 		var c Cache
 		var err error
-		c, err = f.CacheFor(fields, nil, dynamicClient, expectedGVK, false)
+		c, err = f.CacheFor(fields, nil, dynamicClient, expectedGVK, false, true)
 		assert.Nil(t, err)
 		assert.Equal(t, expectedC, c)
 		time.Sleep(1 * time.Second)
@@ -230,6 +234,7 @@ func TestCacheFor(t *testing.T) {
 		sii := NewMockSharedIndexInformer(gomock.NewController(t))
 		sii.EXPECT().HasSynced().Return(true)
 		sii.EXPECT().Run(gomock.Any()).MinTimes(1)
+		sii.EXPECT().SetWatchErrorHandler(gomock.Any())
 		transformFunc := func(input interface{}) (interface{}, error) {
 			return "someoutput", nil
 		}
@@ -270,7 +275,7 @@ func TestCacheFor(t *testing.T) {
 		}()
 		var c Cache
 		var err error
-		c, err = f.CacheFor(fields, transformFunc, dynamicClient, expectedGVK, false)
+		c, err = f.CacheFor(fields, transformFunc, dynamicClient, expectedGVK, false, true)
 		assert.Nil(t, err)
 		assert.Equal(t, expectedC, c)
 		time.Sleep(1 * time.Second)
