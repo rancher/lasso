@@ -4,13 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"encoding/gob"
+	"errors"
 	"fmt"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 
-	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/tools/cache"
@@ -165,7 +165,7 @@ func (l *ListOptionIndexer) afterUpsert(key string, obj any, tx db.TXClient) err
 		case []string:
 			args = append(args, strings.Join(typedValue, "|"))
 		default:
-			return errors.Errorf("%v has a non-supported type value: %v", field, value)
+			return fmt.Errorf("field %v has a non-supported type value: %v", field, value)
 		}
 	}
 
@@ -362,12 +362,25 @@ func (l *ListOptionIndexer) ListByOptions(ctx context.Context, lo ListOptions, p
 	// execute
 	stmt := l.Prepare(query)
 	defer l.CloseStmt(stmt)
-	rows, err := l.QueryForRows(ctx, stmt, params...)
+
+	tx, err := l.BeginTx(ctx, false)
 	if err != nil {
+		return nil, 0, "", err
+	}
+
+	txStmt := tx.Stmt(stmt)
+	rows, err := txStmt.QueryContext(ctx, params...)
+	if err != nil {
+		if cerr := tx.Cancel(); cerr != nil {
+			return nil, 0, "", fmt.Errorf("failed to cancel transaction (%v) after error: %w", cerr, err)
+		}
 		return nil, 0, "", &db.QueryError{QueryString: query, Err: err}
 	}
 	items, err := l.ReadObjects(rows, l.GetType(), l.GetShouldEncrypt())
 	if err != nil {
+		if cerr := tx.Cancel(); cerr != nil {
+			return nil, 0, "", fmt.Errorf("failed to cancel transaction (%v) after error: %w", cerr, err)
+		}
 		return nil, 0, "", err
 	}
 
@@ -376,14 +389,24 @@ func (l *ListOptionIndexer) ListByOptions(ctx context.Context, lo ListOptions, p
 	if limit > 0 || offset > 0 {
 		countStmt := l.Prepare(countQuery)
 		defer l.CloseStmt(countStmt)
-		rows, err = l.QueryForRows(ctx, countStmt, countParams...)
+		txStmt := tx.Stmt(countStmt)
+		rows, err := txStmt.QueryContext(ctx, countParams...)
 		if err != nil {
-			return nil, 0, "", errors.Wrapf(err, "Error while executing query:\n %s", countQuery)
+			if cerr := tx.Cancel(); cerr != nil {
+				return nil, 0, "", fmt.Errorf("failed to cancel transaction (%v) after error: %w", cerr, err)
+			}
+			return nil, 0, "", fmt.Errorf("error executing query: %w", err)
 		}
 		total, err = l.ReadInt(rows)
 		if err != nil {
-			return nil, 0, "", err
+			if cerr := tx.Cancel(); cerr != nil {
+				return nil, 0, "", fmt.Errorf("failed to cancel transaction (%v) after error: %w", cerr, err)
+			}
+			return nil, 0, "", fmt.Errorf("error reading query results: %w", err)
 		}
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, 0, "", err
 	}
 
 	continueToken := ""
@@ -448,7 +471,7 @@ func getField(a any, field string) (any, error) {
 	subFields := extractSubFields(field)
 	o, ok := a.(*unstructured.Unstructured)
 	if !ok {
-		return nil, errors.Errorf("Unexpected object type, expected unstructured.Unstructured: %v", a)
+		return nil, fmt.Errorf("unexpected object type, expected unstructured.Unstructured: %v", a)
 	}
 
 	var obj interface{}

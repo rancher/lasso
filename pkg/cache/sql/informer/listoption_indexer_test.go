@@ -11,6 +11,7 @@ import (
 	"database/sql"
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -696,7 +697,9 @@ func TestListByOptions(t *testing.T) {
 	t.Parallel()
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
+			txClient := NewMockTXClient(gomock.NewController(t))
 			store := NewMockStore(gomock.NewController(t))
+			stmts := NewMockStmt(gomock.NewController(t))
 			i := &Indexer{
 				Store: store,
 			}
@@ -707,14 +710,20 @@ func TestListByOptions(t *testing.T) {
 			stmt := &sql.Stmt{}
 			rows := &sql.Rows{}
 			objType := reflect.TypeOf(testObject)
+			store.EXPECT().BeginTx(gomock.Any(), false).Return(txClient, nil)
+			txClient.EXPECT().Stmt(gomock.Any()).Return(stmts).AnyTimes()
 			store.EXPECT().GetName().Return("something").AnyTimes()
 			store.EXPECT().Prepare(test.expectedStmt).Do(func(a ...any) {
 				fmt.Println(a)
 			}).Return(stmt)
 			if args := test.expectedStmtArgs; args != nil {
-				store.EXPECT().QueryForRows(context.TODO(), stmt, args...).Return(rows, nil)
+				stmts.EXPECT().QueryContext(gomock.Any(), gomock.Any()).Return(rows, nil).AnyTimes()
+			} else if strings.Contains(test.expectedStmt, "LIMIT") {
+				stmts.EXPECT().QueryContext(gomock.Any(), args...).Return(rows, nil)
+				txClient.EXPECT().Stmt(gomock.Any()).Return(stmts)
+				stmts.EXPECT().QueryContext(gomock.Any()).Return(rows, nil)
 			} else {
-				store.EXPECT().QueryForRows(context.TODO(), stmt).Return(rows, nil)
+				stmts.EXPECT().QueryContext(gomock.Any()).Return(rows, nil)
 			}
 			store.EXPECT().GetType().Return(objType)
 			store.EXPECT().GetShouldEncrypt().Return(false)
@@ -723,11 +732,11 @@ func TestListByOptions(t *testing.T) {
 
 			if test.expectedCountStmt != "" {
 				store.EXPECT().Prepare(test.expectedCountStmt).Return(stmt)
-				store.EXPECT().QueryForRows(context.TODO(), stmt, test.expectedCountStmtArgs...).Return(rows, nil)
+				//store.EXPECT().QueryForRows(context.TODO(), stmt, test.expectedCountStmtArgs...).Return(rows, nil)
 				store.EXPECT().ReadInt(rows).Return(len(test.expectedList.Items), nil)
 				store.EXPECT().CloseStmt(stmt).Return(nil)
 			}
-
+			txClient.EXPECT().Commit()
 			list, total, contToken, err := lii.ListByOptions(context.TODO(), test.listOptions, test.partitions, test.ns)
 			if test.expectedErr == nil {
 				assert.Nil(t, err)
