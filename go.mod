@@ -2,7 +2,7 @@ module github.com/rancher/lasso
 
 go 1.22.0
 
-toolchain go1.22.7
+toolchain go1.22.8
 
 require (
 	github.com/pkg/errors v0.9.1
