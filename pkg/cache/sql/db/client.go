@@ -24,7 +24,7 @@ const (
 	// InformerObjectCacheDBPath is where SQLite's object database file will be stored relative to process running lasso
 	InformerObjectCacheDBPath = "informer_object_cache.db"
 
-	informerObjectCachePerms fs.FileMode = 0600
+	informerObjectCachePerms fs.FileMode = 0o600
 )
 
 // Client is a database client that provides encrypting, decrypting, and database resetting.
