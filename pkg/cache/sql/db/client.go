@@ -326,6 +326,9 @@ func (c *Client) NewConnection() error {
 
 	// Touch the file first which means that when SQLite opens it, it will
 	// retain the permissions.
+	// This is done because we can't control the permissions via the sql.Open
+	// call and when the file gets created is down to when sqlite persists
+	// something.
 	if err := touchFile(InformerObjectCacheDBPath, informerObjectCachePerms); err != nil {
 		return nil
 	}
@@ -354,13 +357,19 @@ func (c *Client) NewConnection() error {
 	return nil
 }
 
-// This acts like "touch" for non-existent files...setting the correct
+// This acts like "touch" for both existing files and non-existing files.
 // permissions.
+//
+// It's created with the correct perms, and if the file already exists, it will
+// be chmodded to the correct perms.
 func touchFile(filename string, perms fs.FileMode) error {
 	f, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE, perms)
 	if err != nil {
 		return err
 	}
+	if err := f.Close(); err != nil {
+		return err
+	}
 
-	return f.Close()
+	return os.Chmod(filename, perms)
 }

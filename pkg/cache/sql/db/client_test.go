@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"math"
 	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 
@@ -632,6 +633,21 @@ func SetupMockRows(t *testing.T) *MockRows {
 func SetupClient(t *testing.T, connection Connection, encryptor Encryptor, decryptor Decryptor) *Client {
 	c, _ := NewClient(connection, encryptor, decryptor)
 	return c
+}
+
+func TestTouchFile(t *testing.T) {
+	t.Run("File doesn't exist before", func(t *testing.T) {
+		filename := filepath.Join(t.TempDir(), "test1.txt")
+		assert.NoError(t, touchFile(filename, 0600))
+		assertFileHasPermissions(t, filename, 0600)
+	})
+
+	t.Run("File exists with different permissions", func(t *testing.T) {
+		filename := filepath.Join(t.TempDir(), "test2.txt")
+		assert.NoError(t, os.WriteFile(filename, []byte("test"), 0644))
+		assert.NoError(t, touchFile(filename, 0600))
+		assertFileHasPermissions(t, filename, 0600)
+	})
 }
 
 func assertFileHasPermissions(t *testing.T, fname string, wantPerms fs.FileMode) bool {
