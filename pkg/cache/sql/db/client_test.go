@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"io/fs"
 	"math"
 	"os"
 	"reflect"
@@ -50,6 +51,7 @@ func TestNewClient(t *testing.T) {
 		t.Run(test.description, func(t *testing.T) { test.test(t) })
 	}
 }
+
 func TestQueryForRows(t *testing.T) {
 	type testCase struct {
 		description string
@@ -567,24 +569,36 @@ func TestNewConnection(t *testing.T) {
 	}
 
 	var tests []testCase
-	tests = append(tests, testCase{description: "Prepare() with no errors", test: func(t *testing.T) {
+	tests = append(tests, testCase{description: "NewConnection replaces file", test: func(t *testing.T) {
 		c := SetupMockConnection(t)
 		e := SetupMockEncryptor(t)
 		d := SetupMockDecryptor(t)
 
 		client := SetupClient(t, c, e, d)
-		sqlStmt := &sql.Stmt{}
-		c.EXPECT().Prepare("something").Return(sqlStmt, nil)
+		c.EXPECT().Close().Return(nil)
 
 		err := client.NewConnection()
 		assert.Nil(t, err)
+
+		// Create a transaction to ensure that the file is written to disk.
+		txC, err := client.BeginTx(context.Background(), false)
+		assert.NoError(t, err)
+		assert.NoError(t, txC.Commit())
+
 		assert.FileExists(t, InformerObjectCacheDBPath)
+		assertFileHasPermissions(t, InformerObjectCacheDBPath, 0600)
+
 		err = os.Remove(InformerObjectCacheDBPath)
 		if err != nil {
 			assert.Fail(t, "could not remove object cache path after test")
 		}
 	},
 	})
+
+	t.Parallel()
+	for _, test := range tests {
+		t.Run(test.description, func(t *testing.T) { test.test(t) })
+	}
 }
 
 func TestCommit(t *testing.T) {
@@ -618,4 +632,20 @@ func SetupMockRows(t *testing.T) *MockRows {
 func SetupClient(t *testing.T, connection Connection, encryptor Encryptor, decryptor Decryptor) *Client {
 	c, _ := NewClient(connection, encryptor, decryptor)
 	return c
+}
+
+func assertFileHasPermissions(t *testing.T, fname string, wantPerms fs.FileMode) bool {
+	t.Helper()
+	info, err := os.Lstat(fname)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return assert.Fail(t, fmt.Sprintf("unable to find file %q", fname))
+		}
+		return assert.Fail(t, fmt.Sprintf("error when running os.Lstat(%q): %s", fname, err))
+	}
+
+	// Stringifying the perms makes it easier to read than a Hex comparison.
+	assert.Equal(t, wantPerms.String(), info.Mode().Perm().String())
+
+	return true
 }
