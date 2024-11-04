@@ -14,13 +14,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/rancher/lasso/pkg/cache/sql/partition"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
-
-	"github.com/rancher/lasso/pkg/cache/sql/partition"
 )
 
 func TestNewListOptionIndexer(t *testing.T) {
@@ -63,7 +62,7 @@ func TestNewListOptionIndexer(t *testing.T) {
 		assert.Nil(t, err)
 		assert.NotNil(t, loi)
 	}})
-	tests = append(tests, testCase{description: "NewListOptionIndexer() with error returned from NewIndxer(), should return an error", test: func(t *testing.T) {
+	tests = append(tests, testCase{description: "NewListOptionIndexer() with error returned from NewIndexer(), should return an error", test: func(t *testing.T) {
 		txClient := NewMockTXClient(gomock.NewController(t))
 		store := NewMockStore(gomock.NewController(t))
 		fields := [][]string{{"something"}}

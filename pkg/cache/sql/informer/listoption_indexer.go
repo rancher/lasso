@@ -42,6 +42,12 @@ var (
 )
 
 const (
+	objectDBAlias = "o"
+	fieldDBAlias  = "f"
+	labelsDBAlias = "lt" // because "l" can look too much like the numeral "1"
+)
+
+const (
 	matchFmt             = `%%%s%%`
 	strictMatchFmt       = `%s`
 	createFieldsTableFmt = `CREATE TABLE "%s_fields" (
@@ -198,10 +204,19 @@ func (l *ListOptionIndexer) afterDelete(key string, tx db.TXClient) error {
 //   - a continue token, if there are more pages after the returned one
 //   - an error instead of all of the above if anything went wrong
 func (l *ListOptionIndexer) ListByOptions(ctx context.Context, lo ListOptions, partitions []partition.Partition, namespace string) (*unstructured.UnstructuredList, int, string, error) {
-	// 1- Intro: SELECT and JOIN clauses
-	query := fmt.Sprintf(`SELECT o.object, o.objectnonce, o.dekid FROM "%s" o`, db.Sanitize(l.GetName()))
-	query += "\n  "
-	query += fmt.Sprintf(`JOIN "%s_fields" f ON o.key = f.key`, db.Sanitize(l.GetName()))
+	// 1- First, what kind of filtering will be doing?
+	hasFieldFilter, hasLabelFilter := categorizeFilters(lo.Filters)
+	dbName := db.Sanitize(l.GetName())
+	// 1.1- Intro: SELECT and JOIN clauses
+	query := fmt.Sprintf(`SELECT %s.object, %s.objectnonce, %s.dekid FROM "%s" %s`, objectDBAlias, objectDBAlias, objectDBAlias, dbName, objectDBAlias)
+	if hasFieldFilter || !hasLabelFilter {
+		query += "\n  "
+		query += fmt.Sprintf(`JOIN "%s_fields" %s ON %s.key = %s.key`, dbName, fieldDBAlias, objectDBAlias, fieldDBAlias)
+	}
+	if hasLabelFilter {
+		query += "\n  "
+		query += fmt.Sprintf(`JOIN "%s_labels" %s ON %s.key = %s.key`, dbName, labelsDBAlias, objectDBAlias, labelsDBAlias)
+	}
 	params := []any{}
 
 	// 2- Filtering: WHERE clauses (from lo.Filters)
@@ -226,29 +241,29 @@ func (l *ListOptionIndexer) ListByOptions(ctx context.Context, lo ListOptions, p
 
 	// WHERE clauses (from partitions and their corresponding parameters)
 	partitionClauses := []string{}
-	for _, partition := range partitions {
-		if partition.Passthrough {
+	for _, thisPartition := range partitions {
+		if thisPartition.Passthrough {
 			// nothing to do, no extra filtering to apply by definition
 		} else {
 			singlePartitionClauses := []string{}
 
 			// filter by namespace
-			if partition.Namespace != "" && partition.Namespace != "*" {
+			if thisPartition.Namespace != "" && thisPartition.Namespace != "*" {
 				singlePartitionClauses = append(singlePartitionClauses, fmt.Sprintf(`f."metadata.namespace" = ?`))
-				params = append(params, partition.Namespace)
+				params = append(params, thisPartition.Namespace)
 			}
 
 			// optionally filter by names
-			if !partition.All {
-				names := partition.Names
+			if !thisPartition.All {
+				names := thisPartition.Names
 
 				if len(names) == 0 {
 					// degenerate case, there will be no results
 					singlePartitionClauses = append(singlePartitionClauses, "FALSE")
 				} else {
-					singlePartitionClauses = append(singlePartitionClauses, fmt.Sprintf(`f."metadata.name" IN (?%s)`, strings.Repeat(", ?", len(partition.Names)-1)))
+					singlePartitionClauses = append(singlePartitionClauses, fmt.Sprintf(`f."metadata.name" IN (?%s)`, strings.Repeat(", ?", len(thisPartition.Names)-1)))
 					// sort for reproducibility
-					sortedNames := partition.Names.UnsortedList()
+					sortedNames := thisPartition.Names.UnsortedList()
 					sort.Strings(sortedNames)
 					for _, name := range sortedNames {
 						params = append(params, name)
@@ -433,38 +448,92 @@ func (l *ListOptionIndexer) validateColumn(column string) error {
 
 // buildORClause creates an SQLite compatible query that ORs conditions built from passed filters
 func (l *ListOptionIndexer) buildORClauseFromFilters(orFilters OrFilter) (string, []any, error) {
-	var orWhereClause string
 	var params []any
+	clauses := make([]string, 0, len(orFilters.Filters))
+	var newParam any
+	var newClause string
+	var err error
 
-	for index, filter := range orFilters.Filters {
-		opString := "LIKE"
-		if filter.Op == NotEq {
-			opString = "NOT LIKE"
+	for _, filter := range orFilters.Filters {
+		if isLabelFilter(&filter) {
+			newClause, newParam, err = l.getLabelFilter(filter)
+		} else {
+			newClause, newParam, err = l.getFieldFilter(filter)
 		}
-		columnName := toColumnName(filter.Field)
-		if err := l.validateColumn(columnName); err != nil {
+		if err != nil {
 			return "", nil, err
 		}
-
-		orWhereClause += fmt.Sprintf(`f."%s" %s ? ESCAPE '\'`, columnName, opString)
-		format := strictMatchFmt
-		if filter.Partial {
-			format = matchFmt
-		}
-		match := filter.Match
-		// To allow matches on the backslash itself, the character needs to be replaced first.
-		// Otherwise, it will undo the following replacements.
-		match = strings.ReplaceAll(match, `\`, `\\`)
-		match = strings.ReplaceAll(match, `_`, `\_`)
-		match = strings.ReplaceAll(match, `%`, `\%`)
-		params = append(params, fmt.Sprintf(format, match))
-		if index == len(orFilters.Filters)-1 {
-			continue
-		}
-		orWhereClause += " OR "
+		clauses = append(clauses, newClause)
+		params = append(params, newParam)
 	}
-	return orWhereClause, params, nil
+	return strings.Join(clauses, " OR "), params, nil
 }
+
+func (l *ListOptionIndexer) getFieldFilter(filter Filter) (string, any, error) {
+	opString := "LIKE"
+	if filter.Op == NotEq {
+		opString = "NOT LIKE"
+	}
+	columnName := toColumnName(filter.Field)
+	if err := l.validateColumn(columnName); err != nil {
+		return "", "", err
+	}
+
+	clause := fmt.Sprintf(`%s."%s" %s ? ESCAPE '\'`, fieldDBAlias, columnName, opString)
+	return clause, formatMatchTarget(filter), nil
+}
+
+func (l *ListOptionIndexer) getLabelFilter(filter Filter) (string, any, error) {
+	opString := "LIKE"
+	if filter.Op == NotEq {
+		opString = "NOT LIKE"
+	}
+	if len(filter.Field) < 3 || filter.Field[0] != "metadata" || filter.Field[1] != "labels" {
+		return "", "", fmt.Errorf("expecting a metadata.labels field, got '%s'", toColumnName(filter.Field))
+	}
+	clause := fmt.Sprintf(`%s."%s" %s ? ESCAPE '\'`, labelsDBAlias, filter.Field[2], opString)
+	return clause, formatMatchTarget(filter), nil
+}
+
+func formatMatchTarget(filter Filter) string {
+	format := strictMatchFmt
+	if filter.Partial {
+		format = matchFmt
+	}
+	match := filter.Match
+	// To allow matches on the backslash itself, the character needs to be replaced first.
+	// Otherwise, it will undo the following replacements.
+	match = strings.ReplaceAll(match, `\`, `\\`)
+	match = strings.ReplaceAll(match, `_`, `\_`)
+	match = strings.ReplaceAll(match, `%`, `\%`)
+
+	return fmt.Sprintf(format, match)
+}
+
+/*
+	filter.Fields
+	columnName := toColumnName(filter.Field)
+	if err := l.validateColumn(columnName); err != nil {
+		return "", nil, err
+	}
+
+	clause += fmt.Sprintf(`f."%s" %s ? ESCAPE '\'`, columnName, opString) //')
+	format := strictMatchFmt
+	if filter.Partial {
+		format = matchFmt
+	}
+	match := filter.Match
+	// To allow matches on the backslash itself, the character needs to be replaced first.
+	// Otherwise, it will undo the following replacements.
+	match = strings.ReplaceAll(match, `\`, `\\`)
+	match = strings.ReplaceAll(match, `_`, `\_`)
+	match = strings.ReplaceAll(match, `%`, `\%`)
+	params = append(params, fmt.Sprintf(format, match))
+	if index == len(orFilters.Filters)-1 {
+		continue
+	}
+	return clause, params, nil
+*/
 
 // toColumnName returns the column name corresponding to a field expressed as string slice
 func toColumnName(s []string) string {
@@ -534,6 +603,29 @@ func extractSubFields(fields string) []string {
 		subfields = append(subfields, strings.TrimSuffix(subField, "."))
 	}
 	return subfields
+}
+
+func isLabelFilter(f *Filter) bool {
+	return len(f.Field) >= 2 && f.Field[0] == "metadata" && f.Field[1] == "labels"
+}
+
+func categorizeFilters(filters []OrFilter) (hasFieldFilter, hasLabelFilter bool) {
+	for _, outerFilter := range filters {
+		for _, filter := range outerFilter.Filters {
+			if isLabelFilter(&filter) {
+				hasLabelFilter = true
+				if hasFieldFilter {
+					return
+				}
+			} else {
+				hasFieldFilter = true
+				if hasLabelFilter {
+					return
+				}
+			}
+		}
+	}
+	return
 }
 
 // toUnstructuredList turns a slice of unstructured objects into an unstructured.UnstructuredList
