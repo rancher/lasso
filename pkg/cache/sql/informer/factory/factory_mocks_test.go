@@ -177,3 +177,17 @@ func (mr *MockDBClientMockRecorder) Upsert(arg0, arg1, arg2, arg3, arg4 any) *go
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Upsert", reflect.TypeOf((*MockDBClient)(nil).Upsert), arg0, arg1, arg2, arg3, arg4)
 }
+
+// UpsertLabels mocks base method.
+func (m *MockDBClient) UpsertLabels(arg0 db.TXClient, arg1 *sql.Stmt, arg2 string, arg3 any, arg4 bool) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpsertLabels", arg0, arg1, arg2, arg3, arg4)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpsertLabels indicates an expected call of UpsertLabels.
+func (mr *MockDBClientMockRecorder) UpsertLabels(arg0, arg1, arg2, arg3, arg4 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpsertLabels", reflect.TypeOf((*MockDBClient)(nil).UpsertLabels), arg0, arg1, arg2, arg3, arg4)
+}

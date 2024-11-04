@@ -135,7 +135,7 @@ func (i *Indexer) AfterUpsert(key string, obj any, tx db.TXClient) error {
 		return &db.QueryError{QueryString: i.deleteIndicesQuery, Err: err}
 	}
 
-	// re-insert all
+	// re-insert all values
 	i.indexersLock.RLock()
 	defer i.indexersLock.RUnlock()
 	for indexName, indexFunc := range i.indexers {
