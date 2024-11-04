@@ -67,6 +67,7 @@ var defaultEncryptedResourceTypes = map[schema.GroupVersionKind]struct{}{
 }
 
 // NewCacheFactory returns an informer factory instance
+// This is currently called from steve via initial calls to `s.cacheFactory.CacheFor(...)`
 func NewCacheFactory() (*CacheFactory, error) {
 	m, err := encryption.NewManager()
 	if err != nil {
