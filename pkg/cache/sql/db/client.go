@@ -324,11 +324,8 @@ func (c *Client) NewConnection() error {
 		return err
 	}
 
-	// Touch the file first which means that when SQLite opens it, it will
-	// retain the permissions.
-	// This is done because we can't control the permissions via the sql.Open
-	// call and when the file gets created is down to when sqlite persists
-	// something.
+	// Set the permissions in advance, because we can't control them if
+	// the file is created by a sql.Open call instead.
 	if err := touchFile(InformerObjectCacheDBPath, informerObjectCachePerms); err != nil {
 		return nil
 	}
