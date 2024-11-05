@@ -200,15 +200,12 @@ func (l *ListOptionIndexer) afterDelete(key string, tx db.TXClient) error {
 //   - an error instead of all of the above if anything went wrong
 func (l *ListOptionIndexer) ListByOptions(ctx context.Context, lo ListOptions, partitions []partition.Partition, namespace string) (*unstructured.UnstructuredList, int, string, error) {
 	// 1- First, what kind of filtering will be doing?
-	hasFieldFilter, hasLabelFilter := categorizeFilters(lo.Filters)
 	dbName := db.Sanitize(l.GetName())
 	// 1.1- Intro: SELECT and JOIN clauses
 	query := fmt.Sprintf(`SELECT %s.object, %s.objectnonce, %s.dekid FROM "%s" %s`, objectDBAlias, objectDBAlias, objectDBAlias, dbName, objectDBAlias)
-	if hasFieldFilter || !hasLabelFilter {
-		query += "\n  "
-		query += fmt.Sprintf(`JOIN "%s_fields" %s ON %s.key = %s.key`, dbName, fieldDBAlias, objectDBAlias, fieldDBAlias)
-	}
-	if hasLabelFilter {
+	query += "\n  "
+	query += fmt.Sprintf(`JOIN "%s_fields" %s ON %s.key = %s.key`, dbName, fieldDBAlias, objectDBAlias, fieldDBAlias)
+	if hasLabelFilter(lo.Filters) {
 		query += "\n  "
 		query += fmt.Sprintf(`JOIN "%s_labels" %s ON %s.key = %s.key`, dbName, labelsDBAlias, objectDBAlias, labelsDBAlias)
 	}
@@ -422,49 +419,49 @@ func (l *ListOptionIndexer) validateColumn(column string) error {
 func (l *ListOptionIndexer) buildORClauseFromFilters(orFilters OrFilter) (string, []any, error) {
 	var params []any
 	clauses := make([]string, 0, len(orFilters.Filters))
-	var newParam any
+	var newParams []any
 	var newClause string
 	var err error
 
 	for _, filter := range orFilters.Filters {
 		if isLabelFilter(&filter) {
-			newClause, newParam, err = l.getLabelFilter(filter)
+			newClause, newParams, err = l.getLabelFilter(filter)
 		} else {
-			newClause, newParam, err = l.getFieldFilter(filter)
+			newClause, newParams, err = l.getFieldFilter(filter)
 		}
 		if err != nil {
 			return "", nil, err
 		}
 		clauses = append(clauses, newClause)
-		params = append(params, newParam)
+		params = append(params, newParams...)
 	}
 	return strings.Join(clauses, " OR "), params, nil
 }
 
-func (l *ListOptionIndexer) getFieldFilter(filter Filter) (string, any, error) {
+func (l *ListOptionIndexer) getFieldFilter(filter Filter) (string, []any, error) {
 	opString := "LIKE"
 	if filter.Op == NotEq {
 		opString = "NOT LIKE"
 	}
 	columnName := toColumnName(filter.Field)
 	if err := l.validateColumn(columnName); err != nil {
-		return "", "", err
+		return "", nil, err
 	}
 
 	clause := fmt.Sprintf(`%s."%s" %s ? ESCAPE '\'`, fieldDBAlias, columnName, opString)
-	return clause, formatMatchTarget(filter), nil
+	return clause, []any{formatMatchTarget(filter)}, nil
 }
 
-func (l *ListOptionIndexer) getLabelFilter(filter Filter) (string, any, error) {
+func (l *ListOptionIndexer) getLabelFilter(filter Filter) (string, []any, error) {
 	opString := "LIKE"
 	if filter.Op == NotEq {
 		opString = "NOT LIKE"
 	}
 	if len(filter.Field) < 3 || filter.Field[0] != "metadata" || filter.Field[1] != "labels" {
-		return "", "", fmt.Errorf("expecting a metadata.labels field, got '%s'", toColumnName(filter.Field))
+		return "", nil, fmt.Errorf("expecting a metadata.labels field, got '%s'", toColumnName(filter.Field))
 	}
-	clause := fmt.Sprintf(`%s."%s" %s ? ESCAPE '\'`, labelsDBAlias, filter.Field[2], opString)
-	return clause, formatMatchTarget(filter), nil
+	clause := fmt.Sprintf(`%s.label = ? AND %s.value %s ? ESCAPE '\'`, labelsDBAlias, labelsDBAlias, opString)
+	return clause, []any{formatMatchTargetWithFormatter(filter.Field[2], strictMatchFmt), formatMatchTarget(filter)}, nil
 }
 
 func formatMatchTarget(filter Filter) string {
@@ -472,7 +469,10 @@ func formatMatchTarget(filter Filter) string {
 	if filter.Partial {
 		format = matchFmt
 	}
-	match := filter.Match
+	return formatMatchTargetWithFormatter(filter.Match, format)
+}
+
+func formatMatchTargetWithFormatter(match string, format string) string {
 	// To allow matches on the backslash itself, the character needs to be replaced first.
 	// Otherwise, it will undo the following replacements.
 	match = strings.ReplaceAll(match, `\`, `\\`)
@@ -481,31 +481,6 @@ func formatMatchTarget(filter Filter) string {
 
 	return fmt.Sprintf(format, match)
 }
-
-/*
-	filter.Fields
-	columnName := toColumnName(filter.Field)
-	if err := l.validateColumn(columnName); err != nil {
-		return "", nil, err
-	}
-
-	clause += fmt.Sprintf(`f."%s" %s ? ESCAPE '\'`, columnName, opString) //')
-	format := strictMatchFmt
-	if filter.Partial {
-		format = matchFmt
-	}
-	match := filter.Match
-	// To allow matches on the backslash itself, the character needs to be replaced first.
-	// Otherwise, it will undo the following replacements.
-	match = strings.ReplaceAll(match, `\`, `\\`)
-	match = strings.ReplaceAll(match, `_`, `\_`)
-	match = strings.ReplaceAll(match, `%`, `\%`)
-	params = append(params, fmt.Sprintf(format, match))
-	if index == len(orFilters.Filters)-1 {
-		continue
-	}
-	return clause, params, nil
-*/
 
 // toColumnName returns the column name corresponding to a field expressed as string slice
 func toColumnName(s []string) string {
@@ -581,23 +556,15 @@ func isLabelFilter(f *Filter) bool {
 	return len(f.Field) >= 2 && f.Field[0] == "metadata" && f.Field[1] == "labels"
 }
 
-func categorizeFilters(filters []OrFilter) (hasFieldFilter, hasLabelFilter bool) {
+func hasLabelFilter(filters []OrFilter) bool {
 	for _, outerFilter := range filters {
 		for _, filter := range outerFilter.Filters {
 			if isLabelFilter(&filter) {
-				hasLabelFilter = true
-				if hasFieldFilter {
-					return
-				}
-			} else {
-				hasFieldFilter = true
-				if hasLabelFilter {
-					return
-				}
+				return true
 			}
 		}
 	}
-	return
+	return false
 }
 
 // toUnstructuredList turns a slice of unstructured objects into an unstructured.UnstructuredList

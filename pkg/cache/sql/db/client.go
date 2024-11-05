@@ -279,7 +279,7 @@ func (c *Client) Upsert(tx TXClient, stmt *sql.Stmt, key string, obj any, should
 func (c *Client) UpsertLabels(tx TXClient, stmt *sql.Stmt, key string, obj any, shouldEncrypt bool) error {
 	k8sObj, ok := obj.(*unstructured.Unstructured)
 	if !ok {
-		logrus.Errorf("QQQ: UpsertLabels: Error?: Can't convert obj into an unstructured thing.")
+		logrus.Debugf("UpsertLabels: Error?: Can't convert obj into an unstructured thing.")
 		return nil
 	}
 	incomingLabels := k8sObj.GetLabels()
