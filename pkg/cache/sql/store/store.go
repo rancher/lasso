@@ -126,7 +126,6 @@ func NewStore(example any, keyFunc cache.KeyFunc, c DBClient, shouldEncrypt bool
 	s.deleteLabelsQuery = fmt.Sprintf(deleteLabelsStmtFmt, dbName)
 
 	s.upsertStmt = s.Prepare(s.upsertQuery)
-	//logrus.Infof("QQQ: preparing %s to s.upsertLabelsStmt ", s.upsertLabelsQuery)
 	s.upsertLabelsStmt = s.Prepare(s.upsertLabelsQuery)
 	s.deleteStmt = s.Prepare(s.deleteQuery)
 	s.deleteLabelsStmt = s.Prepare(s.deleteLabelsQuery)

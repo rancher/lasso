@@ -427,6 +427,36 @@ func TestListByOptions(t *testing.T) {
 		expectedErr:       nil,
 	})
 	tests = append(tests, testCase{
+		description: "ListByOptions with labels filter should select the label in the prepared sql.Stmt",
+		listOptions: ListOptions{Filters: []OrFilter{
+			{
+				Filters: []Filter{
+					{
+						Field:   []string{"metadata", "labels", "guard.cattle.io"},
+						Match:   "lodgepole",
+						Partial: true,
+					},
+				},
+			},
+		},
+		},
+		partitions: []partition.Partition{},
+		ns:         "test41",
+		expectedStmt: `SELECT o.object, o.objectnonce, o.dekid FROM "something" o
+  JOIN "something_fields" f ON o.key = f.key
+  JOIN "something_labels" lt ON o.key = lt.key
+  WHERE
+    (lt.label = ? AND lt.value LIKE ? ESCAPE '\') AND
+    (f."metadata.namespace" = ?) AND
+    (FALSE)
+  ORDER BY f."metadata.name" ASC `,
+		expectedStmtArgs:  []any{"guard.cattle.io", "%lodgepole%", "test41"},
+		returnList:        []any{},
+		expectedList:      &unstructured.UnstructuredList{Object: map[string]interface{}{"items": []map[string]interface{}{}}, Items: []unstructured.Unstructured{}},
+		expectedContToken: "",
+		expectedErr:       nil,
+	})
+	tests = append(tests, testCase{
 		description: "ListByOptions with Sort.PrimaryField set only should sort on that field only, in ascending order in prepared sql.Stmt",
 		listOptions: ListOptions{
 			Sort: Sort{

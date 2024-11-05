@@ -65,7 +65,7 @@ func (c *Client) Stmt(stmt *sql.Stmt) Stmt {
 func (c *Client) StmtExec(stmt Stmt, args ...any) error {
 	_, err := stmt.Exec(args...)
 	if err != nil {
-		logrus.Errorf("\n\nQQQ: StmtExec failed: query %s, args: %s, err: %s\n\n\n", stmt, args, err)
+		logrus.Debugf("StmtExec failed: query %s, args: %s, err: %s", stmt, args, err)
 		return c.rollback(c.sqlTx, err)
 	}
 	return nil
