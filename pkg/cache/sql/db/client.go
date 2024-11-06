@@ -276,22 +276,6 @@ func (c *Client) Upsert(tx TXClient, stmt *sql.Stmt, key string, obj any, should
 	return tx.StmtExec(tx.Stmt(stmt), key, objBytes, dataNonce, kid)
 }
 
-func (c *Client) UpsertLabels(tx TXClient, stmt *sql.Stmt, key string, obj any, shouldEncrypt bool) error {
-	k8sObj, ok := obj.(*unstructured.Unstructured)
-	if !ok {
-		logrus.Debugf("UpsertLabels: Error?: Can't convert obj into an unstructured thing.")
-		return nil
-	}
-	incomingLabels := k8sObj.GetLabels()
-	for k, v := range incomingLabels {
-		err := tx.StmtExec(tx.Stmt(stmt), key, k, v)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // toBytes encodes an object to a byte slice
 func toBytes(obj any) []byte {
 	var buf bytes.Buffer
