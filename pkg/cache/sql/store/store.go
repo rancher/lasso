@@ -27,15 +27,6 @@ const (
 		objectnonce BLOB,
 		dekid INTEGER
 	)`
-	// 'key' contains values from the column key of table nodes
-	createLabelsTableFmt = `CREATE TABLE IF NOT EXISTS "%s_labels" (
-		key TEXT NOT NULL REFERENCES "%s"(key) ON DELETE CASCADE,
-		label TEXT NOT NULL,
-		value TEXT NOT NULL,
-		PRIMARY KEY (key, label)
-	)`
-	upsertLabelsStmtFmt = `REPLACE INTO "%s_labels"(key, label, value) VALUES (?, ?, ?)`
-	deleteLabelsStmtFmt = `DELETE FROM "%s_labels" WHERE KEY = ?`
 )
 
 // Store is a SQLite-backed cache.Store
@@ -52,17 +43,12 @@ type Store struct {
 	getQuery          string
 	listQuery         string
 	listKeysQuery     string
-	upsertLabelsQuery string
-	deleteLabelsQuery string
 
 	upsertStmt   *sql.Stmt
 	deleteStmt   *sql.Stmt
 	getStmt      *sql.Stmt
 	listStmt     *sql.Stmt
 	listKeysStmt *sql.Stmt
-
-	upsertLabelsStmt *sql.Stmt
-	deleteLabelsStmt *sql.Stmt
 
 	afterUpsert []func(key string, obj any, tx db.TXClient) error
 	afterDelete []func(key string, tx db.TXClient) error
@@ -79,7 +65,6 @@ type DBClient interface {
 	ReadStrings(rows db.Rows) ([]string, error)
 	ReadInt(rows db.Rows) (int, error)
 	Upsert(tx db.TXClient, stmt *sql.Stmt, key string, obj any, shouldEncrypt bool) error
-	UpsertLabels(tx db.TXClient, stmt *sql.Stmt, key string, obj any, shouldEncrypt bool) error
 	CloseStmt(closable db.Closable) error
 }
 
@@ -106,11 +91,6 @@ func NewStore(example any, keyFunc cache.KeyFunc, c DBClient, shouldEncrypt bool
 	if err != nil {
 		return nil, &db.QueryError{QueryString: createTableQuery, Err: err}
 	}
-	createLabelsTableQuery := fmt.Sprintf(createLabelsTableFmt, dbName, dbName)
-	err = txC.Exec(createLabelsTableQuery)
-	if err != nil {
-		return nil, &db.QueryError{QueryString: createLabelsTableQuery, Err: err}
-	}
 
 	err = txC.Commit()
 	if err != nil {
@@ -122,13 +102,9 @@ func NewStore(example any, keyFunc cache.KeyFunc, c DBClient, shouldEncrypt bool
 	s.getQuery = fmt.Sprintf(getStmtFmt, dbName)
 	s.listQuery = fmt.Sprintf(listStmtFmt, dbName)
 	s.listKeysQuery = fmt.Sprintf(listKeysStmtFmt, dbName)
-	s.upsertLabelsQuery = fmt.Sprintf(upsertLabelsStmtFmt, dbName)
-	s.deleteLabelsQuery = fmt.Sprintf(deleteLabelsStmtFmt, dbName)
 
 	s.upsertStmt = s.Prepare(s.upsertQuery)
-	s.upsertLabelsStmt = s.Prepare(s.upsertLabelsQuery)
 	s.deleteStmt = s.Prepare(s.deleteQuery)
-	s.deleteLabelsStmt = s.Prepare(s.deleteLabelsQuery)
 	s.getStmt = s.Prepare(s.getQuery)
 	s.listStmt = s.Prepare(s.listQuery)
 	s.listKeysStmt = s.Prepare(s.listKeysQuery)
@@ -149,21 +125,12 @@ func (s *Store) upsert(key string, obj any) error {
 		return &db.QueryError{QueryString: s.upsertQuery, Err: err}
 	}
 
-	err = s.upsertLabels(tx, key, obj)
-	if err != nil {
-		return err
-	}
-
 	err = s.runAfterUpsert(key, obj, tx)
 	if err != nil {
 		return err
 	}
 
 	return tx.Commit()
-}
-
-func (s *Store) upsertLabels(tx db.TXClient, key string, obj any) error {
-	return s.UpsertLabels(tx, s.upsertLabelsStmt, key, obj, s.shouldEncrypt)
 }
 
 // deleteByKey deletes the object associated with key, if it exists in this Store
@@ -215,22 +182,6 @@ func (s *Store) Add(obj any) error {
 
 	err = s.upsert(key, obj)
 	return err
-}
-
-func (s *Store) AddLabels(tx db.TXClient, key string, incomingLabels map[string]string) error {
-	tx, err := s.BeginTx(context.Background(), true)
-	if err != nil {
-		return err
-	}
-	for k, v := range incomingLabels {
-		err = tx.StmtExec(tx.Stmt(s.upsertLabelsStmt), key, k, v)
-		if err != nil {
-			tx.Cancel()
-			return &db.QueryError{QueryString: s.upsertLabelsQuery, Err: err}
-		}
-	}
-
-	return tx.Commit()
 }
 
 // Update saves an obj, or updates it if it exists in this Store
@@ -333,10 +284,6 @@ func (s *Store) replaceByKey(objects map[string]any) error {
 
 	for key, obj := range objects {
 		err = s.Upsert(txC, s.upsertStmt, key, obj, s.shouldEncrypt)
-		if err != nil {
-			return err
-		}
-		err = s.upsertLabels(txC, key, obj)
 		if err != nil {
 			return err
 		}

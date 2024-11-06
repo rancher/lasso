@@ -230,7 +230,7 @@ func (c *Client) ReadInt(rows Rows) (int, error) {
 // If forWriting is true, this method blocks until all other concurrent forWriting
 // transactions have either committed or rolled back.
 // If forWriting is false, it is assumed the returned transaction will exclusively
-// be used for DQL (eg. SELECT) queries.
+// be used for DQL (e.g. SELECT) queries.
 // Not respecting the above rule might result in transactions failing with unexpected
 // SQLITE_BUSY (5) errors (aka "Runtime error: database is locked").
 // See discussion in https://github.com/rancher/lasso/pull/98 for details
@@ -278,22 +278,6 @@ func (c *Client) Upsert(tx TXClient, stmt *sql.Stmt, key string, obj any, should
 	}
 
 	return tx.StmtExec(tx.Stmt(stmt), key, objBytes, dataNonce, kid)
-}
-
-func (c *Client) UpsertLabels(tx TXClient, stmt *sql.Stmt, key string, obj any, shouldEncrypt bool) error {
-	k8sObj, ok := obj.(*unstructured.Unstructured)
-	if !ok {
-		logrus.Debugf("UpsertLabels: Error?: Can't convert obj into an unstructured thing.")
-		return nil
-	}
-	incomingLabels := k8sObj.GetLabels()
-	for k, v := range incomingLabels {
-		err := tx.StmtExec(tx.Stmt(stmt), key, k, v)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // toBytes encodes an object to a byte slice

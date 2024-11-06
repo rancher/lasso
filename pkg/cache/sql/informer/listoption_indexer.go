@@ -18,6 +18,17 @@ import (
 	"github.com/rancher/lasso/pkg/cache/sql/db"
 	"github.com/rancher/lasso/pkg/cache/sql/partition"
 )
+const (
+	// 'key' contains values from the column key of table nodes
+	createLabelsTableFmt = `CREATE TABLE IF NOT EXISTS "%s_labels" (
+		key TEXT NOT NULL REFERENCES "%s"(key) ON DELETE CASCADE,
+		label TEXT NOT NULL,
+		value TEXT NOT NULL,
+		PRIMARY KEY (key, label)
+	)`
+	upsertLabelsStmtFmt = `REPLACE INTO "%s_labels"(key, label, value) VALUES (?, ?, ?)`
+	deleteLabelsStmtFmt = `DELETE FROM "%s_labels" WHERE KEY = ?`
+)
 
 // ListOptionIndexer extends Indexer by allowing queries based on ListOption
 type ListOptionIndexer struct {
@@ -28,9 +39,13 @@ type ListOptionIndexer struct {
 
 	addFieldQuery    string
 	deleteFieldQuery string
+	upsertLabelsQuery string
+	deleteLabelsQuery string
 
 	addFieldStmt    *sql.Stmt
 	deleteFieldStmt *sql.Stmt
+	upsertLabelsStmt *sql.Stmt
+	deleteLabelsStmt *sql.Stmt
 }
 
 var (
@@ -39,12 +54,6 @@ var (
 	subfieldRegex          = regexp.MustCompile(`([a-zA-Z]+)|(\[[a-zA-Z./]+])|(\[[0-9]+])`)
 
 	InvalidColumnErr = errors.New("supplied column is invalid")
-)
-
-const (
-	objectDBAlias = "o"
-	fieldDBAlias  = "f"
-	labelsDBAlias = "lt" // because "l" can look too much like the numeral "1"
 )
 
 const (
@@ -58,6 +67,9 @@ const (
 
 	failedToGetFromSliceFmt = "[listoption indexer] failed to get subfield [%s] from slice items: %w"
 )
+
+//QQQ: Prob not needed
+//	UpsertLabels(tx db.TXClient, stmt *sql.Stmt, key string, obj any, shouldEncrypt bool) error
 
 // NewListOptionIndexer returns a SQLite-backed cache.Indexer of unstructured.Unstructured Kubernetes resources of a certain GVK
 // ListOptionIndexer is also able to satisfy ListOption queries on indexed (sub)fields
@@ -108,10 +120,11 @@ func NewListOptionIndexer(fields [][]string, s Store, namespaced bool) (*ListOpt
 	columns := make([]string, len(indexedFields))
 	qmarks := make([]string, len(indexedFields))
 	setStatements := make([]string, len(indexedFields))
+	dbName := db.Sanitize(i.GetName)
 
 	for index, field := range indexedFields {
 		// create index for field
-		err = tx.Exec(fmt.Sprintf(createFieldsIndexFmt, db.Sanitize(i.GetName()), field, db.Sanitize(i.GetName()), field))
+		err = tx.Exec(fmt.Sprintf(createFieldsIndexFmt, dbName, field, dbName, field))
 		if err != nil {
 			return nil, err
 		}
@@ -127,6 +140,11 @@ func NewListOptionIndexer(fields [][]string, s Store, namespaced bool) (*ListOpt
 		setStatement := fmt.Sprintf(`"%s" = excluded."%s"`, field, field)
 		setStatements[index] = setStatement
 	}
+	createLabelsTableQuery := fmt.Sprintf(createLabelsTableFmt, dbName, dbName)
+	err = txC.Exec(createLabelsTableQuery)
+	if err != nil {
+		return nil, &db.QueryError{QueryString: createLabelsTableQuery, Err: err}
+	}
 
 	err = tx.Commit()
 	if err != nil {
@@ -135,15 +153,20 @@ func NewListOptionIndexer(fields [][]string, s Store, namespaced bool) (*ListOpt
 
 	l.addFieldQuery = fmt.Sprintf(
 		`INSERT INTO "%s_fields"(key, %s) VALUES (?, %s) ON CONFLICT DO UPDATE SET %s`,
-		db.Sanitize(i.GetName()),
+		dbName,
 		strings.Join(columns, ", "),
 		strings.Join(qmarks, ", "),
 		strings.Join(setStatements, ", "),
 	)
-	l.deleteFieldQuery = fmt.Sprintf(`DELETE FROM "%s_fields" WHERE key = ?`, db.Sanitize(i.GetName()))
+	l.deleteFieldQuery = fmt.Sprintf(`DELETE FROM "%s_fields" WHERE key = ?`, dbName)
 
 	l.addFieldStmt = l.Prepare(l.addFieldQuery)
 	l.deleteFieldStmt = l.Prepare(l.deleteFieldQuery)
+
+	l.upsertLabelsQuery = fmt.Sprintf(upsertLabelsStmtFmt, dbName)
+	l.deleteLabelsQuery = fmt.Sprintf(deleteLabelsStmtFmt, dbName)
+	l.upsertLabelsStmt = l.Prepare(l.upsertLabelsQuery)
+	l.deleteLabelsStmt = l.Prepare(l.deleteLabelsQuery)
 
 	return l, nil
 }
@@ -184,6 +207,26 @@ func (l *ListOptionIndexer) afterUpsert(key string, obj any, tx db.TXClient) err
 	if err != nil {
 		return &db.QueryError{QueryString: l.addFieldQuery, Err: err}
 	}
+	return upsertLabels(tx, key, obj, l.GetShouldEncrypt())
+}
+
+func (l *ListOptionIndexer) upsertLabels(tx db.TXClient, key string, obj any) error {
+	return l.UpsertLabels(tx, l.upsertLabelsStmt, key, obj, l.GetShouldEncrypt())
+}
+
+func (l *ListOptionIndexer) UpsertLabels(tx TXClient, stmt *sql.Stmt, key string, obj any, shouldEncrypt bool) error {
+	k8sObj, ok := obj.(*unstructured.Unstructured)
+	if !ok {
+		logrus.Debugf("UpsertLabels: Error?: Can't convert obj into an unstructured thing.")
+		return nil
+	}
+	incomingLabels := k8sObj.GetLabels()
+	for k, v := range incomingLabels {
+		err := tx.StmtExec(tx.Stmt(stmt), key, k, v)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -194,7 +237,7 @@ func (l *ListOptionIndexer) afterDelete(key string, tx db.TXClient) error {
 	if err != nil {
 		return &db.QueryError{QueryString: l.deleteFieldQuery, Err: err}
 	}
-	return nil
+	return l.deleteLabels(tx, key)
 }
 
 // ListByOptions returns objects according to the specified list options and partitions.
@@ -207,12 +250,12 @@ func (l *ListOptionIndexer) ListByOptions(ctx context.Context, lo ListOptions, p
 	// 1- First, what kind of filtering will be doing?
 	dbName := db.Sanitize(l.GetName())
 	// 1.1- Intro: SELECT and JOIN clauses
-	query := fmt.Sprintf(`SELECT %s.object, %s.objectnonce, %s.dekid FROM "%s" %s`, objectDBAlias, objectDBAlias, objectDBAlias, dbName, objectDBAlias)
+	query := fmt.Sprintf(`SELECT o.object, o.objectnonce, o.dekid FROM "%s" o`, dbName)
 	query += "\n  "
-	query += fmt.Sprintf(`JOIN "%s_fields" %s ON %s.key = %s.key`, dbName, fieldDBAlias, objectDBAlias, fieldDBAlias)
+	query += fmt.Sprintf(`JOIN "%s_fields" f ON o.key = f.key`, dbName)
 	if hasLabelFilter(lo.Filters) {
 		query += "\n  "
-		query += fmt.Sprintf(`JOIN "%s_labels" %s ON %s.key = %s.key`, dbName, labelsDBAlias, objectDBAlias, labelsDBAlias)
+		query += fmt.Sprintf(`JOIN "%s_labels" lt ON o.key = lt.key`, dbName)
 	}
 	params := []any{}
 
@@ -476,7 +519,7 @@ func (l *ListOptionIndexer) getFieldFilter(filter Filter) (string, []any, error)
 		return "", nil, err
 	}
 
-	clause := fmt.Sprintf(`%s."%s" %s ? ESCAPE '\'`, fieldDBAlias, columnName, opString)
+	clause := fmt.Sprintf(`f."%s" %s ? ESCAPE '\'`, columnName, opString)
 	return clause, []any{formatMatchTarget(filter)}, nil
 }
 
@@ -488,7 +531,7 @@ func (l *ListOptionIndexer) getLabelFilter(filter Filter) (string, []any, error)
 	if len(filter.Field) < 3 || filter.Field[0] != "metadata" || filter.Field[1] != "labels" {
 		return "", nil, fmt.Errorf("expecting a metadata.labels field, got '%s'", toColumnName(filter.Field))
 	}
-	clause := fmt.Sprintf(`%s.label = ? AND %s.value %s ? ESCAPE '\'`, labelsDBAlias, labelsDBAlias, opString)
+	clause := fmt.Sprintf(`lt.label = ? AND lt.value %s ? ESCAPE '\'`, opString)
 	return clause, []any{formatMatchTargetWithFormatter(filter.Field[2], strictMatchFmt), formatMatchTarget(filter)}, nil
 }
 
