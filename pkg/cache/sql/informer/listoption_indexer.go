@@ -42,12 +42,6 @@ var (
 )
 
 const (
-	objectDBAlias = "o"
-	fieldDBAlias  = "f"
-	labelsDBAlias = "lt" // because "l" can look too much like the numeral "1"
-)
-
-const (
 	matchFmt             = `%%%s%%`
 	strictMatchFmt       = `%s`
 	createFieldsTableFmt = `CREATE TABLE "%s_fields" (
@@ -202,12 +196,12 @@ func (l *ListOptionIndexer) ListByOptions(ctx context.Context, lo ListOptions, p
 	// 1- First, what kind of filtering will be doing?
 	dbName := db.Sanitize(l.GetName())
 	// 1.1- Intro: SELECT and JOIN clauses
-	query := fmt.Sprintf(`SELECT %s.object, %s.objectnonce, %s.dekid FROM "%s" %s`, objectDBAlias, objectDBAlias, objectDBAlias, dbName, objectDBAlias)
+	query := fmt.Sprintf(`SELECT o.object, o.objectnonce, o.dekid FROM "%s" o`, dbName)
 	query += "\n  "
-	query += fmt.Sprintf(`JOIN "%s_fields" %s ON %s.key = %s.key`, dbName, fieldDBAlias, objectDBAlias, fieldDBAlias)
+	query += fmt.Sprintf(`JOIN "%s_fields" f ON o.key = f.key`, dbName)
 	if hasLabelFilter(lo.Filters) {
 		query += "\n  "
-		query += fmt.Sprintf(`JOIN "%s_labels" %s ON %s.key = %s.key`, dbName, labelsDBAlias, objectDBAlias, labelsDBAlias)
+		query += fmt.Sprintf(`JOIN "%s_labels" lt ON o.key = lt.key`, dbName)
 	}
 	params := []any{}
 
@@ -471,7 +465,7 @@ func (l *ListOptionIndexer) getFieldFilter(filter Filter) (string, []any, error)
 		return "", nil, err
 	}
 
-	clause := fmt.Sprintf(`%s."%s" %s ? ESCAPE '\'`, fieldDBAlias, columnName, opString)
+	clause := fmt.Sprintf(`f."%s" %s ? ESCAPE '\'`, columnName, opString)
 	return clause, []any{formatMatchTarget(filter)}, nil
 }
 
@@ -483,7 +477,7 @@ func (l *ListOptionIndexer) getLabelFilter(filter Filter) (string, []any, error)
 	if len(filter.Field) < 3 || filter.Field[0] != "metadata" || filter.Field[1] != "labels" {
 		return "", nil, fmt.Errorf("expecting a metadata.labels field, got '%s'", toColumnName(filter.Field))
 	}
-	clause := fmt.Sprintf(`%s.label = ? AND %s.value %s ? ESCAPE '\'`, labelsDBAlias, labelsDBAlias, opString)
+	clause := fmt.Sprintf(`lt.label = ? AND lt.value %s ? ESCAPE '\'`, opString)
 	return clause, []any{formatMatchTargetWithFormatter(filter.Field[2], strictMatchFmt), formatMatchTarget(filter)}, nil
 }
 
