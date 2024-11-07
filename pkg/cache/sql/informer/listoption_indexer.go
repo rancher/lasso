@@ -56,13 +56,14 @@ const (
 
 	failedToGetFromSliceFmt = "[listoption indexer] failed to get subfield [%s] from slice items: %w"
 
-	// 'key' contains values from the column key of table nodes
 	createLabelsTableFmt = `CREATE TABLE IF NOT EXISTS "%s_labels" (
 		key TEXT NOT NULL REFERENCES "%s"(key) ON DELETE CASCADE,
 		label TEXT NOT NULL,
 		value TEXT NOT NULL,
 		PRIMARY KEY (key, label)
 	)`
+	createLabelsTableIndexFmt = `CREATE INDEX IF NOT EXISTS "%s_labels_index" ON "%s_labels"(label, value)`
+
 	upsertLabelsStmtFmt = `REPLACE INTO "%s_labels"(key, label, value) VALUES (?, ?, ?)`
 	deleteLabelsStmtFmt = `DELETE FROM "%s_labels" WHERE KEY = ?`
 )
@@ -143,6 +144,12 @@ func NewListOptionIndexer(fields [][]string, s Store, namespaced bool) (*ListOpt
 	err = tx.Exec(createLabelsTableQuery)
 	if err != nil {
 		return nil, &db.QueryError{QueryString: createLabelsTableQuery, Err: err}
+	}
+
+	createLabelsTableIndexQuery := fmt.Sprintf(createLabelsTableIndexFmt, dbName, dbName)
+	err = tx.Exec(createLabelsTableIndexQuery)
+	if err != nil {
+		return nil, &db.QueryError{QueryString: createLabelsTableIndexQuery, Err: err}
 	}
 
 	err = tx.Commit()
