@@ -38,8 +38,8 @@ func TestNewListOptionIndexer(t *testing.T) {
 		// logic for NewIndexer(), only interested in if this results in error or not
 		store.EXPECT().BeginTx(gomock.Any(), true).Return(txClient, nil)
 		store.EXPECT().GetName().Return(id).AnyTimes()
-		txClient.EXPECT().Exec(gomock.Any(), gomock.Any()).Return(nil)
-		txClient.EXPECT().Exec(gomock.Any(), gomock.Any()).Return(nil)
+		txClient.EXPECT().Exec(gomock.Any()).Return(nil)
+		txClient.EXPECT().Exec(gomock.Any()).Return(nil)
 		txClient.EXPECT().Commit().Return(nil)
 		store.EXPECT().RegisterAfterUpsert(gomock.Any())
 		store.EXPECT().Prepare(gomock.Any()).Return(stmt).AnyTimes()
@@ -56,6 +56,7 @@ func TestNewListOptionIndexer(t *testing.T) {
 		txClient.EXPECT().Exec(fmt.Sprintf(createFieldsIndexFmt, id, "metadata.namespace", id, "metadata.namespace")).Return(nil)
 		txClient.EXPECT().Exec(fmt.Sprintf(createFieldsIndexFmt, id, "metadata.creationTimestamp", id, "metadata.creationTimestamp")).Return(nil)
 		txClient.EXPECT().Exec(fmt.Sprintf(createFieldsIndexFmt, id, fields[0][0], id, fields[0][0])).Return(nil)
+		txClient.EXPECT().Exec(fmt.Sprintf(createLabelsTableFmt, id, id)).Return(nil)
 		txClient.EXPECT().Commit().Return(nil)
 
 		loi, err := NewListOptionIndexer(fields, store, true)
@@ -152,6 +153,7 @@ func TestNewListOptionIndexer(t *testing.T) {
 		txClient.EXPECT().Exec(fmt.Sprintf(createFieldsIndexFmt, id, "metadata.namespace", id, "metadata.namespace")).Return(nil)
 		txClient.EXPECT().Exec(fmt.Sprintf(createFieldsIndexFmt, id, "metadata.creationTimestamp", id, "metadata.creationTimestamp")).Return(nil)
 		txClient.EXPECT().Exec(fmt.Sprintf(createFieldsIndexFmt, id, fields[0][0], id, fields[0][0])).Return(nil)
+		txClient.EXPECT().Exec(fmt.Sprintf(createLabelsTableFmt, id, id)).Return(nil)
 		txClient.EXPECT().Commit().Return(fmt.Errorf("error"))
 
 		_, err := NewListOptionIndexer(fields, store, true)
