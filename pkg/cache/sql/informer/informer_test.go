@@ -41,7 +41,7 @@ func TestNewInformer(t *testing.T) {
 		// NewStore() from store package logic. This package is only concerned with whether it returns err or not as NewStore
 		// is tested in depth in its own package.
 		dbClient.EXPECT().BeginTx(gomock.Any(), true).Return(txClient, nil)
-		txClient.EXPECT().Exec(gomock.Any(), gomock.Any()).Return(nil)
+		txClient.EXPECT().Exec(gomock.Any()).Return(nil)
 		txClient.EXPECT().Exec(gomock.Any()).Return(nil)
 		txClient.EXPECT().Commit().Return(nil)
 		dbClient.EXPECT().Prepare(gomock.Any()).Return(&sql.Stmt{}).AnyTimes()
@@ -49,18 +49,19 @@ func TestNewInformer(t *testing.T) {
 		// NewIndexer() logic (within NewListOptionIndexer(). This test is only concerned with whether it returns err or not as NewIndexer
 		// is tested in depth in its own indexer_test.go
 		dbClient.EXPECT().BeginTx(gomock.Any(), true).Return(txClient, nil)
-		txClient.EXPECT().Exec(gomock.Any(), gomock.Any()).Return(nil)
-		txClient.EXPECT().Exec(gomock.Any(), gomock.Any()).Return(nil)
+		txClient.EXPECT().Exec(gomock.Any()).Return(nil)
+		txClient.EXPECT().Exec(gomock.Any()).Return(nil)
 		txClient.EXPECT().Commit().Return(nil)
 
 		// NewListOptionIndexer() logic. This test is only concerned with whether it returns err or not as NewIndexer
 		// is tested in depth in its own indexer_test.go
 		dbClient.EXPECT().BeginTx(context.Background(), true).Return(txClient, nil)
-		txClient.EXPECT().Exec(gomock.Any(), gomock.Any()).Return(nil)
-		txClient.EXPECT().Exec(gomock.Any(), gomock.Any()).Return(nil)
-		txClient.EXPECT().Exec(gomock.Any(), gomock.Any()).Return(nil)
-		txClient.EXPECT().Exec(gomock.Any(), gomock.Any()).Return(nil)
-		txClient.EXPECT().Exec(gomock.Any(), gomock.Any()).Return(nil)
+		txClient.EXPECT().Exec(gomock.Any()).Return(nil)
+		txClient.EXPECT().Exec(gomock.Any()).Return(nil)
+		txClient.EXPECT().Exec(gomock.Any()).Return(nil)
+		txClient.EXPECT().Exec(gomock.Any()).Return(nil)
+		txClient.EXPECT().Exec(gomock.Any()).Return(nil)
+		txClient.EXPECT().Exec(gomock.Any()).Return(nil)
 		txClient.EXPECT().Commit().Return(nil)
 
 		informer, err := NewInformer(dynamicClient, fields, nil, gvk, dbClient, false, true)
@@ -79,7 +80,7 @@ func TestNewInformer(t *testing.T) {
 		// NewStore() from store package logic. This package is only concerned with whether it returns err or not as NewStore
 		// is tested in depth in its own package.
 		dbClient.EXPECT().BeginTx(gomock.Any(), true).Return(txClient, nil)
-		txClient.EXPECT().Exec(gomock.Any(), gomock.Any()).Return(nil)
+		txClient.EXPECT().Exec(gomock.Any()).Return(nil)
 		txClient.EXPECT().Commit().Return(fmt.Errorf("error"))
 
 		_, err := NewInformer(dynamicClient, fields, nil, gvk, dbClient, false, true)
@@ -96,7 +97,7 @@ func TestNewInformer(t *testing.T) {
 		// NewStore() from store package logic. This package is only concerned with whether it returns err or not as NewStore
 		// is tested in depth in its own package.
 		dbClient.EXPECT().BeginTx(gomock.Any(), true).Return(txClient, nil)
-		txClient.EXPECT().Exec(gomock.Any(), gomock.Any()).Return(nil)
+		txClient.EXPECT().Exec(gomock.Any()).Return(nil)
 		txClient.EXPECT().Exec(gomock.Any()).Return(nil)
 		txClient.EXPECT().Commit().Return(nil)
 		dbClient.EXPECT().Prepare(gomock.Any()).Return(&sql.Stmt{}).AnyTimes()
@@ -104,7 +105,7 @@ func TestNewInformer(t *testing.T) {
 		// NewIndexer() logic (within NewListOptionIndexer(). This test is only concerned with whether it returns err or not as NewIndexer
 		// is tested in depth in its own indexer_test.go
 		dbClient.EXPECT().BeginTx(gomock.Any(), true).Return(txClient, nil)
-		txClient.EXPECT().Exec(gomock.Any(), gomock.Any()).Return(nil)
+		txClient.EXPECT().Exec(gomock.Any()).Return(nil)
 		txClient.EXPECT().Commit().Return(fmt.Errorf("error"))
 
 		_, err := NewInformer(dynamicClient, fields, nil, gvk, dbClient, false, true)
@@ -121,7 +122,7 @@ func TestNewInformer(t *testing.T) {
 		// NewStore() from store package logic. This package is only concerned with whether it returns err or not as NewStore
 		// is tested in depth in its own package.
 		dbClient.EXPECT().BeginTx(gomock.Any(), true).Return(txClient, nil)
-		txClient.EXPECT().Exec(gomock.Any(), gomock.Any()).Return(nil)
+		txClient.EXPECT().Exec(gomock.Any()).Return(nil)
 		txClient.EXPECT().Exec(gomock.Any()).Return(nil)
 		txClient.EXPECT().Commit().Return(nil)
 		dbClient.EXPECT().Prepare(gomock.Any()).Return(&sql.Stmt{}).AnyTimes()
@@ -129,18 +130,19 @@ func TestNewInformer(t *testing.T) {
 		// NewIndexer() logic (within NewListOptionIndexer(). This test is only concerned with whether it returns err or not as NewIndexer
 		// is tested in depth in its own indexer_test.go
 		dbClient.EXPECT().BeginTx(gomock.Any(), true).Return(txClient, nil)
-		txClient.EXPECT().Exec(gomock.Any(), gomock.Any()).Return(nil)
-		txClient.EXPECT().Exec(gomock.Any(), gomock.Any()).Return(nil)
+		txClient.EXPECT().Exec(gomock.Any()).Return(nil)
+		txClient.EXPECT().Exec(gomock.Any()).Return(nil)
 		txClient.EXPECT().Commit().Return(nil)
 
 		// NewListOptionIndexer() logic. This test is only concerned with whether it returns err or not as NewIndexer
 		// is tested in depth in its own indexer_test.go
 		dbClient.EXPECT().BeginTx(gomock.Any(), true).Return(txClient, nil)
-		txClient.EXPECT().Exec(gomock.Any(), gomock.Any()).Return(nil)
-		txClient.EXPECT().Exec(gomock.Any(), gomock.Any()).Return(nil)
-		txClient.EXPECT().Exec(gomock.Any(), gomock.Any()).Return(nil)
-		txClient.EXPECT().Exec(gomock.Any(), gomock.Any()).Return(nil)
-		txClient.EXPECT().Exec(gomock.Any(), gomock.Any()).Return(nil)
+		txClient.EXPECT().Exec(gomock.Any()).Return(nil)
+		txClient.EXPECT().Exec(gomock.Any()).Return(nil)
+		txClient.EXPECT().Exec(gomock.Any()).Return(nil)
+		txClient.EXPECT().Exec(gomock.Any()).Return(nil)
+		txClient.EXPECT().Exec(gomock.Any()).Return(nil)
+		txClient.EXPECT().Exec(gomock.Any()).Return(nil)
 		txClient.EXPECT().Commit().Return(fmt.Errorf("error"))
 
 		_, err := NewInformer(dynamicClient, fields, nil, gvk, dbClient, false, true)
@@ -165,7 +167,7 @@ func TestNewInformer(t *testing.T) {
 		// NewStore() from store package logic. This package is only concerned with whether it returns err or not as NewStore
 		// is tested in depth in its own package.
 		dbClient.EXPECT().BeginTx(gomock.Any(), true).Return(txClient, nil)
-		txClient.EXPECT().Exec(gomock.Any(), gomock.Any()).Return(nil)
+		txClient.EXPECT().Exec(gomock.Any()).Return(nil)
 		txClient.EXPECT().Exec(gomock.Any()).Return(nil)
 		txClient.EXPECT().Commit().Return(nil)
 		dbClient.EXPECT().Prepare(gomock.Any()).Return(&sql.Stmt{}).AnyTimes()
@@ -173,18 +175,19 @@ func TestNewInformer(t *testing.T) {
 		// NewIndexer() logic (within NewListOptionIndexer(). This test is only concerned with whether it returns err or not as NewIndexer
 		// is tested in depth in its own indexer_test.go
 		dbClient.EXPECT().BeginTx(gomock.Any(), true).Return(txClient, nil)
-		txClient.EXPECT().Exec(gomock.Any(), gomock.Any()).Return(nil)
-		txClient.EXPECT().Exec(gomock.Any(), gomock.Any()).Return(nil)
+		txClient.EXPECT().Exec(gomock.Any()).Return(nil)
+		txClient.EXPECT().Exec(gomock.Any()).Return(nil)
 		txClient.EXPECT().Commit().Return(nil)
 
 		// NewListOptionIndexer() logic. This test is only concerned with whether it returns err or not as NewIndexer
 		// is tested in depth in its own indexer_test.go
 		dbClient.EXPECT().BeginTx(gomock.Any(), true).Return(txClient, nil)
-		txClient.EXPECT().Exec(gomock.Any(), gomock.Any()).Return(nil)
-		txClient.EXPECT().Exec(gomock.Any(), gomock.Any()).Return(nil)
-		txClient.EXPECT().Exec(gomock.Any(), gomock.Any()).Return(nil)
-		txClient.EXPECT().Exec(gomock.Any(), gomock.Any()).Return(nil)
-		txClient.EXPECT().Exec(gomock.Any(), gomock.Any()).Return(nil)
+		txClient.EXPECT().Exec(gomock.Any()).Return(nil)
+		txClient.EXPECT().Exec(gomock.Any()).Return(nil)
+		txClient.EXPECT().Exec(gomock.Any()).Return(nil)
+		txClient.EXPECT().Exec(gomock.Any()).Return(nil)
+		txClient.EXPECT().Exec(gomock.Any()).Return(nil)
+		txClient.EXPECT().Exec(gomock.Any()).Return(nil)
 		txClient.EXPECT().Commit().Return(nil)
 
 		transformFunc := func(input interface{}) (interface{}, error) {
