@@ -18,6 +18,7 @@ import (
 	"github.com/rancher/lasso/pkg/cache/sql/db"
 	"github.com/rancher/lasso/pkg/cache/sql/partition"
 )
+
 const (
 	// 'key' contains values from the column key of table nodes
 	createLabelsTableFmt = `CREATE TABLE IF NOT EXISTS "%s_labels" (
@@ -37,13 +38,13 @@ type ListOptionIndexer struct {
 	namespaced    bool
 	indexedFields []string
 
-	addFieldQuery    string
-	deleteFieldQuery string
+	addFieldQuery     string
+	deleteFieldQuery  string
 	upsertLabelsQuery string
 	deleteLabelsQuery string
 
-	addFieldStmt    *sql.Stmt
-	deleteFieldStmt *sql.Stmt
+	addFieldStmt     *sql.Stmt
+	deleteFieldStmt  *sql.Stmt
 	upsertLabelsStmt *sql.Stmt
 	deleteLabelsStmt *sql.Stmt
 }
@@ -120,7 +121,7 @@ func NewListOptionIndexer(fields [][]string, s Store, namespaced bool) (*ListOpt
 	columns := make([]string, len(indexedFields))
 	qmarks := make([]string, len(indexedFields))
 	setStatements := make([]string, len(indexedFields))
-	dbName := db.Sanitize(i.GetName)
+	dbName := db.Sanitize(i.GetName())
 
 	for index, field := range indexedFields {
 		// create index for field
@@ -141,7 +142,7 @@ func NewListOptionIndexer(fields [][]string, s Store, namespaced bool) (*ListOpt
 		setStatements[index] = setStatement
 	}
 	createLabelsTableQuery := fmt.Sprintf(createLabelsTableFmt, dbName, dbName)
-	err = txC.Exec(createLabelsTableQuery)
+	err = tx.Exec(createLabelsTableQuery)
 	if err != nil {
 		return nil, &db.QueryError{QueryString: createLabelsTableQuery, Err: err}
 	}
@@ -207,14 +208,14 @@ func (l *ListOptionIndexer) afterUpsert(key string, obj any, tx db.TXClient) err
 	if err != nil {
 		return &db.QueryError{QueryString: l.addFieldQuery, Err: err}
 	}
-	return upsertLabels(tx, key, obj, l.GetShouldEncrypt())
+	return l.upsertLabels(tx, key, obj)
 }
 
 func (l *ListOptionIndexer) upsertLabels(tx db.TXClient, key string, obj any) error {
 	return l.UpsertLabels(tx, l.upsertLabelsStmt, key, obj, l.GetShouldEncrypt())
 }
 
-func (l *ListOptionIndexer) UpsertLabels(tx TXClient, stmt *sql.Stmt, key string, obj any, shouldEncrypt bool) error {
+func (l *ListOptionIndexer) UpsertLabels(tx db.TXClient, stmt *sql.Stmt, key string, obj any, shouldEncrypt bool) error {
 	k8sObj, ok := obj.(*unstructured.Unstructured)
 	if !ok {
 		logrus.Debugf("UpsertLabels: Error?: Can't convert obj into an unstructured thing.")
@@ -238,6 +239,14 @@ func (l *ListOptionIndexer) afterDelete(key string, tx db.TXClient) error {
 		return &db.QueryError{QueryString: l.deleteFieldQuery, Err: err}
 	}
 	return l.deleteLabels(tx, key)
+}
+
+func (l *ListOptionIndexer) deleteLabels(tx db.TXClient, key string) error {
+	err := tx.StmtExec(tx.Stmt(l.deleteLabelsStmt))
+	if err != nil {
+		return &db.QueryError{QueryString: l.deleteLabelsQuery, Err: err}
+	}
+	return nil
 }
 
 // ListByOptions returns objects according to the specified list options and partitions.
