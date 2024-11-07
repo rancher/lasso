@@ -19,18 +19,6 @@ import (
 	"github.com/rancher/lasso/pkg/cache/sql/partition"
 )
 
-const (
-	// 'key' contains values from the column key of table nodes
-	createLabelsTableFmt = `CREATE TABLE IF NOT EXISTS "%s_labels" (
-		key TEXT NOT NULL REFERENCES "%s"(key) ON DELETE CASCADE,
-		label TEXT NOT NULL,
-		value TEXT NOT NULL,
-		PRIMARY KEY (key, label)
-	)`
-	upsertLabelsStmtFmt = `REPLACE INTO "%s_labels"(key, label, value) VALUES (?, ?, ?)`
-	deleteLabelsStmtFmt = `DELETE FROM "%s_labels" WHERE KEY = ?`
-)
-
 // ListOptionIndexer extends Indexer by allowing queries based on ListOption
 type ListOptionIndexer struct {
 	*Indexer
@@ -67,6 +55,16 @@ const (
 	createFieldsIndexFmt = `CREATE INDEX "%s_%s_index" ON "%s_fields"("%s")`
 
 	failedToGetFromSliceFmt = "[listoption indexer] failed to get subfield [%s] from slice items: %w"
+
+	// 'key' contains values from the column key of table nodes
+	createLabelsTableFmt = `CREATE TABLE IF NOT EXISTS "%s_labels" (
+		key TEXT NOT NULL REFERENCES "%s"(key) ON DELETE CASCADE,
+		label TEXT NOT NULL,
+		value TEXT NOT NULL,
+		PRIMARY KEY (key, label)
+	)`
+	upsertLabelsStmtFmt = `REPLACE INTO "%s_labels"(key, label, value) VALUES (?, ?, ?)`
+	deleteLabelsStmtFmt = `DELETE FROM "%s_labels" WHERE KEY = ?`
 )
 
 //QQQ: Prob not needed
@@ -113,7 +111,8 @@ func NewListOptionIndexer(fields [][]string, s Store, namespaced bool) (*ListOpt
 	if err != nil {
 		return nil, err
 	}
-	err = tx.Exec(fmt.Sprintf(createFieldsTableFmt, db.Sanitize(i.GetName()), strings.Join(columnDefs, ", ")))
+	dbName := db.Sanitize(i.GetName())
+	err = tx.Exec(fmt.Sprintf(createFieldsTableFmt, dbName, strings.Join(columnDefs, ", ")))
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +120,6 @@ func NewListOptionIndexer(fields [][]string, s Store, namespaced bool) (*ListOpt
 	columns := make([]string, len(indexedFields))
 	qmarks := make([]string, len(indexedFields))
 	setStatements := make([]string, len(indexedFields))
-	dbName := db.Sanitize(i.GetName())
 
 	for index, field := range indexedFields {
 		// create index for field

@@ -89,12 +89,13 @@ func NewIndexer(indexers cache.Indexers, s Store) (*Indexer, error) {
 	if err != nil {
 		return nil, err
 	}
-	createTableQuery := fmt.Sprintf(createTableFmt, db.Sanitize(s.GetName()))
+	dbName := db.Sanitize(s.GetName())
+	createTableQuery := fmt.Sprintf(createTableFmt, dbName)
 	err = tx.Exec(createTableQuery)
 	if err != nil {
 		return nil, &db.QueryError{QueryString: createTableQuery, Err: err}
 	}
-	createIndexQuery := fmt.Sprintf(createIndexFmt, db.Sanitize(s.GetName()))
+	createIndexQuery := fmt.Sprintf(createIndexFmt, dbName)
 	err = tx.Exec(createIndexQuery)
 	if err != nil {
 		return nil, &db.QueryError{QueryString: createIndexQuery, Err: err}

@@ -24,8 +24,6 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-const TEST_DB_LOCATION = "./sqlstore.sqlite"
-
 func testStoreKeyFunc(obj interface{}) (string, error) {
 	return obj.(testStoreObject).Id, nil
 }
@@ -51,7 +49,6 @@ func TestAdd(t *testing.T) {
 		store := SetupStore(t, c, shouldEncrypt)
 		c.EXPECT().BeginTx(gomock.Any(), true).Return(txC, nil)
 		c.EXPECT().Upsert(txC, store.upsertStmt, "something", testObject, store.shouldEncrypt).Return(nil)
-		c.EXPECT().UpsertLabels(txC, store.upsertLabelsStmt, "something", testObject, store.shouldEncrypt).Return(nil)
 		txC.EXPECT().Commit().Return(nil)
 		err := store.Add(testObject)
 		assert.Nil(t, err)
@@ -65,7 +62,6 @@ func TestAdd(t *testing.T) {
 		c.EXPECT().BeginTx(gomock.Any(), true).Return(txC, nil)
 		txC.EXPECT().Commit().Return(nil)
 		c.EXPECT().Upsert(txC, store.upsertStmt, "something", testObject, store.shouldEncrypt).Return(nil)
-		c.EXPECT().UpsertLabels(txC, store.upsertLabelsStmt, "something", testObject, store.shouldEncrypt).Return(nil)
 
 		var count int
 		store.afterUpsert = append(store.afterUpsert, func(key string, object any, tx db.TXClient) error {
@@ -83,7 +79,6 @@ func TestAdd(t *testing.T) {
 		store := SetupStore(t, c, shouldEncrypt)
 		c.EXPECT().BeginTx(gomock.Any(), true).Return(txC, nil)
 		c.EXPECT().Upsert(txC, store.upsertStmt, "something", testObject, store.shouldEncrypt).Return(nil)
-		c.EXPECT().UpsertLabels(txC, store.upsertLabelsStmt, "something", testObject, store.shouldEncrypt).Return(nil)
 		store.afterUpsert = append(store.afterUpsert, func(key string, object any, txC db.TXClient) error {
 			return fmt.Errorf("error")
 		})
@@ -125,7 +120,6 @@ func TestAdd(t *testing.T) {
 		store := SetupStore(t, c, shouldEncrypt)
 		c.EXPECT().BeginTx(gomock.Any(), true).Return(txC, nil)
 		c.EXPECT().Upsert(txC, store.upsertStmt, "something", testObject, store.shouldEncrypt).Return(nil)
-		c.EXPECT().UpsertLabels(txC, store.upsertLabelsStmt, "something", testObject, store.shouldEncrypt).Return(nil)
 		txC.EXPECT().Commit().Return(fmt.Errorf("failed"))
 
 		err := store.Add(testObject)
@@ -156,7 +150,6 @@ func TestUpdate(t *testing.T) {
 		store := SetupStore(t, c, shouldEncrypt)
 		c.EXPECT().BeginTx(gomock.Any(), true).Return(txC, nil)
 		c.EXPECT().Upsert(txC, store.upsertStmt, "something", testObject, store.shouldEncrypt).Return(nil)
-		c.EXPECT().UpsertLabels(txC, store.upsertLabelsStmt, "something", testObject, store.shouldEncrypt).Return(nil)
 		txC.EXPECT().Commit().Return(nil)
 		err := store.Update(testObject)
 		assert.Nil(t, err)
@@ -169,7 +162,6 @@ func TestUpdate(t *testing.T) {
 		store := SetupStore(t, c, shouldEncrypt)
 		c.EXPECT().BeginTx(gomock.Any(), true).Return(txC, nil)
 		c.EXPECT().Upsert(txC, store.upsertStmt, "something", testObject, store.shouldEncrypt).Return(nil)
-		c.EXPECT().UpsertLabels(txC, store.upsertLabelsStmt, "something", testObject, store.shouldEncrypt).Return(nil)
 		txC.EXPECT().Commit().Return(nil)
 
 		var count int
@@ -188,7 +180,6 @@ func TestUpdate(t *testing.T) {
 		store := SetupStore(t, c, shouldEncrypt)
 		c.EXPECT().BeginTx(gomock.Any(), true).Return(txC, nil)
 		c.EXPECT().Upsert(txC, store.upsertStmt, "something", testObject, store.shouldEncrypt).Return(nil)
-		c.EXPECT().UpsertLabels(txC, store.upsertLabelsStmt, "something", testObject, store.shouldEncrypt).Return(nil)
 
 		store.afterUpsert = append(store.afterUpsert, func(key string, object any, txC db.TXClient) error {
 			return fmt.Errorf("error")
@@ -230,7 +221,6 @@ func TestUpdate(t *testing.T) {
 		store := SetupStore(t, c, shouldEncrypt)
 		c.EXPECT().BeginTx(gomock.Any(), true).Return(txC, nil)
 		c.EXPECT().Upsert(txC, store.upsertStmt, "something", testObject, store.shouldEncrypt).Return(nil)
-		c.EXPECT().UpsertLabels(txC, store.upsertLabelsStmt, "something", testObject, store.shouldEncrypt).Return(nil)
 		txC.EXPECT().Commit().Return(fmt.Errorf("failed"))
 
 		err := store.Update(testObject)
@@ -519,7 +509,6 @@ func TestReplace(t *testing.T) {
 		txC.EXPECT().Stmt(store.deleteStmt).Return(store.deleteStmt)
 		txC.EXPECT().StmtExec(store.deleteStmt, testObject.Id)
 		c.EXPECT().Upsert(txC, store.upsertStmt, testObject.Id, testObject, store.shouldEncrypt)
-		c.EXPECT().UpsertLabels(txC, store.upsertLabelsStmt, testObject.Id, testObject, store.shouldEncrypt)
 		txC.EXPECT().Commit()
 		err := store.Replace([]any{testObject}, testObject.Id)
 		assert.Nil(t, err)
@@ -534,7 +523,6 @@ func TestReplace(t *testing.T) {
 		c.EXPECT().QueryForRows(context.TODO(), store.listKeysStmt).Return(r, nil)
 		c.EXPECT().ReadStrings(r).Return([]string{}, nil)
 		c.EXPECT().Upsert(txC, store.upsertStmt, testObject.Id, testObject, store.shouldEncrypt)
-		c.EXPECT().UpsertLabels(txC, store.upsertLabelsStmt, "something", testObject, store.shouldEncrypt)
 		txC.EXPECT().Commit()
 		err := store.Replace([]any{testObject}, testObject.Id)
 		assert.Nil(t, err)
@@ -637,15 +625,12 @@ func SetupMockDB(t *testing.T) (*MockDBClient, *MockTXClient) {
 	txC := NewMockTXClient(gomock.NewController(t))
 	// stmt := NewMockStmt(gomock.NewController())
 	txC.EXPECT().Exec(fmt.Sprintf(createTableFmt, "testStoreObject")).Return(nil)
-	txC.EXPECT().Exec(fmt.Sprintf(createLabelsTableFmt, "testStoreObject", "testStoreObject")).Return(nil)
 	txC.EXPECT().Commit().Return(nil)
 	dbC.EXPECT().BeginTx(gomock.Any(), true).Return(txC, nil)
 
 	// use stmt mock here
 	dbC.EXPECT().Prepare(fmt.Sprintf(upsertStmtFmt, "testStoreObject")).Return(&sql.Stmt{})
-	dbC.EXPECT().Prepare(fmt.Sprintf(upsertLabelsStmtFmt, "testStoreObject")).Return(&sql.Stmt{})
 	dbC.EXPECT().Prepare(fmt.Sprintf(deleteStmtFmt, "testStoreObject")).Return(&sql.Stmt{})
-	dbC.EXPECT().Prepare(fmt.Sprintf(deleteLabelsStmtFmt, "testStoreObject")).Return(&sql.Stmt{})
 	dbC.EXPECT().Prepare(fmt.Sprintf(getStmtFmt, "testStoreObject")).Return(&sql.Stmt{})
 	dbC.EXPECT().Prepare(fmt.Sprintf(listStmtFmt, "testStoreObject")).Return(&sql.Stmt{})
 	dbC.EXPECT().Prepare(fmt.Sprintf(listKeysStmtFmt, "testStoreObject")).Return(&sql.Stmt{})
