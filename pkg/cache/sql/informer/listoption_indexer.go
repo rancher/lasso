@@ -56,7 +56,6 @@ const (
 
 	failedToGetFromSliceFmt = "[listoption indexer] failed to get subfield [%s] from slice items: %w"
 
-	// 'key' contains values from the column key of table nodes
 	createLabelsTableFmt = `CREATE TABLE IF NOT EXISTS "%s_labels" (
 		key TEXT NOT NULL REFERENCES "%s"(key) ON DELETE CASCADE,
 		label TEXT NOT NULL,
