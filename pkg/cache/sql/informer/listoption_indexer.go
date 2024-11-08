@@ -100,7 +100,8 @@ func NewListOptionIndexer(fields [][]string, s Store, namespaced bool) (*ListOpt
 		namespaced:    namespaced,
 		indexedFields: indexedFields,
 	}
-	l.RegisterAfterUpsert(l.afterUpsert)
+	l.RegisterAfterUpsert(l.addIndexFields)
+	l.RegisterAfterUpsert(l.addLabels)
 	l.RegisterAfterDelete(l.afterDelete)
 	columnDefs := make([]string, len(indexedFields))
 	for index, field := range indexedFields {
@@ -179,8 +180,8 @@ func NewListOptionIndexer(fields [][]string, s Store, namespaced bool) (*ListOpt
 
 /* Core methods */
 
-// afterUpsert saves sortable/filterable fields into tables
-func (l *ListOptionIndexer) afterUpsert(key string, obj any, tx db.TXClient) error {
+// addIndexFields saves sortable/filterable fields into tables
+func (l *ListOptionIndexer) addIndexFields(key string, obj any, tx db.TXClient) error {
 	args := []any{key}
 	for _, field := range l.indexedFields {
 		value, err := getField(obj, field)
@@ -213,14 +214,11 @@ func (l *ListOptionIndexer) afterUpsert(key string, obj any, tx db.TXClient) err
 	if err != nil {
 		return &db.QueryError{QueryString: l.addFieldQuery, Err: err}
 	}
-	return l.upsertLabels(tx, key, obj)
+	return nil
 }
 
-func (l *ListOptionIndexer) upsertLabels(tx db.TXClient, key string, obj any) error {
-	return l.UpsertLabels(tx, l.upsertLabelsStmt, key, obj, l.GetShouldEncrypt())
-}
-
-func (l *ListOptionIndexer) UpsertLabels(tx db.TXClient, stmt *sql.Stmt, key string, obj any, shouldEncrypt bool) error {
+// labels are stored in tables that shadow the underlying object table for each GVK
+func (l *ListOptionIndexer) addLabels(key string, obj any, tx db.TXClient) error {
 	k8sObj, ok := obj.(*unstructured.Unstructured)
 	if !ok {
 		logrus.Debugf("UpsertLabels: Error?: Can't convert obj into an unstructured thing.")
@@ -228,7 +226,7 @@ func (l *ListOptionIndexer) UpsertLabels(tx db.TXClient, stmt *sql.Stmt, key str
 	}
 	incomingLabels := k8sObj.GetLabels()
 	for k, v := range incomingLabels {
-		err := tx.StmtExec(tx.Stmt(stmt), key, k, v)
+		err := tx.StmtExec(tx.Stmt(l.upsertLabelsStmt), key, k, v)
 		if err != nil {
 			return err
 		}

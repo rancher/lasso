@@ -45,7 +45,7 @@ func TestNewListOptionIndexer(t *testing.T) {
 		store.EXPECT().Prepare(gomock.Any()).Return(stmt).AnyTimes()
 		// end NewIndexer() logic
 
-		store.EXPECT().RegisterAfterUpsert(gomock.Any())
+		store.EXPECT().RegisterAfterUpsert(gomock.Any()).Times(2)
 		store.EXPECT().RegisterAfterDelete(gomock.Any())
 
 		store.EXPECT().BeginTx(gomock.Any(), true).Return(txClient, nil)
@@ -95,7 +95,7 @@ func TestNewListOptionIndexer(t *testing.T) {
 		store.EXPECT().Prepare(gomock.Any()).Return(stmt).AnyTimes()
 		// end NewIndexer() logic
 
-		store.EXPECT().RegisterAfterUpsert(gomock.Any())
+		store.EXPECT().RegisterAfterUpsert(gomock.Any()).Times(2)
 		store.EXPECT().RegisterAfterDelete(gomock.Any())
 
 		store.EXPECT().BeginTx(gomock.Any(), true).Return(txClient, fmt.Errorf("error"))
@@ -119,7 +119,7 @@ func TestNewListOptionIndexer(t *testing.T) {
 		store.EXPECT().Prepare(gomock.Any()).Return(stmt).AnyTimes()
 		// end NewIndexer() logic
 
-		store.EXPECT().RegisterAfterUpsert(gomock.Any())
+		store.EXPECT().RegisterAfterUpsert(gomock.Any()).Times(2)
 		store.EXPECT().RegisterAfterDelete(gomock.Any())
 
 		store.EXPECT().BeginTx(gomock.Any(), true).Return(txClient, nil)
@@ -145,7 +145,7 @@ func TestNewListOptionIndexer(t *testing.T) {
 		store.EXPECT().Prepare(gomock.Any()).Return(stmt).AnyTimes()
 		// end NewIndexer() logic
 
-		store.EXPECT().RegisterAfterUpsert(gomock.Any())
+		store.EXPECT().RegisterAfterUpsert(gomock.Any()).Times(2)
 		store.EXPECT().RegisterAfterDelete(gomock.Any())
 
 		store.EXPECT().BeginTx(gomock.Any(), true).Return(txClient, nil)
@@ -175,7 +175,7 @@ func TestNewListOptionIndexer(t *testing.T) {
 		store.EXPECT().Prepare(gomock.Any()).Return(stmt).AnyTimes()
 		// end NewIndexer() logic
 
-		store.EXPECT().RegisterAfterUpsert(gomock.Any())
+		store.EXPECT().RegisterAfterUpsert(gomock.Any()).Times(2)
 		store.EXPECT().RegisterAfterDelete(gomock.Any())
 
 		store.EXPECT().BeginTx(gomock.Any(), true).Return(txClient, nil)
