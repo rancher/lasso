@@ -46,7 +46,7 @@ func TestNewListOptionIndexer(t *testing.T) {
 		// end NewIndexer() logic
 
 		store.EXPECT().RegisterAfterUpsert(gomock.Any()).Times(2)
-		store.EXPECT().RegisterAfterDelete(gomock.Any())
+		store.EXPECT().RegisterAfterDelete(gomock.Any()).Times(2)
 
 		store.EXPECT().BeginTx(gomock.Any(), true).Return(txClient, nil)
 		// create field table
@@ -96,7 +96,7 @@ func TestNewListOptionIndexer(t *testing.T) {
 		// end NewIndexer() logic
 
 		store.EXPECT().RegisterAfterUpsert(gomock.Any()).Times(2)
-		store.EXPECT().RegisterAfterDelete(gomock.Any())
+		store.EXPECT().RegisterAfterDelete(gomock.Any()).Times(2)
 
 		store.EXPECT().BeginTx(gomock.Any(), true).Return(txClient, fmt.Errorf("error"))
 
@@ -120,7 +120,7 @@ func TestNewListOptionIndexer(t *testing.T) {
 		// end NewIndexer() logic
 
 		store.EXPECT().RegisterAfterUpsert(gomock.Any()).Times(2)
-		store.EXPECT().RegisterAfterDelete(gomock.Any())
+		store.EXPECT().RegisterAfterDelete(gomock.Any()).Times(2)
 
 		store.EXPECT().BeginTx(gomock.Any(), true).Return(txClient, nil)
 		txClient.EXPECT().Exec(fmt.Sprintf(createFieldsTableFmt, id, `"metadata.name" TEXT, "metadata.creationTimestamp" TEXT, "metadata.namespace" TEXT, "something" TEXT`)).Return(nil)
@@ -146,7 +146,7 @@ func TestNewListOptionIndexer(t *testing.T) {
 		// end NewIndexer() logic
 
 		store.EXPECT().RegisterAfterUpsert(gomock.Any()).Times(2)
-		store.EXPECT().RegisterAfterDelete(gomock.Any())
+		store.EXPECT().RegisterAfterDelete(gomock.Any()).Times(2)
 
 		store.EXPECT().BeginTx(gomock.Any(), true).Return(txClient, nil)
 		txClient.EXPECT().Exec(fmt.Sprintf(createFieldsTableFmt, id, `"metadata.name" TEXT, "metadata.creationTimestamp" TEXT, "metadata.namespace" TEXT, "something" TEXT`)).Return(nil)
@@ -176,7 +176,7 @@ func TestNewListOptionIndexer(t *testing.T) {
 		// end NewIndexer() logic
 
 		store.EXPECT().RegisterAfterUpsert(gomock.Any()).Times(2)
-		store.EXPECT().RegisterAfterDelete(gomock.Any())
+		store.EXPECT().RegisterAfterDelete(gomock.Any()).Times(2)
 
 		store.EXPECT().BeginTx(gomock.Any(), true).Return(txClient, nil)
 		txClient.EXPECT().Exec(fmt.Sprintf(createFieldsTableFmt, id, `"metadata.name" TEXT, "metadata.creationTimestamp" TEXT, "metadata.namespace" TEXT, "something" TEXT`)).Return(nil)

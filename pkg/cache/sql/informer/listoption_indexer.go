@@ -102,7 +102,8 @@ func NewListOptionIndexer(fields [][]string, s Store, namespaced bool) (*ListOpt
 	}
 	l.RegisterAfterUpsert(l.addIndexFields)
 	l.RegisterAfterUpsert(l.addLabels)
-	l.RegisterAfterDelete(l.afterDelete)
+	l.RegisterAfterDelete(l.deleteIndexFields)
+	l.RegisterAfterDelete(l.deleteLabels)
 	columnDefs := make([]string, len(indexedFields))
 	for index, field := range indexedFields {
 		column := fmt.Sprintf(`"%s" TEXT`, field)
@@ -229,17 +230,17 @@ func (l *ListOptionIndexer) addLabels(key string, obj any, tx db.TXClient) error
 	return nil
 }
 
-func (l *ListOptionIndexer) afterDelete(key string, tx db.TXClient) error {
+func (l *ListOptionIndexer) deleteIndexFields(key string, tx db.TXClient) error {
 	args := []any{key}
 
 	err := tx.StmtExec(tx.Stmt(l.deleteFieldStmt), args...)
 	if err != nil {
 		return &db.QueryError{QueryString: l.deleteFieldQuery, Err: err}
 	}
-	return l.deleteLabels(tx, key)
+	return nil
 }
 
-func (l *ListOptionIndexer) deleteLabels(tx db.TXClient, key string) error {
+func (l *ListOptionIndexer) deleteLabels(key string, tx db.TXClient) error {
 	err := tx.StmtExec(tx.Stmt(l.deleteLabelsStmt))
 	if err != nil {
 		return &db.QueryError{QueryString: l.deleteLabelsQuery, Err: err}
