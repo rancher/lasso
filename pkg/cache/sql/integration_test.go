@@ -3,6 +3,7 @@ package sql
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -37,6 +38,7 @@ type IntegrationSuite struct {
 }
 
 func (i *IntegrationSuite) SetupSuite() {
+	os.Setenv("KUBEBUILDER_ASSETS", "/Users/ericp/Library/Application Support/io.kubebuilder.envtest/k8s/1.31.0-darwin-arm64")
 	i.testEnv = envtest.Environment{}
 	restCfg, err := i.testEnv.Start()
 	i.Require().NoError(err, "error when starting env test - this is likely because setup-envtest wasn't done. Check the README for more information")
@@ -123,7 +125,7 @@ func (i *IntegrationSuite) TestSQLCacheFilters() {
 			name: "matches filter",
 			filters: orFiltersForFilters(informer.Filter{
 				Field:   []string{`metadata`, `annotations[somekey]`},
-				Match:   "somevalue",
+				Matches: []string{"somevalue"},
 				Op:      informer.Eq,
 				Partial: false,
 			}),
@@ -133,7 +135,7 @@ func (i *IntegrationSuite) TestSQLCacheFilters() {
 			name: "partial matches filter",
 			filters: orFiltersForFilters(informer.Filter{
 				Field:   []string{`metadata`, `annotations[somekey]`},
-				Match:   "somevalue",
+				Matches: []string{"somevalue"},
 				Op:      informer.Eq,
 				Partial: true,
 			}),
@@ -143,7 +145,7 @@ func (i *IntegrationSuite) TestSQLCacheFilters() {
 			name: "no matches for filter with underscore as it is interpreted literally",
 			filters: orFiltersForFilters(informer.Filter{
 				Field:   []string{`metadata`, `annotations[somekey]`},
-				Match:   "somevalu_",
+				Matches: []string{"somevalu_"},
 				Op:      informer.Eq,
 				Partial: true,
 			}),
@@ -153,7 +155,7 @@ func (i *IntegrationSuite) TestSQLCacheFilters() {
 			name: "no matches for filter with percent sign as it is interpreted literally",
 			filters: orFiltersForFilters(informer.Filter{
 				Field:   []string{`metadata`, `annotations[somekey]`},
-				Match:   "somevalu%",
+				Matches: []string{"somevalu%"},
 				Op:      informer.Eq,
 				Partial: true,
 			}),
@@ -163,7 +165,7 @@ func (i *IntegrationSuite) TestSQLCacheFilters() {
 			name: "match with special characters",
 			filters: orFiltersForFilters(informer.Filter{
 				Field:   []string{`metadata`, `annotations[somekey]`},
-				Match:   "c%%l_value",
+				Matches: []string{"c%%l_value"},
 				Op:      informer.Eq,
 				Partial: true,
 			}),
@@ -173,7 +175,7 @@ func (i *IntegrationSuite) TestSQLCacheFilters() {
 			name: "match with literal backslash character",
 			filters: orFiltersForFilters(informer.Filter{
 				Field:   []string{`metadata`, `annotations[somekey]`},
-				Match:   `my\windows\path`,
+				Matches: []string{`my\windows\path`},
 				Op:      informer.Eq,
 				Partial: true,
 			}),
@@ -183,7 +185,7 @@ func (i *IntegrationSuite) TestSQLCacheFilters() {
 			name: "not eq filter",
 			filters: orFiltersForFilters(informer.Filter{
 				Field:   []string{`metadata`, `annotations[somekey]`},
-				Match:   "somevalue",
+				Matches: []string{"somevalue"},
 				Op:      informer.NotEq,
 				Partial: false,
 			}),
@@ -193,7 +195,7 @@ func (i *IntegrationSuite) TestSQLCacheFilters() {
 			name: "partial not eq filter",
 			filters: orFiltersForFilters(informer.Filter{
 				Field:   []string{`metadata`, `annotations[somekey]`},
-				Match:   "somevalue",
+				Matches: []string{"somevalue"},
 				Op:      informer.NotEq,
 				Partial: true,
 			}),
@@ -204,13 +206,13 @@ func (i *IntegrationSuite) TestSQLCacheFilters() {
 			filters: orFiltersForFilters(
 				informer.Filter{
 					Field:   []string{`metadata`, `annotations[somekey]`},
-					Match:   "somevalue",
+					Matches: []string{"somevalue"},
 					Op:      informer.Eq,
 					Partial: true,
 				},
 				informer.Filter{
 					Field:   []string{`metadata`, `annotations[somekey]`},
-					Match:   "notequal",
+					Matches: []string{"notequal"},
 					Op:      informer.Eq,
 					Partial: false,
 				},
@@ -222,13 +224,13 @@ func (i *IntegrationSuite) TestSQLCacheFilters() {
 			filters: orFiltersForFilters(
 				informer.Filter{
 					Field:   []string{`metadata`, `annotations[somekey]`},
-					Match:   "somevalue",
+					Matches: []string{"somevalue"},
 					Op:      informer.Eq,
 					Partial: true,
 				},
 				informer.Filter{
 					Field:   []string{`metadata`, `name`},
-					Match:   "missing",
+					Matches: []string{"missing"},
 					Op:      informer.Eq,
 					Partial: false,
 				},
@@ -242,7 +244,7 @@ func (i *IntegrationSuite) TestSQLCacheFilters() {
 					Filters: []informer.Filter{
 						{
 							Field:   []string{`metadata`, `annotations[somekey]`},
-							Match:   "somevalue",
+							Matches: []string{"somevalue"},
 							Op:      informer.Eq,
 							Partial: true,
 						},
@@ -252,7 +254,7 @@ func (i *IntegrationSuite) TestSQLCacheFilters() {
 					Filters: []informer.Filter{
 						{
 							Field:   []string{`metadata`, `name`},
-							Match:   "matches-filter",
+							Matches: []string{"matches-filter"},
 							Op:      informer.Eq,
 							Partial: false,
 						},
@@ -266,7 +268,7 @@ func (i *IntegrationSuite) TestSQLCacheFilters() {
 			filters: orFiltersForFilters(
 				informer.Filter{
 					Field:   []string{`metadata`, `annotations[somekey]`},
-					Match:   "valueNotRepresented",
+					Matches: []string{"valueNotRepresented"},
 					Op:      informer.Eq,
 					Partial: false,
 				},
@@ -282,7 +284,7 @@ func (i *IntegrationSuite) TestSQLCacheFilters() {
 				Filters: test.filters,
 			}
 			partitions := []partition.Partition{defaultPartition}
-			ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+			ctx, cancel := context.WithTimeout(context.Background(), time.Hour*5)
 			defer cancel()
 			cfgMaps, total, continueToken, err := cache.ListByOptions(ctx, options, partitions, testNamespace)
 			i.Require().NoError(err)

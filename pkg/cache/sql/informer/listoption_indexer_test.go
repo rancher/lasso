@@ -46,7 +46,7 @@ func TestNewListOptionIndexer(t *testing.T) {
 		// end NewIndexer() logic
 
 		store.EXPECT().RegisterAfterUpsert(gomock.Any()).Times(2)
-		store.EXPECT().RegisterAfterDelete(gomock.Any())
+		store.EXPECT().RegisterAfterDelete(gomock.Any()).Times(2)
 
 		store.EXPECT().BeginTx(gomock.Any(), true).Return(txClient, nil)
 		// create field table
@@ -96,7 +96,7 @@ func TestNewListOptionIndexer(t *testing.T) {
 		// end NewIndexer() logic
 
 		store.EXPECT().RegisterAfterUpsert(gomock.Any()).Times(2)
-		store.EXPECT().RegisterAfterDelete(gomock.Any())
+		store.EXPECT().RegisterAfterDelete(gomock.Any()).Times(2)
 
 		store.EXPECT().BeginTx(gomock.Any(), true).Return(txClient, fmt.Errorf("error"))
 
@@ -120,7 +120,7 @@ func TestNewListOptionIndexer(t *testing.T) {
 		// end NewIndexer() logic
 
 		store.EXPECT().RegisterAfterUpsert(gomock.Any()).Times(2)
-		store.EXPECT().RegisterAfterDelete(gomock.Any())
+		store.EXPECT().RegisterAfterDelete(gomock.Any()).Times(2)
 
 		store.EXPECT().BeginTx(gomock.Any(), true).Return(txClient, nil)
 		txClient.EXPECT().Exec(fmt.Sprintf(createFieldsTableFmt, id, `"metadata.name" TEXT, "metadata.creationTimestamp" TEXT, "metadata.namespace" TEXT, "something" TEXT`)).Return(nil)
@@ -146,7 +146,7 @@ func TestNewListOptionIndexer(t *testing.T) {
 		// end NewIndexer() logic
 
 		store.EXPECT().RegisterAfterUpsert(gomock.Any()).Times(2)
-		store.EXPECT().RegisterAfterDelete(gomock.Any())
+		store.EXPECT().RegisterAfterDelete(gomock.Any()).Times(2)
 
 		store.EXPECT().BeginTx(gomock.Any(), true).Return(txClient, nil)
 		txClient.EXPECT().Exec(fmt.Sprintf(createFieldsTableFmt, id, `"metadata.name" TEXT, "metadata.creationTimestamp" TEXT, "metadata.namespace" TEXT, "something" TEXT`)).Return(nil)
@@ -176,7 +176,7 @@ func TestNewListOptionIndexer(t *testing.T) {
 		// end NewIndexer() logic
 
 		store.EXPECT().RegisterAfterUpsert(gomock.Any()).Times(2)
-		store.EXPECT().RegisterAfterDelete(gomock.Any())
+		store.EXPECT().RegisterAfterDelete(gomock.Any()).Times(2)
 
 		store.EXPECT().BeginTx(gomock.Any(), true).Return(txClient, nil)
 		txClient.EXPECT().Exec(fmt.Sprintf(createFieldsTableFmt, id, `"metadata.name" TEXT, "metadata.creationTimestamp" TEXT, "metadata.namespace" TEXT, "something" TEXT`)).Return(nil)
@@ -217,7 +217,7 @@ func TestListByOptions(t *testing.T) {
 	testObject := testStoreObject{Id: "something", Val: "a"}
 	unstrTestObjectMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&testObject)
 	assert.Nil(t, err)
-	// unstrTestObject
+
 	var tests []testCase
 	tests = append(tests, testCase{
 		description: "ListByOptions() with no errors returned, should not return an error",
@@ -302,8 +302,10 @@ func TestListByOptions(t *testing.T) {
 			{
 				[]Filter{
 					{
-						Field: []string{"metadata", "somefield"},
-						Match: "somevalue",
+						Field:   []string{"metadata", "somefield"},
+						Matches: []string{"somevalue"},
+						Op:      Eq,
+						Partial: true,
 					},
 				},
 			},
@@ -317,7 +319,7 @@ func TestListByOptions(t *testing.T) {
     (f."metadata.somefield" LIKE ? ESCAPE '\') AND
     (FALSE)
   ORDER BY f."metadata.name" ASC `,
-		expectedStmtArgs:  []any{"somevalue"},
+		expectedStmtArgs:  []any{"%somevalue%"},
 		returnList:        []any{&unstructured.Unstructured{Object: unstrTestObjectMap}, &unstructured.Unstructured{Object: unstrTestObjectMap}},
 		expectedList:      &unstructured.UnstructuredList{Object: map[string]interface{}{"items": []map[string]interface{}{unstrTestObjectMap, unstrTestObjectMap}}, Items: []unstructured.Unstructured{{Object: unstrTestObjectMap}, {Object: unstrTestObjectMap}}},
 		expectedContToken: "",
@@ -329,9 +331,10 @@ func TestListByOptions(t *testing.T) {
 			{
 				[]Filter{
 					{
-						Field: []string{"metadata", "somefield"},
-						Match: "somevalue",
-						Op:    NotEq,
+						Field:   []string{"metadata", "somefield"},
+						Matches: []string{"somevalue"},
+						Op:      NotEq,
+						Partial: true,
 					},
 				},
 			},
@@ -345,7 +348,7 @@ func TestListByOptions(t *testing.T) {
     (f."metadata.somefield" NOT LIKE ? ESCAPE '\') AND
     (FALSE)
   ORDER BY f."metadata.name" ASC `,
-		expectedStmtArgs:  []any{"somevalue"},
+		expectedStmtArgs:  []any{"%somevalue%"},
 		returnList:        []any{&unstructured.Unstructured{Object: unstrTestObjectMap}, &unstructured.Unstructured{Object: unstrTestObjectMap}},
 		expectedList:      &unstructured.UnstructuredList{Object: map[string]interface{}{"items": []map[string]interface{}{unstrTestObjectMap, unstrTestObjectMap}}, Items: []unstructured.Unstructured{{Object: unstrTestObjectMap}, {Object: unstrTestObjectMap}}},
 		expectedContToken: "",
@@ -358,7 +361,8 @@ func TestListByOptions(t *testing.T) {
 				[]Filter{
 					{
 						Field:   []string{"metadata", "somefield"},
-						Match:   "somevalue",
+						Matches: []string{"somevalue"},
+						Op:      Eq,
 						Partial: true,
 					},
 				},
@@ -386,17 +390,21 @@ func TestListByOptions(t *testing.T) {
 				[]Filter{
 					{
 						Field:   []string{"metadata", "somefield"},
-						Match:   "somevalue",
+						Matches: []string{"somevalue"},
+						Op:      Eq,
 						Partial: true,
 					},
 					{
-						Field: []string{"metadata", "somefield"},
-						Match: "someothervalue",
+						Field:   []string{"metadata", "somefield"},
+						Matches: []string{"someothervalue"},
+						Op:      Eq,
+						Partial: true,
 					},
 					{
-						Field: []string{"metadata", "somefield"},
-						Match: "somethirdvalue",
-						Op:    NotEq,
+						Field:   []string{"metadata", "somefield"},
+						Matches: []string{"somethirdvalue"},
+						Op:      NotEq,
+						Partial: true,
 					},
 				},
 			},
@@ -410,7 +418,7 @@ func TestListByOptions(t *testing.T) {
     (f."metadata.somefield" LIKE ? ESCAPE '\' OR f."metadata.somefield" LIKE ? ESCAPE '\' OR f."metadata.somefield" NOT LIKE ? ESCAPE '\') AND
     (FALSE)
   ORDER BY f."metadata.name" ASC `,
-		expectedStmtArgs:  []any{"%somevalue%", "someothervalue", "somethirdvalue"},
+		expectedStmtArgs:  []any{"%somevalue%", "%someothervalue%", "%somethirdvalue%"},
 		returnList:        []any{&unstructured.Unstructured{Object: unstrTestObjectMap}, &unstructured.Unstructured{Object: unstrTestObjectMap}},
 		expectedList:      &unstructured.UnstructuredList{Object: map[string]interface{}{"items": []map[string]interface{}{unstrTestObjectMap, unstrTestObjectMap}}, Items: []unstructured.Unstructured{{Object: unstrTestObjectMap}, {Object: unstrTestObjectMap}}},
 		expectedContToken: "",
@@ -423,22 +431,25 @@ func TestListByOptions(t *testing.T) {
 				Filters: []Filter{
 					{
 						Field:   []string{"metadata", "somefield"},
-						Match:   "somevalue",
+						Matches: []string{"somevalue"},
+						Op:      Eq,
 						Partial: true,
 					},
 					{
-						Field: []string{"status", "someotherfield"},
-						Match: "someothervalue",
-						Op:    NotEq,
+						Field:   []string{"status", "someotherfield"},
+						Matches: []string{"someothervalue"},
+						Op:      NotEq,
+						Partial: true,
 					},
 				},
 			},
 			{
 				Filters: []Filter{
 					{
-						Field: []string{"metadata", "somefield"},
-						Match: "somethirdvalue",
-						Op:    Eq,
+						Field:   []string{"metadata", "somefield"},
+						Matches: []string{"somethirdvalue"},
+						Op:      Eq,
+						Partial: true,
 					},
 				},
 			},
@@ -454,7 +465,7 @@ func TestListByOptions(t *testing.T) {
     (f."metadata.namespace" = ?) AND
     (FALSE)
   ORDER BY f."metadata.name" ASC `,
-		expectedStmtArgs:  []any{"%somevalue%", "someothervalue", "somethirdvalue", "test4"},
+		expectedStmtArgs:  []any{"%somevalue%", "%someothervalue%", "%somethirdvalue%", "test4"},
 		returnList:        []any{&unstructured.Unstructured{Object: unstrTestObjectMap}, &unstructured.Unstructured{Object: unstrTestObjectMap}},
 		expectedList:      &unstructured.UnstructuredList{Object: map[string]interface{}{"items": []map[string]interface{}{unstrTestObjectMap, unstrTestObjectMap}}, Items: []unstructured.Unstructured{{Object: unstrTestObjectMap}, {Object: unstrTestObjectMap}}},
 		expectedContToken: "",
@@ -467,7 +478,8 @@ func TestListByOptions(t *testing.T) {
 				Filters: []Filter{
 					{
 						Field:   []string{"metadata", "labels", "guard.cattle.io"},
-						Match:   "lodgepole",
+						Matches: []string{"lodgepole"},
+						Op:      Eq,
 						Partial: true,
 					},
 				},
