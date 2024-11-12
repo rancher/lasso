@@ -165,7 +165,12 @@ func (l *ListOptionIndexer) afterUpsert(key string, obj any, tx db.TXClient) err
 		case []string:
 			args = append(args, strings.Join(typedValue, "|"))
 		default:
-			return fmt.Errorf("field %v has a non-supported type value: %v", field, value)
+			err2 := fmt.Errorf("field %v has a non-supported type value: %v", field, value)
+			cErr := tx.Cancel()
+			if cErr != nil {
+				return fmt.Errorf("could not cancel transaction: %s while recovering from error: %w", cErr, err2)
+			}
+			return err2
 		}
 	}
 
