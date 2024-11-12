@@ -10,6 +10,7 @@ import (
 	"database/sql"
 	"encoding/gob"
 	"fmt"
+	"io/fs"
 	"os"
 	"reflect"
 	"sync"
@@ -22,6 +23,8 @@ import (
 const (
 	// InformerObjectCacheDBPath is where SQLite's object database file will be stored relative to process running lasso
 	InformerObjectCacheDBPath = "informer_object_cache.db"
+
+	informerObjectCachePerms fs.FileMode = 0o600
 )
 
 // Client is a database client that provides encrypting, decrypting, and database resetting.
@@ -104,6 +107,7 @@ func NewClient(c Connection, encryptor Encryptor, decryptor Decryptor) (*Client,
 	if err != nil {
 		return nil, err
 	}
+
 	return client, nil
 }
 
@@ -320,6 +324,12 @@ func (c *Client) NewConnection() error {
 		return err
 	}
 
+	// Set the permissions in advance, because we can't control them if
+	// the file is created by a sql.Open call instead.
+	if err := touchFile(InformerObjectCacheDBPath, informerObjectCachePerms); err != nil {
+		return nil
+	}
+
 	sqlDB, err := sql.Open("sqlite", "file:"+InformerObjectCacheDBPath+"?"+
 		// open SQLite file in read-write mode, creating it if it does not exist
 		"mode=rwc&"+
@@ -342,4 +352,21 @@ func (c *Client) NewConnection() error {
 
 	c.conn = sqlDB
 	return nil
+}
+
+// This acts like "touch" for both existing files and non-existing files.
+// permissions.
+//
+// It's created with the correct perms, and if the file already exists, it will
+// be chmodded to the correct perms.
+func touchFile(filename string, perms fs.FileMode) error {
+	f, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE, perms)
+	if err != nil {
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+
+	return os.Chmod(filename, perms)
 }
