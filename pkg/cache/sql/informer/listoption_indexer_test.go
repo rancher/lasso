@@ -302,8 +302,9 @@ func TestListByOptions(t *testing.T) {
 			{
 				[]Filter{
 					{
-						Field: []string{"metadata", "somefield"},
-						Match: "somevalue",
+						Field:   []string{"metadata", "somefield"},
+						Matches: []string{"somevalue"},
+						Op:      Eq,
 					},
 				},
 			},
@@ -329,9 +330,9 @@ func TestListByOptions(t *testing.T) {
 			{
 				[]Filter{
 					{
-						Field: []string{"metadata", "somefield"},
-						Match: "somevalue",
-						Op:    NotEq,
+						Field:   []string{"metadata", "somefield"},
+						Matches: []string{"somevalue"},
+						Op:      NotEq,
 					},
 				},
 			},
@@ -358,7 +359,8 @@ func TestListByOptions(t *testing.T) {
 				[]Filter{
 					{
 						Field:   []string{"metadata", "somefield"},
-						Match:   "somevalue",
+						Matches: []string{"somevalue"},
+						Op:      Eq,
 						Partial: true,
 					},
 				},
@@ -386,17 +388,19 @@ func TestListByOptions(t *testing.T) {
 				[]Filter{
 					{
 						Field:   []string{"metadata", "somefield"},
-						Match:   "somevalue",
+						Matches: []string{"somevalue"},
+						Op:      Eq,
 						Partial: true,
 					},
 					{
-						Field: []string{"metadata", "somefield"},
-						Match: "someothervalue",
+						Field:   []string{"metadata", "somefield"},
+						Matches: []string{"someothervalue"},
+						Op:      Eq,
 					},
 					{
-						Field: []string{"metadata", "somefield"},
-						Match: "somethirdvalue",
-						Op:    NotEq,
+						Field:   []string{"metadata", "somefield"},
+						Matches: []string{"somethirdvalue"},
+						Op:      NotEq,
 					},
 				},
 			},
@@ -423,22 +427,23 @@ func TestListByOptions(t *testing.T) {
 				Filters: []Filter{
 					{
 						Field:   []string{"metadata", "somefield"},
-						Match:   "somevalue",
+						Matches: []string{"somevalue"},
+						Op:      Eq,
 						Partial: true,
 					},
 					{
-						Field: []string{"status", "someotherfield"},
-						Match: "someothervalue",
-						Op:    NotEq,
+						Field:   []string{"status", "someotherfield"},
+						Matches: []string{"someothervalue"},
+						Op:      NotEq,
 					},
 				},
 			},
 			{
 				Filters: []Filter{
 					{
-						Field: []string{"metadata", "somefield"},
-						Match: "somethirdvalue",
-						Op:    Eq,
+						Field:   []string{"metadata", "somefield"},
+						Matches: []string{"somethirdvalue"},
+						Op:      Eq,
 					},
 				},
 			},
@@ -467,7 +472,8 @@ func TestListByOptions(t *testing.T) {
 				Filters: []Filter{
 					{
 						Field:   []string{"metadata", "labels", "guard.cattle.io"},
-						Match:   "lodgepole",
+						Matches: []string{"lodgepole"},
+						Op:      Eq,
 						Partial: true,
 					},
 				},

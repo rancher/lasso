@@ -241,7 +241,7 @@ func (l *ListOptionIndexer) deleteIndexFields(key string, tx db.TXClient) error 
 }
 
 func (l *ListOptionIndexer) deleteLabels(key string, tx db.TXClient) error {
-	err := tx.StmtExec(tx.Stmt(l.deleteLabelsStmt))
+	err := tx.StmtExec(tx.Stmt(l.deleteLabelsStmt), key)
 	if err != nil {
 		return &db.QueryError{QueryString: l.deleteLabelsQuery, Err: err}
 	}
@@ -517,30 +517,122 @@ func (l *ListOptionIndexer) buildORClauseFromFilters(orFilters OrFilter) (string
 	return strings.Join(clauses, " OR "), params, nil
 }
 
+//type Filter struct {
+//	Field   []string
+//	Match   []string
+//	Op      Op: one of
+//	Partial bool
+//}
+
+// Possible ops from the k8s parser:
+// KEY = and == (same) VALUE
+// KEY != VALUE
+// KEY exists []  # ,KEY, => this filter
+// KEY ! []  # ,!KEY, => assert KEY doesn't exist
+// KEY in VALUES
+// KEY notin VALUES
+
 func (l *ListOptionIndexer) getFieldFilter(filter Filter) (string, []any, error) {
-	opString := "LIKE"
-	if filter.Op == NotEq {
-		opString = "NOT LIKE"
-	}
+	opString := ""
 	columnName := toColumnName(filter.Field)
 	if err := l.validateColumn(columnName); err != nil {
 		return "", nil, err
 	}
+	switch filter.Op {
+	case Eq:
+		if filter.Partial {
+			opString = "LIKE"
+		} else {
+			opString = "="
+		}
+		clause := fmt.Sprintf((`f."%s" %s ?`), columnName, opString)
+		return clause, []any{formatMatchTarget(filter)}, nil
+	case NotEq:
+		if filter.Partial {
+			opString = "NOT LIKE"
+		} else {
+			opString = "!="
+		}
+		clause := fmt.Sprintf(`(f."%s" %s ?)`, columnName, opString)
+		return clause, []any{formatMatchTarget(filter)}, nil
+	case Exists:
+		clause := fmt.Sprintf(`(f."%s" IS NOT NULL)`, columnName)
+		return clause, []any{}, nil
+	case In:
+		fallthrough
+	case NotIn:
+		target := "()"
+		if len(filter.Matches) > 0 {
+			target = fmt.Sprintf("(?%s)", strings.Repeat(", ?", len(filter.Matches)-1))
+		}
+		opString = "IN"
+		if filter.Op == "notin" {
+			opString = "NOT IN"
+		}
+		clause := fmt.Sprintf(`(f."%s" %s IN %s)`, columnName, opString, target)
+		matches := make([]any, len(filter.Matches))
+		for i, match := range filter.Matches {
+			matches[i] = match
+		}
+		return clause, matches, nil
+	}
 
-	clause := fmt.Sprintf(`f."%s" %s ? ESCAPE '\'`, columnName, opString)
-	return clause, []any{formatMatchTarget(filter)}, nil
+	return "", nil, fmt.Errorf("unrecognized operator: %s", opString)
 }
 
 func (l *ListOptionIndexer) getLabelFilter(filter Filter) (string, []any, error) {
-	opString := "LIKE"
-	if filter.Op == NotEq {
-		opString = "NOT LIKE"
+	opString := ""
+	columnName := toColumnName(filter.Field)
+	if err := l.validateColumn(columnName); err != nil {
+		return "", nil, err
 	}
 	if len(filter.Field) < 3 || filter.Field[0] != "metadata" || filter.Field[1] != "labels" {
 		return "", nil, fmt.Errorf("expecting a metadata.labels field, got '%s'", toColumnName(filter.Field))
 	}
-	clause := fmt.Sprintf(`lt.label = ? AND lt.value %s ? ESCAPE '\'`, opString)
-	return clause, []any{formatMatchTargetWithFormatter(filter.Field[2], strictMatchFmt), formatMatchTarget(filter)}, nil
+	matchFmtToUse := strictMatchFmt
+	switch filter.Op {
+	case Eq:
+		if filter.Partial {
+			opString = "LIKE"
+			matchFmtToUse = matchFmt
+		} else {
+			opString = "="
+		}
+		clause := fmt.Sprintf(`(lt.label = ? AND lt.value %s ?)`, opString)
+		return clause, []any{formatMatchTargetWithFormatter(filter.Field[2], matchFmtToUse), formatMatchTargetWithFormatter(filter.Matches[0], matchFmtToUse)}, nil
+
+	case NotEq:
+		if filter.Partial {
+			opString = "NOT LIKE"
+			matchFmtToUse = matchFmt
+		} else {
+			opString = "!="
+		}
+		clause := fmt.Sprintf(`(lt.label = ? AND lt.value %s ?)`, opString)
+		return clause, []any{formatMatchTargetWithFormatter(filter.Field[2], matchFmtToUse), formatMatchTargetWithFormatter(filter.Matches[0], matchFmtToUse)}, nil
+
+	case Exists:
+		clause := fmt.Sprintf(`(lt.label = ?)`)
+		return clause, []any{formatMatchTargetWithFormatter(filter.Field[2], strictMatchFmt)}, nil
+
+	case In:
+		fallthrough
+	case NotIn:
+		target := fmt.Sprintf("(?%s)", strings.Repeat(", ?", len(filter.Matches)))
+		opString = "IN"
+		if filter.Op == NotIn {
+			opString = "NOT IN"
+		}
+		clause := fmt.Sprintf(`(lt.label = ? AND lt.value %s %s)`, opString, target)
+		matches := make([]any, len(filter.Matches))
+		for i, match := range filter.Matches {
+			matches[i] = match
+		}
+		return clause, matches, nil
+	}
+
+	return "", nil, fmt.Errorf("unrecognized operator: %s", opString)
+
 }
 
 func formatMatchTarget(filter Filter) string {
@@ -548,7 +640,7 @@ func formatMatchTarget(filter Filter) string {
 	if filter.Partial {
 		format = matchFmt
 	}
-	return formatMatchTargetWithFormatter(filter.Match, format)
+	return formatMatchTargetWithFormatter(filter.Matches[0], format)
 }
 
 func formatMatchTargetWithFormatter(match string, format string) string {
@@ -557,7 +649,6 @@ func formatMatchTargetWithFormatter(match string, format string) string {
 	match = strings.ReplaceAll(match, `\`, `\\`)
 	match = strings.ReplaceAll(match, `_`, `\_`)
 	match = strings.ReplaceAll(match, `%`, `\%`)
-
 	return fmt.Sprintf(format, match)
 }
 
