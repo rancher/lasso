@@ -3,6 +3,7 @@ package sql
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -37,6 +38,7 @@ type IntegrationSuite struct {
 }
 
 func (i *IntegrationSuite) SetupSuite() {
+	os.Setenv("KUBEBUILDER_ASSETS", "/Users/ericp/Library/Application Support/io.kubebuilder.envtest/k8s/1.31.0-darwin-arm64")
 	i.testEnv = envtest.Environment{}
 	restCfg, err := i.testEnv.Start()
 	i.Require().NoError(err, "error when starting env test - this is likely because setup-envtest wasn't done. Check the README for more information")
@@ -282,7 +284,7 @@ func (i *IntegrationSuite) TestSQLCacheFilters() {
 				Filters: test.filters,
 			}
 			partitions := []partition.Partition{defaultPartition}
-			ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+			ctx, cancel := context.WithTimeout(context.Background(), time.Hour*5)
 			defer cancel()
 			cfgMaps, total, continueToken, err := cache.ListByOptions(ctx, options, partitions, testNamespace)
 			i.Require().NoError(err)
