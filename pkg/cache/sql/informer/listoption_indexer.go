@@ -46,9 +46,10 @@ var (
 )
 
 const (
-	matchFmt             = `%%%s%%`
-	strictMatchFmt       = `%s`
-	createFieldsTableFmt = `CREATE TABLE "%s_fields" (
+	matchFmt                 = `%%%s%%`
+	strictMatchFmt           = `%s`
+	escapeBackslashDirective = ` ESCAPE '\'` // The leading space is crucial for unit tests only
+	createFieldsTableFmt     = `CREATE TABLE "%s_fields" (
 			key TEXT NOT NULL PRIMARY KEY,
             %s
 	   )`
@@ -424,8 +425,8 @@ func (l *ListOptionIndexer) ListByOptions(ctx context.Context, lo ListOptions, p
 	// assemble and log the final query
 	query += limitClause
 	query += offsetClause
-	logrus.Infof("ListOptionIndexer prepared statement: %v", query)
-	logrus.Infof("Params: %v", params)
+	logrus.Debugf("ListOptionIndexer prepared statement: %v", query)
+	logrus.Debugf("Params: %v", params)
 
 	// execute
 	stmt := l.Prepare(query)
@@ -534,6 +535,7 @@ func (l *ListOptionIndexer) buildORClauseFromFilters(orFilters OrFilter) (string
 
 func (l *ListOptionIndexer) getFieldFilter(filter Filter) (string, []any, error) {
 	opString := ""
+	escapeString := ""
 	columnName := toColumnName(filter.Field)
 	if err := l.validateColumn(columnName); err != nil {
 		return "", nil, err
@@ -542,21 +544,23 @@ func (l *ListOptionIndexer) getFieldFilter(filter Filter) (string, []any, error)
 	case Eq:
 		if filter.Partial {
 			opString = "LIKE"
+			escapeString = escapeBackslashDirective
 		} else {
 			opString = "="
 		}
-		clause := fmt.Sprintf((`f."%s" %s ?`), columnName, opString)
+		clause := fmt.Sprintf(`f."%s" %s ?%s`, columnName, opString, escapeString)
 		return clause, []any{formatMatchTarget(filter)}, nil
 	case NotEq:
 		if filter.Partial {
 			opString = "NOT LIKE"
+			escapeString = escapeBackslashDirective
 		} else {
 			opString = "!="
 		}
-		clause := fmt.Sprintf(`(f."%s" %s ?)`, columnName, opString)
+		clause := fmt.Sprintf(`f."%s" %s ?%s`, columnName, opString, escapeString)
 		return clause, []any{formatMatchTarget(filter)}, nil
 	case Exists:
-		clause := fmt.Sprintf(`(f."%s" IS NOT NULL)`, columnName)
+		clause := fmt.Sprintf(`f."%s" IS NOT NULL`, columnName)
 		return clause, []any{}, nil
 	case In:
 		fallthrough
@@ -569,7 +573,7 @@ func (l *ListOptionIndexer) getFieldFilter(filter Filter) (string, []any, error)
 		if filter.Op == "notin" {
 			opString = "NOT IN"
 		}
-		clause := fmt.Sprintf(`(f."%s" %s IN %s)`, columnName, opString, target)
+		clause := fmt.Sprintf(`f."%s" %s IN %s`, columnName, opString, target)
 		matches := make([]any, len(filter.Matches))
 		for i, match := range filter.Matches {
 			matches[i] = match
@@ -582,38 +586,38 @@ func (l *ListOptionIndexer) getFieldFilter(filter Filter) (string, []any, error)
 
 func (l *ListOptionIndexer) getLabelFilter(filter Filter) (string, []any, error) {
 	opString := ""
-	columnName := toColumnName(filter.Field)
-	if err := l.validateColumn(columnName); err != nil {
-		return "", nil, err
-	}
+	escapeString := ""
 	if len(filter.Field) < 3 || filter.Field[0] != "metadata" || filter.Field[1] != "labels" {
-		return "", nil, fmt.Errorf("expecting a metadata.labels field, got '%s'", toColumnName(filter.Field))
+		return "", nil, fmt.Errorf("expecting a metadata.labels field, got '%s'", strings.Join(filter.Field, "."))
 	}
 	matchFmtToUse := strictMatchFmt
+	labelName := filter.Field[2]
 	switch filter.Op {
 	case Eq:
 		if filter.Partial {
 			opString = "LIKE"
+			escapeString = escapeBackslashDirective
 			matchFmtToUse = matchFmt
 		} else {
 			opString = "="
 		}
-		clause := fmt.Sprintf(`(lt.label = ? AND lt.value %s ?)`, opString)
-		return clause, []any{formatMatchTargetWithFormatter(filter.Field[2], matchFmtToUse), formatMatchTargetWithFormatter(filter.Matches[0], matchFmtToUse)}, nil
+		clause := fmt.Sprintf(`lt.label = ? AND lt.value %s ?%s`, opString, escapeString)
+		return clause, []any{labelName, formatMatchTargetWithFormatter(filter.Matches[0], matchFmtToUse)}, nil
 
 	case NotEq:
 		if filter.Partial {
 			opString = "NOT LIKE"
+			escapeString = escapeBackslashDirective
 			matchFmtToUse = matchFmt
 		} else {
 			opString = "!="
 		}
-		clause := fmt.Sprintf(`(lt.label = ? AND lt.value %s ?)`, opString)
-		return clause, []any{formatMatchTargetWithFormatter(filter.Field[2], matchFmtToUse), formatMatchTargetWithFormatter(filter.Matches[0], matchFmtToUse)}, nil
+		clause := fmt.Sprintf(`lt.label = ? AND lt.value %s ?%s`, opString, escapeString)
+		return clause, []any{labelName, formatMatchTargetWithFormatter(filter.Matches[0], matchFmtToUse)}, nil
 
 	case Exists:
-		clause := fmt.Sprintf(`(lt.label = ?)`)
-		return clause, []any{formatMatchTargetWithFormatter(filter.Field[2], strictMatchFmt)}, nil
+		clause := fmt.Sprintf(`lt.label = ?`)
+		return clause, []any{labelName}, nil
 
 	case In:
 		fallthrough
@@ -623,10 +627,11 @@ func (l *ListOptionIndexer) getLabelFilter(filter Filter) (string, []any, error)
 		if filter.Op == NotIn {
 			opString = "NOT IN"
 		}
-		clause := fmt.Sprintf(`(lt.label = ? AND lt.value %s %s)`, opString, target)
-		matches := make([]any, len(filter.Matches))
+		clause := fmt.Sprintf(`lt.label = ? AND lt.value %s %s`, opString, target)
+		matches := make([]any, len(filter.Matches)+1)
+		matches[0] = labelName
 		for i, match := range filter.Matches {
-			matches[i] = match
+			matches[i+1] = match
 		}
 		return clause, matches, nil
 	}

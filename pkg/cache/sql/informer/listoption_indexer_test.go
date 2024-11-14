@@ -217,7 +217,7 @@ func TestListByOptions(t *testing.T) {
 	testObject := testStoreObject{Id: "something", Val: "a"}
 	unstrTestObjectMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&testObject)
 	assert.Nil(t, err)
-	// unstrTestObject
+
 	var tests []testCase
 	tests = append(tests, testCase{
 		description: "ListByOptions() with no errors returned, should not return an error",
@@ -305,6 +305,7 @@ func TestListByOptions(t *testing.T) {
 						Field:   []string{"metadata", "somefield"},
 						Matches: []string{"somevalue"},
 						Op:      Eq,
+						Partial: true,
 					},
 				},
 			},
@@ -318,7 +319,7 @@ func TestListByOptions(t *testing.T) {
     (f."metadata.somefield" LIKE ? ESCAPE '\') AND
     (FALSE)
   ORDER BY f."metadata.name" ASC `,
-		expectedStmtArgs:  []any{"somevalue"},
+		expectedStmtArgs:  []any{"%somevalue%"},
 		returnList:        []any{&unstructured.Unstructured{Object: unstrTestObjectMap}, &unstructured.Unstructured{Object: unstrTestObjectMap}},
 		expectedList:      &unstructured.UnstructuredList{Object: map[string]interface{}{"items": []map[string]interface{}{unstrTestObjectMap, unstrTestObjectMap}}, Items: []unstructured.Unstructured{{Object: unstrTestObjectMap}, {Object: unstrTestObjectMap}}},
 		expectedContToken: "",
@@ -333,6 +334,7 @@ func TestListByOptions(t *testing.T) {
 						Field:   []string{"metadata", "somefield"},
 						Matches: []string{"somevalue"},
 						Op:      NotEq,
+						Partial: true,
 					},
 				},
 			},
@@ -346,7 +348,7 @@ func TestListByOptions(t *testing.T) {
     (f."metadata.somefield" NOT LIKE ? ESCAPE '\') AND
     (FALSE)
   ORDER BY f."metadata.name" ASC `,
-		expectedStmtArgs:  []any{"somevalue"},
+		expectedStmtArgs:  []any{"%somevalue%"},
 		returnList:        []any{&unstructured.Unstructured{Object: unstrTestObjectMap}, &unstructured.Unstructured{Object: unstrTestObjectMap}},
 		expectedList:      &unstructured.UnstructuredList{Object: map[string]interface{}{"items": []map[string]interface{}{unstrTestObjectMap, unstrTestObjectMap}}, Items: []unstructured.Unstructured{{Object: unstrTestObjectMap}, {Object: unstrTestObjectMap}}},
 		expectedContToken: "",
@@ -396,11 +398,13 @@ func TestListByOptions(t *testing.T) {
 						Field:   []string{"metadata", "somefield"},
 						Matches: []string{"someothervalue"},
 						Op:      Eq,
+						Partial: true,
 					},
 					{
 						Field:   []string{"metadata", "somefield"},
 						Matches: []string{"somethirdvalue"},
 						Op:      NotEq,
+						Partial: true,
 					},
 				},
 			},
@@ -414,7 +418,7 @@ func TestListByOptions(t *testing.T) {
     (f."metadata.somefield" LIKE ? ESCAPE '\' OR f."metadata.somefield" LIKE ? ESCAPE '\' OR f."metadata.somefield" NOT LIKE ? ESCAPE '\') AND
     (FALSE)
   ORDER BY f."metadata.name" ASC `,
-		expectedStmtArgs:  []any{"%somevalue%", "someothervalue", "somethirdvalue"},
+		expectedStmtArgs:  []any{"%somevalue%", "%someothervalue%", "%somethirdvalue%"},
 		returnList:        []any{&unstructured.Unstructured{Object: unstrTestObjectMap}, &unstructured.Unstructured{Object: unstrTestObjectMap}},
 		expectedList:      &unstructured.UnstructuredList{Object: map[string]interface{}{"items": []map[string]interface{}{unstrTestObjectMap, unstrTestObjectMap}}, Items: []unstructured.Unstructured{{Object: unstrTestObjectMap}, {Object: unstrTestObjectMap}}},
 		expectedContToken: "",
@@ -435,6 +439,7 @@ func TestListByOptions(t *testing.T) {
 						Field:   []string{"status", "someotherfield"},
 						Matches: []string{"someothervalue"},
 						Op:      NotEq,
+						Partial: true,
 					},
 				},
 			},
@@ -444,6 +449,7 @@ func TestListByOptions(t *testing.T) {
 						Field:   []string{"metadata", "somefield"},
 						Matches: []string{"somethirdvalue"},
 						Op:      Eq,
+						Partial: true,
 					},
 				},
 			},
@@ -459,7 +465,7 @@ func TestListByOptions(t *testing.T) {
     (f."metadata.namespace" = ?) AND
     (FALSE)
   ORDER BY f."metadata.name" ASC `,
-		expectedStmtArgs:  []any{"%somevalue%", "someothervalue", "somethirdvalue", "test4"},
+		expectedStmtArgs:  []any{"%somevalue%", "%someothervalue%", "%somethirdvalue%", "test4"},
 		returnList:        []any{&unstructured.Unstructured{Object: unstrTestObjectMap}, &unstructured.Unstructured{Object: unstrTestObjectMap}},
 		expectedList:      &unstructured.UnstructuredList{Object: map[string]interface{}{"items": []map[string]interface{}{unstrTestObjectMap, unstrTestObjectMap}}, Items: []unstructured.Unstructured{{Object: unstrTestObjectMap}, {Object: unstrTestObjectMap}}},
 		expectedContToken: "",
