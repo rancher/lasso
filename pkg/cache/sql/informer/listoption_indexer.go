@@ -73,8 +73,8 @@ const (
 //	UpsertLabels(tx db.TXClient, stmt *sql.Stmt, key string, obj any, shouldEncrypt bool) error
 
 // NewListOptionIndexer returns a SQLite-backed cache.Indexer of unstructured.Unstructured Kubernetes resources of a certain GVK
-// ListOptionIndexer is also able to satisfy ListOption queries on indexed (sub)fields
-// Fields are specified as slices (eg. "metadata.resourceVersion" is ["metadata", "resourceVersion"])
+// ListOptionIndexer is also able to satisfy ListOption queries on indexed (sub)fields.
+// Fields are specified as slices (e.g. "metadata.resourceVersion" is ["metadata", "resourceVersion"])
 func NewListOptionIndexer(fields [][]string, s Store, namespaced bool) (*ListOptionIndexer, error) {
 	// necessary in order to gob/ungob unstructured.Unstructured objects
 	gob.Register(map[string]interface{}{})
@@ -254,6 +254,15 @@ func (l *ListOptionIndexer) deleteLabels(key string, tx db.TXClient) error {
 	return nil
 }
 
+type QueryInfo struct {
+	query       string
+	params      []any
+	countQuery  string
+	countParams []any
+	limit       int
+	offset      int
+}
+
 // ListByOptions returns objects according to the specified list options and partitions.
 // Specifically:
 //   - an unstructured list of resources belonging to any of the specified partitions
@@ -261,6 +270,77 @@ func (l *ListOptionIndexer) deleteLabels(key string, tx db.TXClient) error {
 //   - a continue token, if there are more pages after the returned one
 //   - an error instead of all of the above if anything went wrong
 func (l *ListOptionIndexer) ListByOptions(ctx context.Context, lo ListOptions, partitions []partition.Partition, namespace string) (*unstructured.UnstructuredList, int, string, error) {
+	queryInfo, err := l.constructQuery(lo, partitions, namespace)
+	if err != nil {
+		return nil, 0, "", err
+	}
+	// execute
+	query := queryInfo.query
+	stmt := l.Prepare(query)
+	defer l.CloseStmt(stmt)
+
+	tx, err := l.BeginTx(ctx, false)
+	if err != nil {
+		return nil, 0, "", err
+	}
+
+	params := queryInfo.params
+	txStmt := tx.Stmt(stmt)
+	rows, err := txStmt.QueryContext(ctx, params...)
+	if err != nil {
+		if cerr := tx.Cancel(); cerr != nil {
+			return nil, 0, "", fmt.Errorf("failed to cancel transaction (%v) after error: %w", cerr, err)
+		}
+		return nil, 0, "", &db.QueryError{QueryString: query, Err: err}
+	}
+	items, err := l.ReadObjects(rows, l.GetType(), l.GetShouldEncrypt())
+	if err != nil {
+		if cerr := tx.Cancel(); cerr != nil {
+			return nil, 0, "", fmt.Errorf("failed to cancel transaction (%v) after error: %w", cerr, err)
+		}
+		return nil, 0, "", err
+	}
+
+	total := len(items)
+	countQuery := queryInfo.countQuery
+	countParams := queryInfo.countParams
+	limit := queryInfo.limit
+	offset := queryInfo.offset
+	// if limit or offset were set, execute counting of all rows
+	if limit > 0 || offset > 0 {
+		countStmt := l.Prepare(countQuery)
+		defer l.CloseStmt(countStmt)
+		txStmt := tx.Stmt(countStmt)
+		rows, err := txStmt.QueryContext(ctx, countParams...)
+		if err != nil {
+			if cerr := tx.Cancel(); cerr != nil {
+				return nil, 0, "", fmt.Errorf("failed to cancel transaction (%v) after error: %w", cerr, err)
+			}
+			return nil, 0, "", fmt.Errorf("error executing query: %w", err)
+		}
+		total, err = l.ReadInt(rows)
+		if err != nil {
+			if cerr := tx.Cancel(); cerr != nil {
+				return nil, 0, "", fmt.Errorf("failed to cancel transaction (%v) after error: %w", cerr, err)
+			}
+			return nil, 0, "", fmt.Errorf("error reading query results: %w", err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, 0, "", err
+	}
+
+	continueToken := ""
+	if limit > 0 && offset+len(items) < total {
+		continueToken = fmt.Sprintf("%d", offset+limit)
+	}
+
+	return toUnstructuredList(items), total, continueToken, nil
+}
+
+func (l *ListOptionIndexer) constructQuery(lo ListOptions, partitions []partition.Partition, namespace string) (*QueryInfo, error) {
+	queryInfo := &QueryInfo{}
+
 	// 1- First, what kind of filtering will be doing?
 	dbName := db.Sanitize(l.GetName())
 	// 1.1- Intro: SELECT and JOIN clauses
@@ -278,7 +358,7 @@ func (l *ListOptionIndexer) ListByOptions(ctx context.Context, lo ListOptions, p
 	for _, orFilters := range lo.Filters {
 		orClause, orParams, err := l.buildORClauseFromFilters(orFilters)
 		if err != nil {
-			return nil, 0, "", err
+			return queryInfo, err
 		}
 		if orClause == "" {
 			continue
@@ -357,7 +437,7 @@ func (l *ListOptionIndexer) ListByOptions(ctx context.Context, lo ListOptions, p
 	if len(lo.Sort.PrimaryField) > 0 {
 		columnName := toColumnName(lo.Sort.PrimaryField)
 		if err := l.validateColumn(columnName); err != nil {
-			return nil, 0, "", err
+			return queryInfo, err
 		}
 
 		direction := "ASC"
@@ -369,7 +449,7 @@ func (l *ListOptionIndexer) ListByOptions(ctx context.Context, lo ListOptions, p
 	if len(lo.Sort.SecondaryField) > 0 {
 		columnName := toColumnName(lo.Sort.SecondaryField)
 		if err := l.validateColumn(columnName); err != nil {
-			return nil, 0, "", err
+			return queryInfo, err
 		}
 
 		direction := "ASC"
@@ -415,7 +495,7 @@ func (l *ListOptionIndexer) ListByOptions(ctx context.Context, lo ListOptions, p
 	if lo.Resume != "" {
 		offsetInt, err := strconv.Atoi(lo.Resume)
 		if err != nil {
-			return nil, 0, "", err
+			return queryInfo, err
 		}
 		offset = offsetInt
 	}
@@ -432,63 +512,15 @@ func (l *ListOptionIndexer) ListByOptions(ctx context.Context, lo ListOptions, p
 	query += offsetClause
 	logrus.Debugf("ListOptionIndexer prepared statement: %v", query)
 	logrus.Debugf("Params: %v", params)
-
-	// execute
-	stmt := l.Prepare(query)
-	defer l.CloseStmt(stmt)
-
-	tx, err := l.BeginTx(ctx, false)
-	if err != nil {
-		return nil, 0, "", err
+	queryInfo = &QueryInfo{
+		query:       query,
+		params:      params,
+		countQuery:  countQuery,
+		countParams: countParams,
+		limit:       limit,
+		offset:      offset,
 	}
-
-	txStmt := tx.Stmt(stmt)
-	rows, err := txStmt.QueryContext(ctx, params...)
-	if err != nil {
-		if cerr := tx.Cancel(); cerr != nil {
-			return nil, 0, "", fmt.Errorf("failed to cancel transaction (%v) after error: %w", cerr, err)
-		}
-		return nil, 0, "", &db.QueryError{QueryString: query, Err: err}
-	}
-	items, err := l.ReadObjects(rows, l.GetType(), l.GetShouldEncrypt())
-	if err != nil {
-		if cerr := tx.Cancel(); cerr != nil {
-			return nil, 0, "", fmt.Errorf("failed to cancel transaction (%v) after error: %w", cerr, err)
-		}
-		return nil, 0, "", err
-	}
-
-	total := len(items)
-	// if limit or offset were set, execute counting of all rows
-	if limit > 0 || offset > 0 {
-		countStmt := l.Prepare(countQuery)
-		defer l.CloseStmt(countStmt)
-		txStmt := tx.Stmt(countStmt)
-		rows, err := txStmt.QueryContext(ctx, countParams...)
-		if err != nil {
-			if cerr := tx.Cancel(); cerr != nil {
-				return nil, 0, "", fmt.Errorf("failed to cancel transaction (%v) after error: %w", cerr, err)
-			}
-			return nil, 0, "", fmt.Errorf("error executing query: %w", err)
-		}
-		total, err = l.ReadInt(rows)
-		if err != nil {
-			if cerr := tx.Cancel(); cerr != nil {
-				return nil, 0, "", fmt.Errorf("failed to cancel transaction (%v) after error: %w", cerr, err)
-			}
-			return nil, 0, "", fmt.Errorf("error reading query results: %w", err)
-		}
-	}
-	if err := tx.Commit(); err != nil {
-		return nil, 0, "", err
-	}
-
-	continueToken := ""
-	if limit > 0 && offset+len(items) < total {
-		continueToken = fmt.Sprintf("%d", offset+limit)
-	}
-
-	return toUnstructuredList(items), total, continueToken, nil
+	return queryInfo, nil
 }
 
 func (l *ListOptionIndexer) validateColumn(column string) error {
