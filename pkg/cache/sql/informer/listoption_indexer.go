@@ -48,7 +48,7 @@ var (
 const (
 	matchFmt                 = `%%%s%%`
 	strictMatchFmt           = `%s`
-	escapeBackslashDirective = ` ESCAPE '\'` // The leading space is crucial for unit tests only
+	escapeBackslashDirective = ` ESCAPE '\'` // The leading space is crucial for unit tests only '
 	createFieldsTableFmt     = `CREATE TABLE "%s_fields" (
 			key TEXT NOT NULL PRIMARY KEY,
             %s
@@ -270,79 +270,17 @@ type QueryInfo struct {
 //   - a continue token, if there are more pages after the returned one
 //   - an error instead of all of the above if anything went wrong
 func (l *ListOptionIndexer) ListByOptions(ctx context.Context, lo ListOptions, partitions []partition.Partition, namespace string) (*unstructured.UnstructuredList, int, string, error) {
-	queryInfo, err := l.constructQuery(lo, partitions, namespace)
+	queryInfo, err := l.constructQuery(lo, partitions, namespace, db.Sanitize(l.GetName()))
 	if err != nil {
 		return nil, 0, "", err
 	}
-	// execute
-	query := queryInfo.query
-	stmt := l.Prepare(query)
-	defer l.CloseStmt(stmt)
-
-	tx, err := l.BeginTx(ctx, false)
-	if err != nil {
-		return nil, 0, "", err
-	}
-
-	params := queryInfo.params
-	txStmt := tx.Stmt(stmt)
-	rows, err := txStmt.QueryContext(ctx, params...)
-	if err != nil {
-		if cerr := tx.Cancel(); cerr != nil {
-			return nil, 0, "", fmt.Errorf("failed to cancel transaction (%v) after error: %w", cerr, err)
-		}
-		return nil, 0, "", &db.QueryError{QueryString: query, Err: err}
-	}
-	items, err := l.ReadObjects(rows, l.GetType(), l.GetShouldEncrypt())
-	if err != nil {
-		if cerr := tx.Cancel(); cerr != nil {
-			return nil, 0, "", fmt.Errorf("failed to cancel transaction (%v) after error: %w", cerr, err)
-		}
-		return nil, 0, "", err
-	}
-
-	total := len(items)
-	countQuery := queryInfo.countQuery
-	countParams := queryInfo.countParams
-	limit := queryInfo.limit
-	offset := queryInfo.offset
-	// if limit or offset were set, execute counting of all rows
-	if limit > 0 || offset > 0 {
-		countStmt := l.Prepare(countQuery)
-		defer l.CloseStmt(countStmt)
-		txStmt := tx.Stmt(countStmt)
-		rows, err := txStmt.QueryContext(ctx, countParams...)
-		if err != nil {
-			if cerr := tx.Cancel(); cerr != nil {
-				return nil, 0, "", fmt.Errorf("failed to cancel transaction (%v) after error: %w", cerr, err)
-			}
-			return nil, 0, "", fmt.Errorf("error executing query: %w", err)
-		}
-		total, err = l.ReadInt(rows)
-		if err != nil {
-			if cerr := tx.Cancel(); cerr != nil {
-				return nil, 0, "", fmt.Errorf("failed to cancel transaction (%v) after error: %w", cerr, err)
-			}
-			return nil, 0, "", fmt.Errorf("error reading query results: %w", err)
-		}
-	}
-	if err := tx.Commit(); err != nil {
-		return nil, 0, "", err
-	}
-
-	continueToken := ""
-	if limit > 0 && offset+len(items) < total {
-		continueToken = fmt.Sprintf("%d", offset+limit)
-	}
-
-	return toUnstructuredList(items), total, continueToken, nil
+	return l.executeQuery(ctx, queryInfo)
 }
 
-func (l *ListOptionIndexer) constructQuery(lo ListOptions, partitions []partition.Partition, namespace string) (*QueryInfo, error) {
+func (l *ListOptionIndexer) constructQuery(lo ListOptions, partitions []partition.Partition, namespace string, dbName string) (*QueryInfo, error) {
 	queryInfo := &QueryInfo{}
 
 	// 1- First, what kind of filtering will be doing?
-	dbName := db.Sanitize(l.GetName())
 	// 1.1- Intro: SELECT and JOIN clauses
 	query := fmt.Sprintf(`SELECT o.object, o.objectnonce, o.dekid FROM "%s" o`, dbName)
 	query += "\n  "
@@ -506,6 +444,10 @@ func (l *ListOptionIndexer) constructQuery(lo ListOptions, partitions []partitio
 		offsetClause = "\n  OFFSET ?"
 		params = append(params, offset)
 	}
+	if limit == 0 && offset == 0 {
+		countQuery = ""
+		countParams = []any{}
+	}
 
 	// assemble and log the final query
 	query += limitClause
@@ -521,6 +463,70 @@ func (l *ListOptionIndexer) constructQuery(lo ListOptions, partitions []partitio
 		offset:      offset,
 	}
 	return queryInfo, nil
+}
+
+func (l *ListOptionIndexer) executeQuery(ctx context.Context, queryInfo *QueryInfo) (*unstructured.UnstructuredList, int, string, error) {
+	// execute
+	query := queryInfo.query
+	stmt := l.Prepare(query)
+	defer l.CloseStmt(stmt)
+
+	tx, err := l.BeginTx(ctx, false)
+	if err != nil {
+		return nil, 0, "", err
+	}
+
+	params := queryInfo.params
+	txStmt := tx.Stmt(stmt)
+	rows, err := txStmt.QueryContext(ctx, params...)
+	if err != nil {
+		if cerr := tx.Cancel(); cerr != nil {
+			return nil, 0, "", fmt.Errorf("failed to cancel transaction (%v) after error: %w", cerr, err)
+		}
+		return nil, 0, "", &db.QueryError{QueryString: query, Err: err}
+	}
+	items, err := l.ReadObjects(rows, l.GetType(), l.GetShouldEncrypt())
+	if err != nil {
+		if cerr := tx.Cancel(); cerr != nil {
+			return nil, 0, "", fmt.Errorf("failed to cancel transaction (%v) after error: %w", cerr, err)
+		}
+		return nil, 0, "", err
+	}
+
+	total := len(items)
+	countQuery := queryInfo.countQuery
+	countParams := queryInfo.countParams
+	limit := queryInfo.limit
+	offset := queryInfo.offset
+	if countQuery != "" {
+		countStmt := l.Prepare(countQuery)
+		defer l.CloseStmt(countStmt)
+		txStmt := tx.Stmt(countStmt)
+		rows, err := txStmt.QueryContext(ctx, countParams...)
+		if err != nil {
+			if cerr := tx.Cancel(); cerr != nil {
+				return nil, 0, "", fmt.Errorf("failed to cancel transaction (%v) after error: %w", cerr, err)
+			}
+			return nil, 0, "", fmt.Errorf("error executing query: %w", err)
+		}
+		total, err = l.ReadInt(rows)
+		if err != nil {
+			if cerr := tx.Cancel(); cerr != nil {
+				return nil, 0, "", fmt.Errorf("failed to cancel transaction (%v) after error: %w", cerr, err)
+			}
+			return nil, 0, "", fmt.Errorf("error reading query results: %w", err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, 0, "", err
+	}
+
+	continueToken := ""
+	if limit > 0 && offset+len(items) < total {
+		continueToken = fmt.Sprintf("%d", offset+limit)
+	}
+
+	return toUnstructuredList(items), total, continueToken, nil
 }
 
 func (l *ListOptionIndexer) validateColumn(column string) error {
