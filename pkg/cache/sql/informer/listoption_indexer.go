@@ -665,10 +665,18 @@ func (l *ListOptionIndexer) getLabelFilter(filter Filter) (string, []any, error)
 		clause := fmt.Sprintf(`lt.label = ?`)
 		return clause, []any{labelName}, nil
 
+	case NotExists:
+		clause := fmt.Sprintf(`lt.label != ?`)
+		return clause, []any{labelName}, nil
+
 	case In:
 		fallthrough
 	case NotIn:
-		target := fmt.Sprintf("(?%s)", strings.Repeat(", ?", len(filter.Matches)))
+		target := "(?"
+		if len(filter.Matches) > 0 {
+			target += strings.Repeat(", ?", len(filter.Matches)-1)
+		}
+		target += ")"
 		opString = "IN"
 		if filter.Op == NotIn {
 			opString = "NOT IN"
