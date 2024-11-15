@@ -14,6 +14,7 @@ import (
 	"github.com/rancher/lasso/pkg/cache/sql/informer"
 	sqlStore "github.com/rancher/lasso/pkg/cache/sql/store"
 	"github.com/rancher/lasso/pkg/log"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
@@ -88,7 +89,7 @@ func NewCacheFactory() (*CacheFactory, error) {
 
 // CacheFor returns an informer for given GVK, using sql store indexed with fields, using the specified client. For virtual fields, they must be added by the transform function
 // and specified by fields to be used for later fields.
-func (f *CacheFactory) CacheFor(fields [][]string, transform cache.TransformFunc, client dynamic.ResourceInterface, gvk schema.GroupVersionKind, namespaced bool) (Cache, error) {
+func (f *CacheFactory) CacheFor(fields [][]string, transform cache.TransformFunc, client dynamic.ResourceInterface, gvk schema.GroupVersionKind, namespaced bool, watchable bool) (Cache, error) {
 	// First of all block Reset() until we are done
 	f.mutex.RLock()
 	defer f.mutex.RUnlock()
@@ -125,6 +126,17 @@ func (f *CacheFactory) CacheFor(fields [][]string, transform cache.TransformFunc
 		_, encryptResourceAlways := defaultEncryptedResourceTypes[gvk]
 		shouldEncrypt := f.encryptAll || encryptResourceAlways
 		i, err := f.newInformer(client, fields, transform, gvk, f.dbClient, shouldEncrypt, namespaced)
+		if err != nil {
+			return Cache{}, err
+		}
+
+		err = i.SetWatchErrorHandler(func(r *cache.Reflector, err error) {
+			if !watchable && errors.IsMethodNotSupported(err) {
+				// expected, continue without logging
+				return
+			}
+			cache.DefaultWatchErrorHandler(r, err)
+		})
 		if err != nil {
 			return Cache{}, err
 		}
