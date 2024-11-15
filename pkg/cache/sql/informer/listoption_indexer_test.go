@@ -953,6 +953,222 @@ func TestConstructQuery(t *testing.T) {
 		expectedStmtArgs: []any{},
 		expectedErr:      nil,
 	})
+	tests = append(tests, testCase{
+		description: "TestConstructQuery: handles == statements for label statements",
+		listOptions: ListOptions{Filters: []OrFilter{
+			{
+				[]Filter{
+					{
+						Field:   []string{"metadata", "labels", "labelEqualFull"},
+						Matches: []string{"somevalue"},
+						Op:      Eq,
+						Partial: false,
+					},
+				},
+			},
+		},
+		},
+		partitions: []partition.Partition{},
+		ns:         "",
+		expectedStmt: `SELECT o.object, o.objectnonce, o.dekid FROM "something" o
+  JOIN "something_fields" f ON o.key = f.key
+  JOIN "something_labels" lt ON o.key = lt.key
+  WHERE
+    (lt.label = ? AND lt.value = ?) AND
+    (FALSE)
+  ORDER BY f."metadata.name" ASC `,
+		expectedStmtArgs: []any{"labelEqualFull", "somevalue"},
+		expectedErr:      nil,
+	})
+	tests = append(tests, testCase{
+		description: "TestConstructQuery: handles == statements for label statements, match partial",
+		listOptions: ListOptions{Filters: []OrFilter{
+			{
+				[]Filter{
+					{
+						Field:   []string{"metadata", "labels", "labelEqualPartial"},
+						Matches: []string{"somevalue"},
+						Op:      Eq,
+						Partial: true,
+					},
+				},
+			},
+		},
+		},
+		partitions: []partition.Partition{},
+		ns:         "",
+		expectedStmt: `SELECT o.object, o.objectnonce, o.dekid FROM "something" o
+  JOIN "something_fields" f ON o.key = f.key
+  JOIN "something_labels" lt ON o.key = lt.key
+  WHERE
+    (lt.label = ? AND lt.value LIKE ? ESCAPE '\') AND
+    (FALSE)
+  ORDER BY f."metadata.name" ASC `,
+		expectedStmtArgs: []any{"labelEqualPartial", "%somevalue%"},
+		expectedErr:      nil,
+	})
+	tests = append(tests, testCase{
+		description: "TestConstructQuery: handles != statements for label statements",
+		listOptions: ListOptions{Filters: []OrFilter{
+			{
+				[]Filter{
+					{
+						Field:   []string{"metadata", "labels", "labelNotEqualFull"},
+						Matches: []string{"somevalue"},
+						Op:      NotEq,
+						Partial: false,
+					},
+				},
+			},
+		},
+		},
+		partitions: []partition.Partition{},
+		ns:         "",
+		expectedStmt: `SELECT o.object, o.objectnonce, o.dekid FROM "something" o
+  JOIN "something_fields" f ON o.key = f.key
+  JOIN "something_labels" lt ON o.key = lt.key
+  WHERE
+    (lt.label = ? AND lt.value != ?) AND
+    (FALSE)
+  ORDER BY f."metadata.name" ASC `,
+		expectedStmtArgs: []any{"labelNotEqualFull", "somevalue"},
+		expectedErr:      nil,
+	})
+	tests = append(tests, testCase{
+		description: "TestConstructQuery: handles != statements for label statements, match partial",
+		listOptions: ListOptions{Filters: []OrFilter{
+			{
+				[]Filter{
+					{
+						Field:   []string{"metadata", "labels", "labelNotEqualPartial"},
+						Matches: []string{"somevalue"},
+						Op:      NotEq,
+						Partial: true,
+					},
+				},
+			},
+		},
+		},
+		partitions: []partition.Partition{},
+		ns:         "",
+		expectedStmt: `SELECT o.object, o.objectnonce, o.dekid FROM "something" o
+  JOIN "something_fields" f ON o.key = f.key
+  JOIN "something_labels" lt ON o.key = lt.key
+  WHERE
+    (lt.label = ? AND lt.value NOT LIKE ? ESCAPE '\') AND
+    (FALSE)
+  ORDER BY f."metadata.name" ASC `,
+		expectedStmtArgs: []any{"labelNotEqualPartial", "%somevalue%"},
+		expectedErr:      nil,
+	})
+	tests = append(tests, testCase{
+		description: "TestConstructQuery: handles IN statements for label statements",
+		listOptions: ListOptions{Filters: []OrFilter{
+			{
+				[]Filter{
+					{
+						Field:   []string{"metadata", "labels", "labelIN"},
+						Matches: []string{"somevalue1", "someValue2"},
+						Op:      In,
+					},
+				},
+			},
+		},
+		},
+		partitions: []partition.Partition{},
+		ns:         "",
+		expectedStmt: `SELECT o.object, o.objectnonce, o.dekid FROM "something" o
+  JOIN "something_fields" f ON o.key = f.key
+  JOIN "something_labels" lt ON o.key = lt.key
+  WHERE
+    (lt.label = ? AND lt.value IN (?, ?)) AND
+    (FALSE)
+  ORDER BY f."metadata.name" ASC `,
+		expectedStmtArgs: []any{"labelIN", "somevalue1", "someValue2"},
+		expectedErr:      nil,
+	})
+
+	tests = append(tests, testCase{
+		description: "TestConstructQuery: handles NOTIN statements for label statements",
+		listOptions: ListOptions{Filters: []OrFilter{
+			{
+				[]Filter{
+					{
+						Field:   []string{"metadata", "labels", "labelNOTIN"},
+						Matches: []string{"somevalue1", "someValue2"},
+						Op:      NotIn,
+					},
+				},
+			},
+		},
+		},
+		partitions: []partition.Partition{},
+		ns:         "",
+		expectedStmt: `SELECT o.object, o.objectnonce, o.dekid FROM "something" o
+  JOIN "something_fields" f ON o.key = f.key
+  JOIN "something_labels" lt ON o.key = lt.key
+  WHERE
+    (lt.label = ? AND lt.value NOT IN (?, ?)) AND
+    (FALSE)
+  ORDER BY f."metadata.name" ASC `,
+		expectedStmtArgs: []any{"labelNOTIN", "somevalue1", "someValue2"},
+		expectedErr:      nil,
+	})
+
+	tests = append(tests, testCase{
+		description: "TestConstructQuery: handles EXISTS statements for label statements",
+		listOptions: ListOptions{Filters: []OrFilter{
+			{
+				[]Filter{
+					{
+						Field:   []string{"metadata", "labels", "labelEXISTS"},
+						Matches: []string{},
+						Op:      Exists,
+					},
+				},
+			},
+		},
+		},
+		partitions: []partition.Partition{},
+		ns:         "",
+		expectedStmt: `SELECT o.object, o.objectnonce, o.dekid FROM "something" o
+  JOIN "something_fields" f ON o.key = f.key
+  JOIN "something_labels" lt ON o.key = lt.key
+  WHERE
+    (lt.label = ?) AND
+    (FALSE)
+  ORDER BY f."metadata.name" ASC `,
+		expectedStmtArgs: []any{"labelEXISTS"},
+		expectedErr:      nil,
+	})
+
+	tests = append(tests, testCase{
+		description: "TestConstructQuery: handles NOTEXISTS statements for label statements",
+		listOptions: ListOptions{Filters: []OrFilter{
+			{
+				[]Filter{
+					{
+						Field:   []string{"metadata", "labels", "labelNOTEXISTS"},
+						Matches: []string{},
+						Op:      NotExists,
+					},
+				},
+			},
+		},
+		},
+		partitions: []partition.Partition{},
+		ns:         "",
+		expectedStmt: `SELECT o.object, o.objectnonce, o.dekid FROM "something" o
+  JOIN "something_fields" f ON o.key = f.key
+  JOIN "something_labels" lt ON o.key = lt.key
+  WHERE
+    (lt.label != ?) AND
+    (FALSE)
+  ORDER BY f."metadata.name" ASC `,
+		expectedStmtArgs: []any{"labelNOTEXISTS"},
+		expectedErr:      nil,
+	})
+
 	t.Parallel()
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
