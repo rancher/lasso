@@ -605,6 +605,9 @@ func (l *ListOptionIndexer) getFieldFilter(filter Filter) (string, []any, error)
 	case Exists:
 		clause := fmt.Sprintf(`f."%s" IS NOT NULL`, columnName)
 		return clause, []any{}, nil
+	case NotExists:
+		clause := fmt.Sprintf(`f."%s" IS NULL`, columnName)
+		return clause, []any{}, nil
 	case In:
 		fallthrough
 	case NotIn:
@@ -613,10 +616,10 @@ func (l *ListOptionIndexer) getFieldFilter(filter Filter) (string, []any, error)
 			target = fmt.Sprintf("(?%s)", strings.Repeat(", ?", len(filter.Matches)-1))
 		}
 		opString = "IN"
-		if filter.Op == "notin" {
+		if filter.Op == NotIn {
 			opString = "NOT IN"
 		}
-		clause := fmt.Sprintf(`f."%s" %s IN %s`, columnName, opString, target)
+		clause := fmt.Sprintf(`f."%s" %s %s`, columnName, opString, target)
 		matches := make([]any, len(filter.Matches))
 		for i, match := range filter.Matches {
 			matches[i] = match
