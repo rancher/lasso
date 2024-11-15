@@ -782,12 +782,28 @@ func TestListByOptions(t *testing.T) {
 				Indexer:       i,
 				indexedFields: []string{"metadata.somefield", "status.someotherfield"},
 			}
+			queryInfo, err := lii.constructQuery(test.listOptions, test.partitions, test.ns, "something")
+			if test.expectedErr != nil {
+				assert.Equal(t, test.expectedErr, err)
+				return
+			}
+			assert.Nil(t, err)
+			assert.Equal(t, test.expectedStmt, queryInfo.query)
+			if test.expectedStmtArgs == nil {
+				test.expectedStmtArgs = []any{}
+			}
+			assert.Equal(t, test.expectedStmtArgs, queryInfo.params)
+			assert.Equal(t, test.expectedCountStmt, queryInfo.countQuery)
+			if test.expectedCountStmtArgs == nil {
+				test.expectedCountStmtArgs = []any{}
+			}
+			assert.Equal(t, test.expectedCountStmtArgs, queryInfo.countParams)
+
 			stmt := &sql.Stmt{}
 			rows := &sql.Rows{}
 			objType := reflect.TypeOf(testObject)
 			store.EXPECT().BeginTx(gomock.Any(), false).Return(txClient, nil)
 			txClient.EXPECT().Stmt(gomock.Any()).Return(stmts).AnyTimes()
-			store.EXPECT().GetName().Return("something").AnyTimes()
 			store.EXPECT().Prepare(test.expectedStmt).Do(func(a ...any) {
 				fmt.Println(a)
 			}).Return(stmt)
@@ -812,7 +828,7 @@ func TestListByOptions(t *testing.T) {
 				store.EXPECT().CloseStmt(stmt).Return(nil)
 			}
 			txClient.EXPECT().Commit()
-			list, total, contToken, err := lii.ListByOptions(context.TODO(), test.listOptions, test.partitions, test.ns)
+			list, total, contToken, err := lii.executeQuery(context.TODO(), queryInfo)
 			if test.expectedErr == nil {
 				assert.Nil(t, err)
 			} else {
