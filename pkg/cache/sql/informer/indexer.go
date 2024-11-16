@@ -89,12 +89,13 @@ func NewIndexer(indexers cache.Indexers, s Store) (*Indexer, error) {
 	if err != nil {
 		return nil, err
 	}
-	createTableQuery := fmt.Sprintf(createTableFmt, db.Sanitize(s.GetName()))
+	dbName := db.Sanitize(s.GetName())
+	createTableQuery := fmt.Sprintf(createTableFmt, dbName)
 	err = tx.Exec(createTableQuery)
 	if err != nil {
 		return nil, &db.QueryError{QueryString: createTableQuery, Err: err}
 	}
-	createIndexQuery := fmt.Sprintf(createIndexFmt, db.Sanitize(s.GetName()))
+	createIndexQuery := fmt.Sprintf(createIndexFmt, dbName)
 	err = tx.Exec(createIndexQuery)
 	if err != nil {
 		return nil, &db.QueryError{QueryString: createIndexQuery, Err: err}
@@ -135,7 +136,7 @@ func (i *Indexer) AfterUpsert(key string, obj any, tx db.TXClient) error {
 		return &db.QueryError{QueryString: i.deleteIndicesQuery, Err: err}
 	}
 
-	// re-insert all
+	// re-insert all values
 	i.indexersLock.RLock()
 	defer i.indexersLock.RUnlock()
 	for indexName, indexFunc := range i.indexers {
