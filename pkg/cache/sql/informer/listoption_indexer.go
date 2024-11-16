@@ -289,7 +289,7 @@ func (l *ListOptionIndexer) constructQuery(lo ListOptions, partitions []partitio
 	// 2- Filtering: WHERE clauses (from lo.Filters)
 	whereClauses := []string{}
 	for _, orFilters := range lo.Filters {
-		orClause, orParams, err := l.buildORClauseFromFilters(orFilters)
+		orClause, orParams, err := l.buildORClauseFromFilters(orFilters, dbName)
 		if err != nil {
 			return queryInfo, err
 		}
@@ -534,7 +534,7 @@ func (l *ListOptionIndexer) validateColumn(column string) error {
 }
 
 // buildORClause creates an SQLite compatible query that ORs conditions built from passed filters
-func (l *ListOptionIndexer) buildORClauseFromFilters(orFilters OrFilter) (string, []any, error) {
+func (l *ListOptionIndexer) buildORClauseFromFilters(orFilters OrFilter, dbName string) (string, []any, error) {
 	var params []any
 	clauses := make([]string, 0, len(orFilters.Filters))
 	var newParams []any
@@ -543,7 +543,7 @@ func (l *ListOptionIndexer) buildORClauseFromFilters(orFilters OrFilter) (string
 
 	for _, filter := range orFilters.Filters {
 		if isLabelFilter(&filter) {
-			newClause, newParams, err = l.getLabelFilter(filter)
+			newClause, newParams, err = l.getLabelFilter(filter, dbName)
 		} else {
 			newClause, newParams, err = l.getFieldFilter(filter)
 		}
@@ -625,7 +625,7 @@ func (l *ListOptionIndexer) getFieldFilter(filter Filter) (string, []any, error)
 	return "", nil, fmt.Errorf("unrecognized operator: %s", opString)
 }
 
-func (l *ListOptionIndexer) getLabelFilter(filter Filter) (string, []any, error) {
+func (l *ListOptionIndexer) getLabelFilter(filter Filter, dbName string) (string, []any, error) {
 	opString := ""
 	escapeString := ""
 	if len(filter.Field) < 3 || filter.Field[0] != "metadata" || filter.Field[1] != "labels" {
@@ -661,7 +661,10 @@ func (l *ListOptionIndexer) getLabelFilter(filter Filter) (string, []any, error)
 		return clause, []any{labelName}, nil
 
 	case NotExists:
-		clause := fmt.Sprintf(`lt.label != ?`)
+		clause := fmt.Sprintf(`NOT EXISTS (SELECT 1 FROM "%s" o1
+		JOIN "%s_fields" f1 ON o1.key = f1.key
+		JOIN "%s_labels" lt1 ON o1.key = lt1.key
+		WHERE label = ?)`, dbName, dbName, dbName)
 		return clause, []any{labelName}, nil
 
 	case In:
