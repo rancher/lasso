@@ -69,9 +69,6 @@ const (
 	deleteLabelsStmtFmt = `DELETE FROM "%s_labels" WHERE KEY = ?`
 )
 
-//QQQ: Prob not needed
-//	UpsertLabels(tx db.TXClient, stmt *sql.Stmt, key string, obj any, shouldEncrypt bool) error
-
 // NewListOptionIndexer returns a SQLite-backed cache.Indexer of unstructured.Unstructured Kubernetes resources of a certain GVK
 // ListOptionIndexer is also able to satisfy ListOption queries on indexed (sub)fields.
 // Fields are specified as slices (e.g. "metadata.resourceVersion" is ["metadata", "resourceVersion"])
@@ -223,14 +220,13 @@ func (l *ListOptionIndexer) addIndexFields(key string, obj any, tx db.TXClient) 
 func (l *ListOptionIndexer) addLabels(key string, obj any, tx db.TXClient) error {
 	k8sObj, ok := obj.(*unstructured.Unstructured)
 	if !ok {
-		logrus.Debugf("UpsertLabels: Error?: Can't convert obj into an unstructured thing.")
-		return nil
+		return fmt.Errorf("addLabels: unexpected object type, expected unstructured.Unstructured: %v", obj)
 	}
 	incomingLabels := k8sObj.GetLabels()
 	for k, v := range incomingLabels {
 		err := tx.StmtExec(tx.Stmt(l.upsertLabelsStmt), key, k, v)
 		if err != nil {
-			return err
+			return &db.QueryError{QueryString: l.upsertLabelsQuery, Err: err}
 		}
 	}
 	return nil
@@ -254,15 +250,6 @@ func (l *ListOptionIndexer) deleteLabels(key string, tx db.TXClient) error {
 	return nil
 }
 
-type QueryInfo struct {
-	query       string
-	params      []any
-	countQuery  string
-	countParams []any
-	limit       int
-	offset      int
-}
-
 // ListByOptions returns objects according to the specified list options and partitions.
 // Specifically:
 //   - an unstructured list of resources belonging to any of the specified partitions
@@ -277,11 +264,22 @@ func (l *ListOptionIndexer) ListByOptions(ctx context.Context, lo ListOptions, p
 	return l.executeQuery(ctx, queryInfo)
 }
 
+// QueryInfo is a helper-struct that is used to represent the core query and parameters when converting
+// a filter from the UI into a sql query
+type QueryInfo struct {
+	query       string
+	params      []any
+	countQuery  string
+	countParams []any
+	limit       int
+	offset      int
+}
+
 func (l *ListOptionIndexer) constructQuery(lo ListOptions, partitions []partition.Partition, namespace string, dbName string) (*QueryInfo, error) {
 	queryInfo := &QueryInfo{}
 
-	// 1- First, what kind of filtering will be doing?
-	// 1.1- Intro: SELECT and JOIN clauses
+	// First, what kind of filtering will we be doing?
+	// 1- Intro: SELECT and JOIN clauses
 	query := fmt.Sprintf(`SELECT o.object, o.objectnonce, o.dekid FROM "%s" o`, dbName)
 	query += "\n  "
 	query += fmt.Sprintf(`JOIN "%s_fields" f ON o.key = f.key`, dbName)
@@ -294,7 +292,7 @@ func (l *ListOptionIndexer) constructQuery(lo ListOptions, partitions []partitio
 	// 2- Filtering: WHERE clauses (from lo.Filters)
 	whereClauses := []string{}
 	for _, orFilters := range lo.Filters {
-		orClause, orParams, err := l.buildORClauseFromFilters(orFilters)
+		orClause, orParams, err := l.buildORClauseFromFilters(orFilters, dbName)
 		if err != nil {
 			return queryInfo, err
 		}
@@ -370,7 +368,7 @@ func (l *ListOptionIndexer) constructQuery(lo ListOptions, partitions []partitio
 		}
 	}
 
-	// 2- Sorting: ORDER BY clauses (from lo.Sort)
+	// 3- Sorting: ORDER BY clauses (from lo.Sort)
 	orderByClauses := []string{}
 	if len(lo.Sort.PrimaryField) > 0 {
 		columnName := toColumnName(lo.Sort.PrimaryField)
@@ -397,6 +395,11 @@ func (l *ListOptionIndexer) constructQuery(lo ListOptions, partitions []partitio
 		orderByClauses = append(orderByClauses, fmt.Sprintf(`f."%s" %s`, columnName, direction))
 	}
 
+	// before proceeding, save a copy of the query and params without LIMIT/OFFSET/ORDER info
+	// for COUNTing all results later
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM (%s)", query)
+	countParams := params[:]
+
 	if len(orderByClauses) > 0 {
 		query += "\n  ORDER BY "
 		query += strings.Join(orderByClauses, ", ")
@@ -410,11 +413,6 @@ func (l *ListOptionIndexer) constructQuery(lo ListOptions, partitions []partitio
 	}
 
 	// 4- Pagination: LIMIT clause (from lo.Pagination and/or lo.ChunkSize/lo.Resume)
-
-	// before proceeding, save a copy of the query and params without LIMIT/OFFSET
-	// for COUNTing all results later
-	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM (%s)", query)
-	countParams := params[:]
 
 	limitClause := ""
 	// take the smallest limit between lo.Pagination and lo.ChunkSize
@@ -445,6 +443,7 @@ func (l *ListOptionIndexer) constructQuery(lo ListOptions, partitions []partitio
 		params = append(params, offset)
 	}
 	if limit == 0 && offset == 0 {
+		// We don't need to find the number of items, so clear these queries.
 		countQuery = ""
 		countParams = []any{}
 	}
@@ -467,8 +466,7 @@ func (l *ListOptionIndexer) constructQuery(lo ListOptions, partitions []partitio
 
 func (l *ListOptionIndexer) executeQuery(ctx context.Context, queryInfo *QueryInfo) (*unstructured.UnstructuredList, int, string, error) {
 	// execute
-	query := queryInfo.query
-	stmt := l.Prepare(query)
+	stmt := l.Prepare(queryInfo.query)
 	defer l.CloseStmt(stmt)
 
 	tx, err := l.BeginTx(ctx, false)
@@ -476,14 +474,13 @@ func (l *ListOptionIndexer) executeQuery(ctx context.Context, queryInfo *QueryIn
 		return nil, 0, "", err
 	}
 
-	params := queryInfo.params
 	txStmt := tx.Stmt(stmt)
-	rows, err := txStmt.QueryContext(ctx, params...)
+	rows, err := txStmt.QueryContext(ctx, queryInfo.params...)
 	if err != nil {
 		if cerr := tx.Cancel(); cerr != nil {
 			return nil, 0, "", fmt.Errorf("failed to cancel transaction (%v) after error: %w", cerr, err)
 		}
-		return nil, 0, "", &db.QueryError{QueryString: query, Err: err}
+		return nil, 0, "", &db.QueryError{QueryString: queryInfo.query, Err: err}
 	}
 	items, err := l.ReadObjects(rows, l.GetType(), l.GetShouldEncrypt())
 	if err != nil {
@@ -494,20 +491,16 @@ func (l *ListOptionIndexer) executeQuery(ctx context.Context, queryInfo *QueryIn
 	}
 
 	total := len(items)
-	countQuery := queryInfo.countQuery
-	countParams := queryInfo.countParams
-	limit := queryInfo.limit
-	offset := queryInfo.offset
-	if countQuery != "" {
-		countStmt := l.Prepare(countQuery)
+	if queryInfo.countQuery != "" {
+		countStmt := l.Prepare(queryInfo.countQuery)
 		defer l.CloseStmt(countStmt)
 		txStmt := tx.Stmt(countStmt)
-		rows, err := txStmt.QueryContext(ctx, countParams...)
+		rows, err := txStmt.QueryContext(ctx, queryInfo.countParams...)
 		if err != nil {
 			if cerr := tx.Cancel(); cerr != nil {
 				return nil, 0, "", fmt.Errorf("failed to cancel transaction (%v) after error: %w", cerr, err)
 			}
-			return nil, 0, "", fmt.Errorf("error executing query: %w", err)
+			return nil, 0, "", &db.QueryError{QueryString: queryInfo.countQuery, Err: err}
 		}
 		total, err = l.ReadInt(rows)
 		if err != nil {
@@ -522,6 +515,8 @@ func (l *ListOptionIndexer) executeQuery(ctx context.Context, queryInfo *QueryIn
 	}
 
 	continueToken := ""
+	limit := queryInfo.limit
+	offset := queryInfo.offset
 	if limit > 0 && offset+len(items) < total {
 		continueToken = fmt.Sprintf("%d", offset+limit)
 	}
@@ -539,7 +534,7 @@ func (l *ListOptionIndexer) validateColumn(column string) error {
 }
 
 // buildORClause creates an SQLite compatible query that ORs conditions built from passed filters
-func (l *ListOptionIndexer) buildORClauseFromFilters(orFilters OrFilter) (string, []any, error) {
+func (l *ListOptionIndexer) buildORClauseFromFilters(orFilters OrFilter, dbName string) (string, []any, error) {
 	var params []any
 	clauses := make([]string, 0, len(orFilters.Filters))
 	var newParams []any
@@ -548,7 +543,7 @@ func (l *ListOptionIndexer) buildORClauseFromFilters(orFilters OrFilter) (string
 
 	for _, filter := range orFilters.Filters {
 		if isLabelFilter(&filter) {
-			newClause, newParams, err = l.getLabelFilter(filter)
+			newClause, newParams, err = l.getLabelFilter(filter, dbName)
 		} else {
 			newClause, newParams, err = l.getFieldFilter(filter)
 		}
@@ -560,13 +555,6 @@ func (l *ListOptionIndexer) buildORClauseFromFilters(orFilters OrFilter) (string
 	}
 	return strings.Join(clauses, " OR "), params, nil
 }
-
-//type Filter struct {
-//	Field   []string
-//	Match   []string
-//	Op      Op: one of
-//	Partial bool
-//}
 
 // Possible ops from the k8s parser:
 // KEY = and == (same) VALUE
@@ -630,12 +618,9 @@ func (l *ListOptionIndexer) getFieldFilter(filter Filter) (string, []any, error)
 	return "", nil, fmt.Errorf("unrecognized operator: %s", opString)
 }
 
-func (l *ListOptionIndexer) getLabelFilter(filter Filter) (string, []any, error) {
+func (l *ListOptionIndexer) getLabelFilter(filter Filter, dbName string) (string, []any, error) {
 	opString := ""
 	escapeString := ""
-	if len(filter.Field) < 3 || filter.Field[0] != "metadata" || filter.Field[1] != "labels" {
-		return "", nil, fmt.Errorf("expecting a metadata.labels field, got '%s'", strings.Join(filter.Field, "."))
-	}
 	matchFmtToUse := strictMatchFmt
 	labelName := filter.Field[2]
 	switch filter.Op {
@@ -666,7 +651,10 @@ func (l *ListOptionIndexer) getLabelFilter(filter Filter) (string, []any, error)
 		return clause, []any{labelName}, nil
 
 	case NotExists:
-		clause := fmt.Sprintf(`lt.label != ?`)
+		clause := fmt.Sprintf(`NOT EXISTS (SELECT 1 FROM "%s" o1
+		JOIN "%s_fields" f1 ON o1.key = f1.key
+		JOIN "%s_labels" lt1 ON o1.key = lt1.key
+		WHERE label = ?)`, dbName, dbName, dbName)
 		return clause, []any{labelName}, nil
 
 	case In:

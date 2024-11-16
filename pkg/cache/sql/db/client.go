@@ -10,8 +10,6 @@ import (
 	"database/sql"
 	"encoding/gob"
 	"fmt"
-	"github.com/sirupsen/logrus"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"io/fs"
 	"os"
 	"reflect"

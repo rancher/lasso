@@ -38,11 +38,11 @@ type Store struct {
 	keyFunc       cache.KeyFunc
 	shouldEncrypt bool
 
-	upsertQuery       string
-	deleteQuery       string
-	getQuery          string
-	listQuery         string
-	listKeysQuery     string
+	upsertQuery   string
+	deleteQuery   string
+	getQuery      string
+	listQuery     string
+	listKeysQuery string
 
 	upsertStmt   *sql.Stmt
 	deleteStmt   *sql.Stmt

@@ -265,8 +265,7 @@ func TestListByOptions(t *testing.T) {
 		expectedCountStmt: `SELECT COUNT(*) FROM (SELECT o.object, o.objectnonce, o.dekid FROM "something" o
   JOIN "something_fields" f ON o.key = f.key
   WHERE
-    (FALSE)
-  ORDER BY f."metadata.name" ASC )`,
+    (FALSE))`,
 		expectedCountStmtArgs: []interface{}{},
 		returnList:            []any{&unstructured.Unstructured{Object: unstrTestObjectMap}, &unstructured.Unstructured{Object: unstrTestObjectMap}},
 		expectedList:          &unstructured.UnstructuredList{Object: map[string]interface{}{"items": []map[string]interface{}{unstrTestObjectMap, unstrTestObjectMap}}, Items: []unstructured.Unstructured{{Object: unstrTestObjectMap}, {Object: unstrTestObjectMap}}},
@@ -288,8 +287,7 @@ func TestListByOptions(t *testing.T) {
 		expectedCountStmt: `SELECT COUNT(*) FROM (SELECT o.object, o.objectnonce, o.dekid FROM "something" o
   JOIN "something_fields" f ON o.key = f.key
   WHERE
-    (FALSE)
-  ORDER BY f."metadata.name" ASC )`,
+    (FALSE))`,
 		expectedCountStmtArgs: []interface{}{},
 		returnList:            []any{&unstructured.Unstructured{Object: unstrTestObjectMap}, &unstructured.Unstructured{Object: unstrTestObjectMap}},
 		expectedList:          &unstructured.UnstructuredList{Object: map[string]interface{}{"items": []map[string]interface{}{unstrTestObjectMap, unstrTestObjectMap}}, Items: []unstructured.Unstructured{{Object: unstrTestObjectMap}, {Object: unstrTestObjectMap}}},
@@ -641,8 +639,7 @@ func TestListByOptions(t *testing.T) {
 		expectedCountStmt: `SELECT COUNT(*) FROM (SELECT o.object, o.objectnonce, o.dekid FROM "something" o
   JOIN "something_fields" f ON o.key = f.key
   WHERE
-    (FALSE)
-  ORDER BY f."metadata.name" ASC )`,
+    (FALSE))`,
 		expectedCountStmtArgs: []interface{}{},
 		returnList:            []any{&unstructured.Unstructured{Object: unstrTestObjectMap}, &unstructured.Unstructured{Object: unstrTestObjectMap}},
 		expectedList:          &unstructured.UnstructuredList{Object: map[string]interface{}{"items": []map[string]interface{}{unstrTestObjectMap, unstrTestObjectMap}}, Items: []unstructured.Unstructured{{Object: unstrTestObjectMap}, {Object: unstrTestObjectMap}}},
@@ -690,8 +687,7 @@ func TestListByOptions(t *testing.T) {
 		expectedCountStmt: `SELECT COUNT(*) FROM (SELECT o.object, o.objectnonce, o.dekid FROM "something" o
   JOIN "something_fields" f ON o.key = f.key
   WHERE
-    (FALSE)
-  ORDER BY f."metadata.name" ASC )`,
+    (FALSE))`,
 		expectedCountStmtArgs: []interface{}{},
 
 		returnList:        []any{&unstructured.Unstructured{Object: unstrTestObjectMap}, &unstructured.Unstructured{Object: unstrTestObjectMap}},
@@ -1162,7 +1158,10 @@ func TestConstructQuery(t *testing.T) {
   JOIN "something_fields" f ON o.key = f.key
   JOIN "something_labels" lt ON o.key = lt.key
   WHERE
-    (lt.label != ?) AND
+    (NOT EXISTS (SELECT 1 FROM "something" o1
+		JOIN "something_fields" f1 ON o1.key = f1.key
+		JOIN "something_labels" lt1 ON o1.key = lt1.key
+		WHERE label = ?)) AND
     (FALSE)
   ORDER BY f."metadata.name" ASC `,
 		expectedStmtArgs: []any{"labelNOTEXISTS"},
