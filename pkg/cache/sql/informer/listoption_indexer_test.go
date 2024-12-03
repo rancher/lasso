@@ -266,7 +266,7 @@ func TestListByOptions(t *testing.T) {
   JOIN "something_fields" f ON o.key = f.key
   WHERE
     (FALSE))`,
-		expectedCountStmtArgs: []interface{}{},
+		expectedCountStmtArgs: []any{},
 		returnList:            []any{&unstructured.Unstructured{Object: unstrTestObjectMap}, &unstructured.Unstructured{Object: unstrTestObjectMap}},
 		expectedList:          &unstructured.UnstructuredList{Object: map[string]interface{}{"items": []map[string]interface{}{unstrTestObjectMap, unstrTestObjectMap}}, Items: []unstructured.Unstructured{{Object: unstrTestObjectMap}, {Object: unstrTestObjectMap}}},
 		expectedContToken:     "",
@@ -288,7 +288,7 @@ func TestListByOptions(t *testing.T) {
   JOIN "something_fields" f ON o.key = f.key
   WHERE
     (FALSE))`,
-		expectedCountStmtArgs: []interface{}{},
+		expectedCountStmtArgs: []any{},
 		returnList:            []any{&unstructured.Unstructured{Object: unstrTestObjectMap}, &unstructured.Unstructured{Object: unstrTestObjectMap}},
 		expectedList:          &unstructured.UnstructuredList{Object: map[string]interface{}{"items": []map[string]interface{}{unstrTestObjectMap, unstrTestObjectMap}}, Items: []unstructured.Unstructured{{Object: unstrTestObjectMap}, {Object: unstrTestObjectMap}}},
 		expectedContToken:     "",
@@ -640,7 +640,7 @@ func TestListByOptions(t *testing.T) {
   JOIN "something_fields" f ON o.key = f.key
   WHERE
     (FALSE))`,
-		expectedCountStmtArgs: []interface{}{},
+		expectedCountStmtArgs: []any{},
 		returnList:            []any{&unstructured.Unstructured{Object: unstrTestObjectMap}, &unstructured.Unstructured{Object: unstrTestObjectMap}},
 		expectedList:          &unstructured.UnstructuredList{Object: map[string]interface{}{"items": []map[string]interface{}{unstrTestObjectMap, unstrTestObjectMap}}, Items: []unstructured.Unstructured{{Object: unstrTestObjectMap}, {Object: unstrTestObjectMap}}},
 		expectedContToken:     "",
@@ -688,7 +688,7 @@ func TestListByOptions(t *testing.T) {
   JOIN "something_fields" f ON o.key = f.key
   WHERE
     (FALSE))`,
-		expectedCountStmtArgs: []interface{}{},
+		expectedCountStmtArgs: []any{},
 
 		returnList:        []any{&unstructured.Unstructured{Object: unstrTestObjectMap}, &unstructured.Unstructured{Object: unstrTestObjectMap}},
 		expectedList:      &unstructured.UnstructuredList{Object: map[string]interface{}{"items": []map[string]interface{}{unstrTestObjectMap, unstrTestObjectMap}}, Items: []unstructured.Unstructured{{Object: unstrTestObjectMap}, {Object: unstrTestObjectMap}}},
@@ -1186,14 +1186,8 @@ func TestConstructQuery(t *testing.T) {
 			}
 			assert.Nil(t, err)
 			assert.Equal(t, test.expectedStmt, queryInfo.query)
-			if test.expectedStmtArgs == nil {
-				test.expectedStmtArgs = []any{}
-			}
 			assert.Equal(t, test.expectedStmtArgs, queryInfo.params)
 			assert.Equal(t, test.expectedCountStmt, queryInfo.countQuery)
-			if test.expectedCountStmtArgs == nil {
-				test.expectedCountStmtArgs = []any{}
-			}
 			assert.Equal(t, test.expectedCountStmtArgs, queryInfo.countParams)
 		})
 	}

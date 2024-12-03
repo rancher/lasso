@@ -442,30 +442,25 @@ func (l *ListOptionIndexer) constructQuery(lo ListOptions, partitions []partitio
 		offsetClause = "\n  OFFSET ?"
 		params = append(params, offset)
 	}
-	if limit == 0 && offset == 0 {
-		// We don't need to find the number of items, so clear these queries.
-		countQuery = ""
-		countParams = []any{}
+	if limit > 0 || offset > 0 {
+		query += limitClause
+		query += offsetClause
+		queryInfo.countQuery = countQuery
+		queryInfo.countParams = countParams
+		queryInfo.limit = limit
+		queryInfo.offset = offset
 	}
+	// Otherwise leave these as default values and the executor won't do pagination work
 
-	// assemble and log the final query
-	query += limitClause
-	query += offsetClause
 	logrus.Debugf("ListOptionIndexer prepared statement: %v", query)
 	logrus.Debugf("Params: %v", params)
-	queryInfo = &QueryInfo{
-		query:       query,
-		params:      params,
-		countQuery:  countQuery,
-		countParams: countParams,
-		limit:       limit,
-		offset:      offset,
-	}
+	queryInfo.query = query
+	queryInfo.params = params
+
 	return queryInfo, nil
 }
 
 func (l *ListOptionIndexer) executeQuery(ctx context.Context, queryInfo *QueryInfo) (*unstructured.UnstructuredList, int, string, error) {
-	// execute
 	stmt := l.Prepare(queryInfo.query)
 	defer l.CloseStmt(stmt)
 
