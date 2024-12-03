@@ -15,7 +15,7 @@ require (
 	k8s.io/client-go v0.31.1
 	k8s.io/klog v1.0.0
 	k8s.io/utils v0.0.0-20240711033017-18e509b52bc8
-	modernc.org/sqlite v1.29.10
+	modernc.org/sqlite v1.34.2
 	sigs.k8s.io/controller-runtime v0.19.0
 )
 
@@ -56,7 +56,7 @@ require (
 	github.com/x448/float16 v0.8.4 // indirect
 	golang.org/x/net v0.26.0 // indirect
 	golang.org/x/oauth2 v0.21.0 // indirect
-	golang.org/x/sys v0.21.0 // indirect
+	golang.org/x/sys v0.22.0 // indirect
 	golang.org/x/term v0.21.0 // indirect
 	golang.org/x/text v0.16.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
@@ -68,7 +68,7 @@ require (
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20240228011516-70dd3763d340 // indirect
 	modernc.org/gc/v3 v3.0.0-20240107210532-573471604cb6 // indirect
-	modernc.org/libc v1.49.3 // indirect
+	modernc.org/libc v1.55.3 // indirect
 	modernc.org/mathutil v1.6.0 // indirect
 	modernc.org/memory v1.8.0 // indirect
 	modernc.org/strutil v1.2.0 // indirect
