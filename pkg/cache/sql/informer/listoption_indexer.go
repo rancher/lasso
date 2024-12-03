@@ -585,6 +585,15 @@ func (l *ListOptionIndexer) getFieldFilter(filter Filter) (string, []any, error)
 		}
 		clause := fmt.Sprintf(`f."%s" %s ?%s`, columnName, opString, escapeString)
 		return clause, []any{formatMatchTarget(filter)}, nil
+
+	case Lt, Gt:
+		sym, target, err := prepareComparisonParameters(filter.Op, filter.Matches[0])
+		if err != nil {
+			return "", nil, err
+		}
+		clause := fmt.Sprintf(`f."%s" %s ?`, columnName, sym)
+		return clause, []any{target}, nil
+
 	case Exists:
 		clause := fmt.Sprintf(`f."%s" IS NOT NULL`, columnName)
 		return clause, []any{}, nil
@@ -641,6 +650,14 @@ func (l *ListOptionIndexer) getLabelFilter(filter Filter, dbName string) (string
 		clause := fmt.Sprintf(`lt.label = ? AND lt.value %s ?%s`, opString, escapeString)
 		return clause, []any{labelName, formatMatchTargetWithFormatter(filter.Matches[0], matchFmtToUse)}, nil
 
+	case Lt, Gt:
+		sym, target, err := prepareComparisonParameters(filter.Op, filter.Matches[0])
+		if err != nil {
+			return "", nil, err
+		}
+		clause := fmt.Sprintf(`lt.label = ? AND lt.value %s ?`, sym)
+		return clause, []any{labelName, target}, nil
+
 	case Exists:
 		clause := fmt.Sprintf(`lt.label = ?`)
 		return clause, []any{labelName}, nil
@@ -675,6 +692,20 @@ func (l *ListOptionIndexer) getLabelFilter(filter Filter, dbName string) (string
 
 	return "", nil, fmt.Errorf("unrecognized operator: %s", opString)
 
+}
+
+func prepareComparisonParameters(op Op, target string) (string, float64, error) {
+	num, err := strconv.ParseFloat(target, 32)
+	if err != nil {
+		return "", 0, err
+	}
+	switch op {
+	case Lt:
+		return "<", num, nil
+	case Gt:
+		return ">", num, nil
+	}
+	return "", 0, fmt.Errorf("unrecognized operator when expecting '<' or '>': '%s'", op)
 }
 
 func formatMatchTarget(filter Filter) string {

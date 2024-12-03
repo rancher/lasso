@@ -1164,6 +1164,58 @@ func TestConstructQuery(t *testing.T) {
 		expectedStmtArgs: []any{"labelNOTEXISTS"},
 		expectedErr:      nil,
 	})
+	tests = append(tests, testCase{
+		description: "TestConstructQuery: handles LessThan statements",
+		listOptions: ListOptions{Filters: []OrFilter{
+			{
+				[]Filter{
+					{
+						Field:   []string{"metadata", "labels", "numericThing"},
+						Matches: []string{"5"},
+						Op:      Lt,
+					},
+				},
+			},
+		},
+		},
+		partitions: []partition.Partition{},
+		ns:         "",
+		expectedStmt: `SELECT o.object, o.objectnonce, o.dekid FROM "something" o
+  JOIN "something_fields" f ON o.key = f.key
+  JOIN "something_labels" lt ON o.key = lt.key
+  WHERE
+    (lt.label = ? AND lt.value < ?) AND
+    (FALSE)
+  ORDER BY f."metadata.name" ASC `,
+		expectedStmtArgs: []any{"numericThing", float64(5)},
+		expectedErr:      nil,
+	})
+	tests = append(tests, testCase{
+		description: "TestConstructQuery: handles GreaterThan statements",
+		listOptions: ListOptions{Filters: []OrFilter{
+			{
+				[]Filter{
+					{
+						Field:   []string{"metadata", "labels", "numericThing"},
+						Matches: []string{"35"},
+						Op:      Gt,
+					},
+				},
+			},
+		},
+		},
+		partitions: []partition.Partition{},
+		ns:         "",
+		expectedStmt: `SELECT o.object, o.objectnonce, o.dekid FROM "something" o
+  JOIN "something_fields" f ON o.key = f.key
+  JOIN "something_labels" lt ON o.key = lt.key
+  WHERE
+    (lt.label = ? AND lt.value > ?) AND
+    (FALSE)
+  ORDER BY f."metadata.name" ASC `,
+		expectedStmtArgs: []any{"numericThing", float64(35)},
+		expectedErr:      nil,
+	})
 
 	t.Parallel()
 	for _, test := range tests {

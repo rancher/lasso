@@ -9,6 +9,8 @@ const (
 	NotExists Op = "NotExists"
 	In        Op = "In"
 	NotIn     Op = "NotIn"
+	Lt        Op = "Lt"
+	Gt        Op = "Gt"
 )
 
 // SortOrder represents whether the list should be ascending or descending.
