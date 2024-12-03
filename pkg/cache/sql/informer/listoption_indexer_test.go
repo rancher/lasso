@@ -790,9 +790,6 @@ func TestListByOptions(t *testing.T) {
 			}
 			assert.Equal(t, test.expectedStmtArgs, queryInfo.params)
 			assert.Equal(t, test.expectedCountStmt, queryInfo.countQuery)
-			if test.expectedCountStmtArgs == nil {
-				test.expectedCountStmtArgs = []any{}
-			}
 			assert.Equal(t, test.expectedCountStmtArgs, queryInfo.countParams)
 
 			stmt := &sql.Stmt{}
