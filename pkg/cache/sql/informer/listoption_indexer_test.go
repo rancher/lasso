@@ -9,6 +9,7 @@ package informer
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -911,16 +912,9 @@ func TestConstructQuery(t *testing.T) {
 			},
 		},
 		},
-		partitions: []partition.Partition{},
-		ns:         "",
-		expectedStmt: `SELECT o.object, o.objectnonce, o.dekid FROM "something" o
-  JOIN "something_fields" f ON o.key = f.key
-  WHERE
-    (f."metadata.queryField1" IS NOT NULL) AND
-    (FALSE)
-  ORDER BY f."metadata.name" ASC `,
-		expectedStmtArgs: []any{},
-		expectedErr:      nil,
+		partitions:  []partition.Partition{},
+		ns:          "",
+		expectedErr: errors.New("NULL and NOT NULL tests aren't supported for non-label queries"),
 	})
 	tests = append(tests, testCase{
 		description: "TestConstructQuery: handles NOT-EXISTS statements",
@@ -935,16 +929,9 @@ func TestConstructQuery(t *testing.T) {
 			},
 		},
 		},
-		partitions: []partition.Partition{},
-		ns:         "",
-		expectedStmt: `SELECT o.object, o.objectnonce, o.dekid FROM "something" o
-  JOIN "something_fields" f ON o.key = f.key
-  WHERE
-    (f."metadata.queryField1" IS NULL) AND
-    (FALSE)
-  ORDER BY f."metadata.name" ASC `,
-		expectedStmtArgs: []any{},
-		expectedErr:      nil,
+		partitions:  []partition.Partition{},
+		ns:          "",
+		expectedErr: errors.New("NULL and NOT NULL tests aren't supported for non-label queries"),
 	})
 	tests = append(tests, testCase{
 		description: "TestConstructQuery: handles == statements for label statements",

@@ -594,12 +594,9 @@ func (l *ListOptionIndexer) getFieldFilter(filter Filter) (string, []any, error)
 		clause := fmt.Sprintf(`f."%s" %s ?`, columnName, sym)
 		return clause, []any{target}, nil
 
-	case Exists:
-		clause := fmt.Sprintf(`f."%s" IS NOT NULL`, columnName)
-		return clause, []any{}, nil
-	case NotExists:
-		clause := fmt.Sprintf(`f."%s" IS NULL`, columnName)
-		return clause, []any{}, nil
+	case Exists, NotExists:
+		return "", nil, errors.New("NULL and NOT NULL tests aren't supported for non-label queries")
+
 	case In:
 		fallthrough
 	case NotIn:
