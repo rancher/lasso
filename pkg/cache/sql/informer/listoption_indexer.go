@@ -288,7 +288,11 @@ func (l *ListOptionIndexer) constructQuery(lo ListOptions, partitions []partitio
 	query += fmt.Sprintf(`JOIN "%s_fields" f ON o.key = f.key`, dbName)
 	if hasLabelFilter(lo.Filters) {
 		query += "\n  "
-		query += fmt.Sprintf(`LEFT OUTER JOIN "%s_labels" lt ON o.key = lt.key`, dbName)
+		leftOuterPart := ""
+		if hasNegativeExistenceTest(lo.Filters) {
+			leftOuterPart = "LEFT OUTER "
+		}
+		query += fmt.Sprintf(`%sJOIN "%s_labels" lt ON o.key = lt.key`, leftOuterPart, dbName)
 	}
 	params := []any{}
 
@@ -794,6 +798,23 @@ func getField(a any, field string) (any, error) {
 		}
 	}
 	return obj, nil
+}
+
+// hasNegativeExistenceTest is used for label tests, where we're looking for either
+// labels that don't exist, or aren't equal to a target value (and the interpretation
+// of a missing label is that it's *always* not equal to the target value.
+// If this is true, we need to do a `LEFT OUTER JOIN` on the main-table JOIN labels-table,
+// in order to keep all of the main-table rows that don't have associated labels.
+func hasNegativeExistenceTest(orFilters []OrFilter) bool {
+	for _, orFilter := range orFilters {
+		for _, filter := range orFilter.Filters {
+			switch filter.Op {
+			case NotEq, NotExists:
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func extractSubFields(fields string) []string {

@@ -489,7 +489,7 @@ func TestListByOptions(t *testing.T) {
 		ns:         "test41",
 		expectedStmt: `SELECT o.object, o.objectnonce, o.dekid FROM "something" o
   JOIN "something_fields" f ON o.key = f.key
-  LEFT OUTER JOIN "something_labels" lt ON o.key = lt.key
+  JOIN "something_labels" lt ON o.key = lt.key
   WHERE
     (lt.label = ? AND lt.value LIKE ? ESCAPE '\') AND
     (f."metadata.namespace" = ?) AND
@@ -952,7 +952,7 @@ func TestConstructQuery(t *testing.T) {
 		ns:         "",
 		expectedStmt: `SELECT o.object, o.objectnonce, o.dekid FROM "something" o
   JOIN "something_fields" f ON o.key = f.key
-  LEFT OUTER JOIN "something_labels" lt ON o.key = lt.key
+  JOIN "something_labels" lt ON o.key = lt.key
   WHERE
     (lt.label = ? AND lt.value = ?) AND
     (FALSE)
@@ -979,7 +979,7 @@ func TestConstructQuery(t *testing.T) {
 		ns:         "",
 		expectedStmt: `SELECT o.object, o.objectnonce, o.dekid FROM "something" o
   JOIN "something_fields" f ON o.key = f.key
-  LEFT OUTER JOIN "something_labels" lt ON o.key = lt.key
+  JOIN "something_labels" lt ON o.key = lt.key
   WHERE
     (lt.label = ? AND lt.value LIKE ? ESCAPE '\') AND
     (FALSE)
@@ -1065,7 +1065,7 @@ func TestConstructQuery(t *testing.T) {
 		ns:         "",
 		expectedStmt: `SELECT o.object, o.objectnonce, o.dekid FROM "something" o
   JOIN "something_fields" f ON o.key = f.key
-  LEFT OUTER JOIN "something_labels" lt ON o.key = lt.key
+  JOIN "something_labels" lt ON o.key = lt.key
   WHERE
     (lt.label = ? AND lt.value IN (?, ?)) AND
     (FALSE)
@@ -1092,7 +1092,7 @@ func TestConstructQuery(t *testing.T) {
 		ns:         "",
 		expectedStmt: `SELECT o.object, o.objectnonce, o.dekid FROM "something" o
   JOIN "something_fields" f ON o.key = f.key
-  LEFT OUTER JOIN "something_labels" lt ON o.key = lt.key
+  JOIN "something_labels" lt ON o.key = lt.key
   WHERE
     (lt.label = ? AND lt.value NOT IN (?, ?)) AND
     (FALSE)
@@ -1119,7 +1119,7 @@ func TestConstructQuery(t *testing.T) {
 		ns:         "",
 		expectedStmt: `SELECT o.object, o.objectnonce, o.dekid FROM "something" o
   JOIN "something_fields" f ON o.key = f.key
-  LEFT OUTER JOIN "something_labels" lt ON o.key = lt.key
+  JOIN "something_labels" lt ON o.key = lt.key
   WHERE
     (lt.label = ?) AND
     (FALSE)
@@ -1175,7 +1175,7 @@ func TestConstructQuery(t *testing.T) {
 		ns:         "",
 		expectedStmt: `SELECT o.object, o.objectnonce, o.dekid FROM "something" o
   JOIN "something_fields" f ON o.key = f.key
-  LEFT OUTER JOIN "something_labels" lt ON o.key = lt.key
+  JOIN "something_labels" lt ON o.key = lt.key
   WHERE
     (lt.label = ? AND lt.value < ?) AND
     (FALSE)
@@ -1201,7 +1201,7 @@ func TestConstructQuery(t *testing.T) {
 		ns:         "",
 		expectedStmt: `SELECT o.object, o.objectnonce, o.dekid FROM "something" o
   JOIN "something_fields" f ON o.key = f.key
-  LEFT OUTER JOIN "something_labels" lt ON o.key = lt.key
+  JOIN "something_labels" lt ON o.key = lt.key
   WHERE
     (lt.label = ? AND lt.value > ?) AND
     (FALSE)
