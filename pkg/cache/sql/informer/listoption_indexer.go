@@ -280,12 +280,15 @@ func (l *ListOptionIndexer) constructQuery(lo ListOptions, partitions []partitio
 
 	// First, what kind of filtering will we be doing?
 	// 1- Intro: SELECT and JOIN clauses
+	// There's a 1:1 correspondence between a base table and its _Fields table
+	// but it's possible that a key has no associated labels, so if we're doing a
+	// non-existence test on labels we need to do a LEFT OUTER JOIN
 	query := fmt.Sprintf(`SELECT o.object, o.objectnonce, o.dekid FROM "%s" o`, dbName)
 	query += "\n  "
 	query += fmt.Sprintf(`JOIN "%s_fields" f ON o.key = f.key`, dbName)
 	if hasLabelFilter(lo.Filters) {
 		query += "\n  "
-		query += fmt.Sprintf(`JOIN "%s_labels" lt ON o.key = lt.key`, dbName)
+		query += fmt.Sprintf(`LEFT OUTER JOIN "%s_labels" lt ON o.key = lt.key`, dbName)
 	}
 	params := []any{}
 
@@ -644,8 +647,17 @@ func (l *ListOptionIndexer) getLabelFilter(filter Filter, dbName string) (string
 		} else {
 			opString = "!="
 		}
-		clause := fmt.Sprintf(`lt.label = ? AND lt.value %s ?%s`, opString, escapeString)
-		return clause, []any{labelName, formatMatchTargetWithFormatter(filter.Matches[0], matchFmtToUse)}, nil
+		subFilter := Filter{
+			Field: filter.Field,
+			Op:    NotExists,
+		}
+		existenceClause, subParams, err := l.getLabelFilter(subFilter, dbName)
+		if err != nil {
+			return "", nil, err
+		}
+		clause := fmt.Sprintf(`(%s) OR (lt.label = ? AND lt.value %s ?%s)`, existenceClause, opString, escapeString)
+		params := append(subParams, labelName, formatMatchTargetWithFormatter(filter.Matches[0], matchFmtToUse))
+		return clause, params, nil
 
 	case Lt, Gt:
 		sym, target, err := prepareComparisonParameters(filter.Op, filter.Matches[0])
@@ -660,10 +672,10 @@ func (l *ListOptionIndexer) getLabelFilter(filter Filter, dbName string) (string
 		return clause, []any{labelName}, nil
 
 	case NotExists:
-		clause := fmt.Sprintf(`NOT EXISTS (SELECT 1 FROM "%s" o1
+		clause := fmt.Sprintf(`o.key NOT IN (SELECT o1.key FROM "%s" o1
 		JOIN "%s_fields" f1 ON o1.key = f1.key
-		JOIN "%s_labels" lt1 ON o1.key = lt1.key
-		WHERE label = ?)`, dbName, dbName, dbName)
+		LEFT OUTER JOIN "%s_labels" lt1 ON o1.key = lt1.key
+		WHERE lt1.label = ?)`, dbName, dbName, dbName)
 		return clause, []any{labelName}, nil
 
 	case In:
