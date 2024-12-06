@@ -414,7 +414,7 @@ func TestListByOptions(t *testing.T) {
 		expectedStmt: `SELECT o.object, o.objectnonce, o.dekid FROM "something" o
   JOIN "something_fields" f ON o.key = f.key
   WHERE
-    (f."metadata.somefield" LIKE ? ESCAPE '\' OR f."metadata.somefield" LIKE ? ESCAPE '\' OR f."metadata.somefield" NOT LIKE ? ESCAPE '\') AND
+    ((f."metadata.somefield" LIKE ? ESCAPE '\') OR (f."metadata.somefield" LIKE ? ESCAPE '\') OR (f."metadata.somefield" NOT LIKE ? ESCAPE '\')) AND
     (FALSE)
   ORDER BY f."metadata.name" ASC `,
 		expectedStmtArgs:  []any{"%somevalue%", "%someothervalue%", "%somethirdvalue%"},
@@ -459,7 +459,7 @@ func TestListByOptions(t *testing.T) {
 		expectedStmt: `SELECT o.object, o.objectnonce, o.dekid FROM "something" o
   JOIN "something_fields" f ON o.key = f.key
   WHERE
-    (f."metadata.somefield" LIKE ? ESCAPE '\' OR f."status.someotherfield" NOT LIKE ? ESCAPE '\') AND
+    ((f."metadata.somefield" LIKE ? ESCAPE '\') OR (f."status.someotherfield" NOT LIKE ? ESCAPE '\')) AND
     (f."metadata.somefield" LIKE ? ESCAPE '\') AND
     (f."metadata.namespace" = ?) AND
     (FALSE)
@@ -1210,6 +1210,87 @@ func TestConstructQuery(t *testing.T) {
     (FALSE)
   ORDER BY f."metadata.name" ASC `,
 		expectedStmtArgs: []any{"numericThing", float64(35)},
+		expectedErr:      nil,
+	})
+	tests = append(tests, testCase{
+		description: "multiple filters with a positive label test and a negative non-label test don't outer-join",
+		listOptions: ListOptions{Filters: []OrFilter{
+			{
+				Filters: []Filter{
+					{
+						Field:   []string{"metadata", "labels", "junta"},
+						Matches: []string{"esther"},
+						Op:      Eq,
+						Partial: true,
+					},
+					{
+						Field:   []string{"metadata", "queryField1"},
+						Matches: []string{"golgi"},
+						Op:      NotEq,
+						Partial: true,
+					},
+				},
+			},
+		},
+		},
+		partitions: []partition.Partition{},
+		ns:         "",
+		expectedStmt: `SELECT o.object, o.objectnonce, o.dekid FROM "something" o
+  JOIN "something_fields" f ON o.key = f.key
+  JOIN "something_labels" lt ON o.key = lt.key
+  WHERE
+    ((lt.label = ? AND lt.value LIKE ? ESCAPE '\') OR (f."metadata.queryField1" NOT LIKE ? ESCAPE '\')) AND
+    (FALSE)
+  ORDER BY f."metadata.name" ASC `,
+		expectedStmtArgs: []any{"junta", "%esther%", "%golgi%"},
+		expectedErr:      nil,
+	})
+	tests = append(tests, testCase{
+		description: "multiple filters and or-filters with a positive label test and a negative non-label test don't outer-join and have correct AND/ORs",
+		listOptions: ListOptions{Filters: []OrFilter{
+			{
+				Filters: []Filter{
+					{
+						Field:   []string{"metadata", "labels", "nectar"},
+						Matches: []string{"stash"},
+						Op:      Eq,
+						Partial: true,
+					},
+					{
+						Field:   []string{"metadata", "queryField1"},
+						Matches: []string{"landlady"},
+						Op:      NotEq,
+						Partial: false,
+					},
+				},
+			},
+			{
+				Filters: []Filter{
+					{
+						Field:   []string{"metadata", "labels", "lawn"},
+						Matches: []string{"reba", "coil"},
+						Op:      In,
+					},
+					{
+						Field:   []string{"metadata", "queryField1"},
+						Op:      Gt,
+						Matches: []string{"2"},
+					},
+				},
+			},
+		},
+		},
+		partitions: []partition.Partition{},
+		ns:         "",
+		expectedStmt: `SELECT o.object, o.objectnonce, o.dekid FROM "something" o
+  JOIN "something_fields" f ON o.key = f.key
+  JOIN "something_labels" lt ON o.key = lt.key
+  WHERE
+    ((lt.label = ? AND lt.value LIKE ? ESCAPE '\') OR (f."metadata.queryField1" != ?)) AND
+    ((lt.label = ? AND lt.value IN (?, ?)) OR (f."metadata.queryField1" > ?)) AND
+    (FALSE)
+  ORDER BY f."metadata.name" ASC `,
+		expectedStmtArgs: []any{"nectar", "%stash%", "landlady", "lawn", "reba", "coil", float64(2)},
 		expectedErr:      nil,
 	})
 

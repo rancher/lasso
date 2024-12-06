@@ -555,7 +555,13 @@ func (l *ListOptionIndexer) buildORClauseFromFilters(orFilters OrFilter, dbName 
 		clauses = append(clauses, newClause)
 		params = append(params, newParams...)
 	}
-	return strings.Join(clauses, " OR "), params, nil
+	switch len(clauses) {
+	case 0:
+		return "", params, nil
+	case 1:
+		return clauses[0], params, nil
+	}
+	return fmt.Sprintf("(%s)", strings.Join(clauses, ") OR (")), params, nil
 }
 
 // Possible ops from the k8s parser:
