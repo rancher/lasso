@@ -683,28 +683,41 @@ func (l *ListOptionIndexer) getLabelFilter(filter Filter, dbName string) (string
 		return clause, []any{labelName}, nil
 
 	case In:
-		fallthrough
-	case NotIn:
 		target := "(?"
 		if len(filter.Matches) > 0 {
 			target += strings.Repeat(", ?", len(filter.Matches)-1)
 		}
 		target += ")"
-		opString = "IN"
-		if filter.Op == NotIn {
-			opString = "NOT IN"
-		}
-		clause := fmt.Sprintf(`lt.label = ? AND lt.value %s %s`, opString, target)
+		clause := fmt.Sprintf(`lt.label = ? AND lt.value IN %s`, target)
 		matches := make([]any, len(filter.Matches)+1)
 		matches[0] = labelName
 		for i, match := range filter.Matches {
 			matches[i+1] = match
 		}
 		return clause, matches, nil
+
+	case NotIn:
+		target := "(?"
+		if len(filter.Matches) > 0 {
+			target += strings.Repeat(", ?", len(filter.Matches)-1)
+		}
+		target += ")"
+		subFilter := Filter{
+			Field: filter.Field,
+			Op:    NotExists,
+		}
+		existenceClause, subParams, err := l.getLabelFilter(subFilter, dbName)
+		if err != nil {
+			return "", nil, err
+		}
+		clause := fmt.Sprintf(`(%s) OR (lt.label = ? AND lt.value NOT IN %s)`, existenceClause, target)
+		matches := append(subParams, labelName)
+		for _, match := range filter.Matches {
+			matches = append(matches, match)
+		}
+		return clause, matches, nil
 	}
-
 	return "", nil, fmt.Errorf("unrecognized operator: %s", opString)
-
 }
 
 func prepareComparisonParameters(op Op, target string) (string, float64, error) {
@@ -804,13 +817,15 @@ func getField(a any, field string) (any, error) {
 // labels that don't exist, or aren't equal to a target value (and the interpretation
 // of a missing label is that it's *always* not equal to the target value.
 // If this is true, we need to do a `LEFT OUTER JOIN` on the main-table JOIN labels-table,
-// in order to keep all of the main-table rows that don't have associated labels.
+// in order to keep all the main-table rows that don't have associated labels.
 func hasNegativeExistenceTest(orFilters []OrFilter) bool {
 	for _, orFilter := range orFilters {
 		for _, filter := range orFilter.Filters {
 			switch filter.Op {
-			case NotEq, NotExists:
-				return true
+			case NotEq, NotExists, NotIn:
+				if isLabelFilter(&filter) {
+					return true
+				}
 			}
 		}
 	}
