@@ -228,7 +228,7 @@ func (c *Client) ReadInt(rows Rows) (int, error) {
 // If forWriting is true, this method blocks until all other concurrent forWriting
 // transactions have either committed or rolled back.
 // If forWriting is false, it is assumed the returned transaction will exclusively
-// be used for DQL (eg. SELECT) queries.
+// be used for DQL (e.g. SELECT) queries.
 // Not respecting the above rule might result in transactions failing with unexpected
 // SQLITE_BUSY (5) errors (aka "Runtime error: database is locked").
 // See discussion in https://github.com/rancher/lasso/pull/98 for details

@@ -10,4 +10,4 @@ minor=$(go list -m all | grep 'k8s.io/client-go' | cut -d ' ' -f 2 | cut -d '.' 
 version="1.$minor.x"
 
 export KUBEBUILDER_ASSETS=$(setup-envtest use -p path "$version")
-go test ./...
+go test ./... "$@"
