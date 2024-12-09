@@ -277,16 +277,21 @@ type QueryInfo struct {
 
 func (l *ListOptionIndexer) constructQuery(lo ListOptions, partitions []partition.Partition, namespace string, dbName string) (*QueryInfo, error) {
 	queryInfo := &QueryInfo{}
+	queryHasLabelFilter := hasLabelFilter(lo.Filters)
 
 	// First, what kind of filtering will we be doing?
 	// 1- Intro: SELECT and JOIN clauses
 	// There's a 1:1 correspondence between a base table and its _Fields table
 	// but it's possible that a key has no associated labels, so if we're doing a
 	// non-existence test on labels we need to do a LEFT OUTER JOIN
-	query := fmt.Sprintf(`SELECT o.object, o.objectnonce, o.dekid FROM "%s" o`, dbName)
+	distinctModifier := ""
+	if queryHasLabelFilter {
+		distinctModifier = " DISTINCT"
+	}
+	query := fmt.Sprintf(`SELECT%s o.object, o.objectnonce, o.dekid FROM "%s" o`, distinctModifier, dbName)
 	query += "\n  "
 	query += fmt.Sprintf(`JOIN "%s_fields" f ON o.key = f.key`, dbName)
-	if hasLabelFilter(lo.Filters) {
+	if queryHasLabelFilter {
 		query += "\n  "
 		query += fmt.Sprintf(`LEFT OUTER JOIN "%s_labels" lt ON o.key = lt.key`, dbName)
 	}
