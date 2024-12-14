@@ -123,7 +123,9 @@ func TestNewListOptionIndexer(t *testing.T) {
 
 		store.EXPECT().BeginTx(gomock.Any(), true).Return(txClient, nil)
 		txClient.EXPECT().Exec(fmt.Sprintf(createFieldsTableFmt, id, `"metadata.name" TEXT, "metadata.creationTimestamp" TEXT, "metadata.namespace" TEXT, "something" TEXT`)).Return(nil)
-		txClient.EXPECT().Exec(fmt.Sprintf(createFieldsIndexFmt, id, "metadata.name", id, "metadata.name")).Return(fmt.Errorf("error"))
+		e := fmt.Errorf("error")
+		txClient.EXPECT().Exec(fmt.Sprintf(createFieldsIndexFmt, id, "metadata.name", id, "metadata.name")).Return(e)
+		store.EXPECT().RollbackTx(txClient, e).Return(e)
 
 		_, err := NewListOptionIndexer(fields, store, true)
 		assert.NotNil(t, err)
