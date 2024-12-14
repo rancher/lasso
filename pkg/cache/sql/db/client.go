@@ -245,6 +245,16 @@ func (c *Client) BeginTx(ctx context.Context, forWriting bool) (TXClient, error)
 	return transaction.NewClient(sqlTx), nil
 }
 
+// RollbackTx rolls back the given transaction because of the specified error err
+// and returns it if rollback is fine or returns a wrapped error in case rolling back fails.
+func (c *Client) RollbackTx(tx TXClient, err error) error {
+	cerr := tx.Cancel()
+	if cerr != nil {
+		return errors.Wrap(err, fmt.Sprintf("Encountered error, then encountered another error while rolling back: %v", cerr))
+	}
+	return err
+}
+
 func (c *Client) decryptScan(rows Rows, shouldDecrypt bool) ([]byte, error) {
 	var data, dataNonce sql.RawBytes
 	var kid uint32
