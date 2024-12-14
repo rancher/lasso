@@ -332,6 +332,20 @@ func (mr *MockStoreMockRecorder) Resync() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Resync", reflect.TypeOf((*MockStore)(nil).Resync))
 }
 
+// RollbackTx mocks base method.
+func (m *MockStore) RollbackTx(arg0 db.TXClient, arg1 error) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RollbackTx", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RollbackTx indicates an expected call of RollbackTx.
+func (mr *MockStoreMockRecorder) RollbackTx(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RollbackTx", reflect.TypeOf((*MockStore)(nil).RollbackTx), arg0, arg1)
+}
+
 // Update mocks base method.
 func (m *MockStore) Update(arg0 any) error {
 	m.ctrl.T.Helper()

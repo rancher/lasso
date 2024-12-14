@@ -96,6 +96,7 @@ func NewListOptionIndexer(fields [][]string, s Store, namespaced bool) (*ListOpt
 	}
 	err = tx.Exec(fmt.Sprintf(createFieldsTableFmt, db.Sanitize(i.GetName()), strings.Join(columnDefs, ", ")))
 	if err != nil {
+		err = s.RollbackTx(tx, err)
 		return nil, err
 	}
 
@@ -107,6 +108,7 @@ func NewListOptionIndexer(fields [][]string, s Store, namespaced bool) (*ListOpt
 		// create index for field
 		err = tx.Exec(fmt.Sprintf(createFieldsIndexFmt, db.Sanitize(i.GetName()), field, db.Sanitize(i.GetName()), field))
 		if err != nil {
+			err = s.RollbackTx(tx, err)
 			return nil, err
 		}
 
@@ -151,10 +153,6 @@ func (l *ListOptionIndexer) afterUpsert(key string, obj any, tx db.TXClient) err
 		value, err := getField(obj, field)
 		if err != nil {
 			logrus.Errorf("cannot index object of type [%s] with key [%s] for indexer [%s]: %v", l.GetType().String(), key, l.GetName(), err)
-			cErr := tx.Cancel()
-			if cErr != nil {
-				return fmt.Errorf("could not cancel transaction: %s while recovering from error: %w", cErr, err)
-			}
 			return err
 		}
 		switch typedValue := value.(type) {

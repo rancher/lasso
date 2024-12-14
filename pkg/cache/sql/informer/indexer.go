@@ -75,6 +75,7 @@ type Store interface {
 
 type DBClient interface {
 	BeginTx(ctx context.Context, forWriting bool) (db.TXClient, error)
+	RollbackTx(tx db.TXClient, err error) error
 	QueryForRows(ctx context.Context, stmt transaction.Stmt, params ...any) (*sql.Rows, error)
 	ReadObjects(rows db.Rows, typ reflect.Type, shouldDecrypt bool) ([]any, error)
 	ReadStrings(rows db.Rows) ([]string, error)
@@ -92,11 +93,13 @@ func NewIndexer(indexers cache.Indexers, s Store) (*Indexer, error) {
 	createTableQuery := fmt.Sprintf(createTableFmt, db.Sanitize(s.GetName()))
 	err = tx.Exec(createTableQuery)
 	if err != nil {
+		err = s.RollbackTx(tx, err)
 		return nil, &db.QueryError{QueryString: createTableQuery, Err: err}
 	}
 	createIndexQuery := fmt.Sprintf(createIndexFmt, db.Sanitize(s.GetName()))
 	err = tx.Exec(createIndexQuery)
 	if err != nil {
+		err = s.RollbackTx(tx, err)
 		return nil, &db.QueryError{QueryString: createIndexQuery, Err: err}
 	}
 	err = tx.Commit()

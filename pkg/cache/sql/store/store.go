@@ -59,6 +59,7 @@ var _ cache.Store = (*Store)(nil)
 
 type DBClient interface {
 	BeginTx(ctx context.Context, forWriting bool) (db.TXClient, error)
+	RollbackTx(tx db.TXClient, err error) error
 	Prepare(stmt string) *sql.Stmt
 	QueryForRows(ctx context.Context, stmt transaction.Stmt, params ...any) (*sql.Rows, error)
 	ReadObjects(rows db.Rows, typ reflect.Type, shouldDecrypt bool) ([]any, error)
@@ -88,6 +89,7 @@ func NewStore(example any, keyFunc cache.KeyFunc, c DBClient, shouldEncrypt bool
 	createTableQuery := fmt.Sprintf(createTableFmt, db.Sanitize(s.name))
 	err = txC.Exec(createTableQuery)
 	if err != nil {
+		err = s.RollbackTx(txC, err)
 		return nil, &db.QueryError{QueryString: createTableQuery, Err: err}
 	}
 
@@ -121,11 +123,13 @@ func (s *Store) upsert(key string, obj any) error {
 
 	err = s.Upsert(tx, s.upsertStmt, key, obj, s.shouldEncrypt)
 	if err != nil {
+		err = s.RollbackTx(tx, err)
 		return &db.QueryError{QueryString: s.upsertQuery, Err: err}
 	}
 
 	err = s.runAfterUpsert(key, obj, tx)
 	if err != nil {
+		err = s.RollbackTx(tx, err)
 		return err
 	}
 
@@ -141,11 +145,13 @@ func (s *Store) deleteByKey(key string) error {
 
 	err = tx.StmtExec(tx.Stmt(s.deleteStmt), key)
 	if err != nil {
+		err = s.RollbackTx(tx, err)
 		return &db.QueryError{QueryString: s.deleteQuery, Err: err}
 	}
 
 	err = s.runAfterDelete(key, tx)
 	if err != nil {
+		err = s.RollbackTx(tx, err)
 		return err
 	}
 
@@ -263,6 +269,7 @@ func (s *Store) replaceByKey(objects map[string]any) error {
 
 	rows, err := s.QueryForRows(context.TODO(), txCListKeys)
 	if err != nil {
+		err = s.RollbackTx(txC, err)
 		return err
 	}
 	keys, err := s.ReadStrings(rows)
@@ -273,10 +280,12 @@ func (s *Store) replaceByKey(objects map[string]any) error {
 	for _, key := range keys {
 		err = txC.StmtExec(txC.Stmt(s.deleteStmt), key)
 		if err != nil {
+			err = s.RollbackTx(txC, err)
 			return err
 		}
 		err = s.runAfterDelete(key, txC)
 		if err != nil {
+			err = s.RollbackTx(txC, err)
 			return err
 		}
 	}
@@ -284,10 +293,12 @@ func (s *Store) replaceByKey(objects map[string]any) error {
 	for key, obj := range objects {
 		err = s.Upsert(txC, s.upsertStmt, key, obj, s.shouldEncrypt)
 		if err != nil {
+			err = s.RollbackTx(txC, err)
 			return err
 		}
 		err = s.runAfterUpsert(key, obj, txC)
 		if err != nil {
+			err = s.RollbackTx(txC, err)
 			return err
 		}
 	}

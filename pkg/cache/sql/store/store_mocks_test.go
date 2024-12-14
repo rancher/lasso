@@ -150,6 +150,20 @@ func (mr *MockDBClientMockRecorder) ReadStrings(arg0 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadStrings", reflect.TypeOf((*MockDBClient)(nil).ReadStrings), arg0)
 }
 
+// RollbackTx mocks base method.
+func (m *MockDBClient) RollbackTx(arg0 db.TXClient, arg1 error) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RollbackTx", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RollbackTx indicates an expected call of RollbackTx.
+func (mr *MockDBClientMockRecorder) RollbackTx(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RollbackTx", reflect.TypeOf((*MockDBClient)(nil).RollbackTx), arg0, arg1)
+}
+
 // Upsert mocks base method.
 func (m *MockDBClient) Upsert(arg0 db.TXClient, arg1 *sql.Stmt, arg2 string, arg3 any, arg4 bool) error {
 	m.ctrl.T.Helper()

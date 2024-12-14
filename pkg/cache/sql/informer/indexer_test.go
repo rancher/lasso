@@ -87,7 +87,9 @@ func TestNewIndexer(t *testing.T) {
 		store.EXPECT().BeginTx(gomock.Any(), true).Return(client, nil)
 		store.EXPECT().GetName().AnyTimes().Return(storeName)
 		client.EXPECT().Exec(fmt.Sprintf(createTableFmt, storeName, storeName)).Return(fmt.Errorf("error"))
+		store.EXPECT().RollbackTx(client, gomock.Any())
 		_, err := NewIndexer(indexers, store)
+
 		assert.NotNil(t, err)
 	}})
 	tests = append(tests, testCase{description: "NewIndexer() with TXClient Exec() error on second call to Exec(), should return error", test: func(t *testing.T) {
@@ -105,6 +107,7 @@ func TestNewIndexer(t *testing.T) {
 		store.EXPECT().GetName().AnyTimes().Return(storeName)
 		client.EXPECT().Exec(fmt.Sprintf(createTableFmt, storeName, storeName)).Return(nil)
 		client.EXPECT().Exec(fmt.Sprintf(createIndexFmt, storeName, storeName)).Return(fmt.Errorf("error"))
+		store.EXPECT().RollbackTx(client, gomock.Any())
 		_, err := NewIndexer(indexers, store)
 		assert.NotNil(t, err)
 	}})
