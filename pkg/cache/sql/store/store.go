@@ -198,7 +198,11 @@ func (s *Store) Delete(obj any) error {
 	if err != nil {
 		return err
 	}
-	return s.deleteByKey(key)
+	err = s.deleteByKey(key)
+	if err != nil {
+		log.Errorf("Error in Store.Delete for type %v: %v", s.name, err)
+	}
+	return err
 }
 
 // List returns a list of all the currently known objects
