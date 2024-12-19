@@ -183,7 +183,9 @@ func (s *Store) Add(obj any) error {
 	err = s.upsert(key, obj)
 	if err != nil {
 		log.Errorf("Error in Store.Add for type %v: %v", s.name, err)
+		return err
 	}
+	return nil
 	return err
 }
 
@@ -201,8 +203,9 @@ func (s *Store) Delete(obj any) error {
 	err = s.deleteByKey(key)
 	if err != nil {
 		log.Errorf("Error in Store.Delete for type %v: %v", s.name, err)
+		return err
 	}
-	return err
+	return nil
 }
 
 // List returns a list of all the currently known objects
