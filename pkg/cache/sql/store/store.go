@@ -186,7 +186,6 @@ func (s *Store) Add(obj any) error {
 		return err
 	}
 	return nil
-	return err
 }
 
 // Update saves an obj, or updates it if it exists in this Store
