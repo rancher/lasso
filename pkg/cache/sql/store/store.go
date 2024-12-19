@@ -11,6 +11,7 @@ import (
 
 	"github.com/rancher/lasso/pkg/cache/sql/db"
 	"github.com/rancher/lasso/pkg/cache/sql/db/transaction"
+	"github.com/rancher/lasso/pkg/log"
 	"k8s.io/client-go/tools/cache"
 	_ "modernc.org/sqlite"
 )
@@ -180,7 +181,11 @@ func (s *Store) Add(obj any) error {
 	}
 
 	err = s.upsert(key, obj)
-	return err
+	if err != nil {
+		log.Errorf("Error in Store.Add for type %v: %v", s.name, err)
+		return err
+	}
+	return nil
 }
 
 // Update saves an obj, or updates it if it exists in this Store
@@ -194,7 +199,12 @@ func (s *Store) Delete(obj any) error {
 	if err != nil {
 		return err
 	}
-	return s.deleteByKey(key)
+	err = s.deleteByKey(key)
+	if err != nil {
+		log.Errorf("Error in Store.Delete for type %v: %v", s.name, err)
+		return err
+	}
+	return nil
 }
 
 // List returns a list of all the currently known objects
