@@ -96,7 +96,6 @@ func NewListOptionIndexer(fields [][]string, s Store, namespaced bool) (*ListOpt
 	}
 	err = tx.Exec(fmt.Sprintf(createFieldsTableFmt, db.Sanitize(i.GetName()), strings.Join(columnDefs, ", ")))
 	if err != nil {
-		err = s.RollbackTx(tx, err)
 		return nil, err
 	}
 
@@ -108,7 +107,6 @@ func NewListOptionIndexer(fields [][]string, s Store, namespaced bool) (*ListOpt
 		// create index for field
 		err = tx.Exec(fmt.Sprintf(createFieldsIndexFmt, db.Sanitize(i.GetName()), field, db.Sanitize(i.GetName()), field))
 		if err != nil {
-			err = s.RollbackTx(tx, err)
 			return nil, err
 		}
 
