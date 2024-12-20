@@ -274,6 +274,7 @@ func (s *Store) replaceByKey(objects map[string]any) error {
 	}
 	keys, err := s.ReadStrings(rows)
 	if err != nil {
+		err = s.RollbackTx(txC, err)
 		return err
 	}
 
