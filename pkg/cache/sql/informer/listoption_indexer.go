@@ -292,15 +292,20 @@ func (l *ListOptionIndexer) constructQuery(lo ListOptions, partitions []partitio
 	query += "\n  "
 	query += fmt.Sprintf(`JOIN "%s_fields" f ON o.key = f.key`, dbName)
 	if queryHasLabelFilter {
-		query += "\n  "
-		query += fmt.Sprintf(`LEFT OUTER JOIN "%s_labels" lt ON o.key = lt.key`, dbName)
+		for i, orFilters := range lo.Filters {
+			if hasLabelFilter([]OrFilter{orFilters}) {
+				query += "\n  "
+				// Make the lt index 1-based for readability
+				query += fmt.Sprintf(`LEFT OUTER JOIN "%s_labels" lt%d ON o.key = lt%d.key`, dbName, i+1, i+1)
+			}
+		}
 	}
 	params := []any{}
 
 	// 2- Filtering: WHERE clauses (from lo.Filters)
 	whereClauses := []string{}
-	for _, orFilters := range lo.Filters {
-		orClause, orParams, err := l.buildORClauseFromFilters(orFilters, dbName)
+	for i, orFilters := range lo.Filters {
+		orClause, orParams, err := l.buildORClauseFromFilters(i+1, orFilters, dbName)
 		if err != nil {
 			return queryInfo, err
 		}
@@ -537,7 +542,7 @@ func (l *ListOptionIndexer) validateColumn(column string) error {
 }
 
 // buildORClause creates an SQLite compatible query that ORs conditions built from passed filters
-func (l *ListOptionIndexer) buildORClauseFromFilters(orFilters OrFilter, dbName string) (string, []any, error) {
+func (l *ListOptionIndexer) buildORClauseFromFilters(index int, orFilters OrFilter, dbName string) (string, []any, error) {
 	var params []any
 	clauses := make([]string, 0, len(orFilters.Filters))
 	var newParams []any
@@ -546,7 +551,7 @@ func (l *ListOptionIndexer) buildORClauseFromFilters(orFilters OrFilter, dbName 
 
 	for _, filter := range orFilters.Filters {
 		if isLabelFilter(&filter) {
-			newClause, newParams, err = l.getLabelFilter(filter, dbName)
+			newClause, newParams, err = l.getLabelFilter(index, filter, dbName)
 		} else {
 			newClause, newParams, err = l.getFieldFilter(filter)
 		}
@@ -633,7 +638,7 @@ func (l *ListOptionIndexer) getFieldFilter(filter Filter) (string, []any, error)
 	return "", nil, fmt.Errorf("unrecognized operator: %s", opString)
 }
 
-func (l *ListOptionIndexer) getLabelFilter(filter Filter, dbName string) (string, []any, error) {
+func (l *ListOptionIndexer) getLabelFilter(index int, filter Filter, dbName string) (string, []any, error) {
 	opString := ""
 	escapeString := ""
 	matchFmtToUse := strictMatchFmt
@@ -647,7 +652,7 @@ func (l *ListOptionIndexer) getLabelFilter(filter Filter, dbName string) (string
 		} else {
 			opString = "="
 		}
-		clause := fmt.Sprintf(`lt.label = ? AND lt.value %s ?%s`, opString, escapeString)
+		clause := fmt.Sprintf(`lt%d.label = ? AND lt%d.value %s ?%s`, index, index, opString, escapeString)
 		return clause, []any{labelName, formatMatchTargetWithFormatter(filter.Matches[0], matchFmtToUse)}, nil
 
 	case NotEq:
@@ -662,11 +667,11 @@ func (l *ListOptionIndexer) getLabelFilter(filter Filter, dbName string) (string
 			Field: filter.Field,
 			Op:    NotExists,
 		}
-		existenceClause, subParams, err := l.getLabelFilter(subFilter, dbName)
+		existenceClause, subParams, err := l.getLabelFilter(index, subFilter, dbName)
 		if err != nil {
 			return "", nil, err
 		}
-		clause := fmt.Sprintf(`(%s) OR (lt.label = ? AND lt.value %s ?%s)`, existenceClause, opString, escapeString)
+		clause := fmt.Sprintf(`(%s) OR (lt%d.label = ? AND lt%d.value %s ?%s)`, existenceClause, index, index, opString, escapeString)
 		params := append(subParams, labelName, formatMatchTargetWithFormatter(filter.Matches[0], matchFmtToUse))
 		return clause, params, nil
 
@@ -675,18 +680,18 @@ func (l *ListOptionIndexer) getLabelFilter(filter Filter, dbName string) (string
 		if err != nil {
 			return "", nil, err
 		}
-		clause := fmt.Sprintf(`lt.label = ? AND lt.value %s ?`, sym)
+		clause := fmt.Sprintf(`lt%d.label = ? AND lt%d.value %s ?`, index, index, sym)
 		return clause, []any{labelName, target}, nil
 
 	case Exists:
-		clause := fmt.Sprintf(`lt.label = ?`)
+		clause := fmt.Sprintf(`lt%d.label = ?`, index)
 		return clause, []any{labelName}, nil
 
 	case NotExists:
 		clause := fmt.Sprintf(`o.key NOT IN (SELECT o1.key FROM "%s" o1
 		JOIN "%s_fields" f1 ON o1.key = f1.key
-		LEFT OUTER JOIN "%s_labels" lt1 ON o1.key = lt1.key
-		WHERE lt1.label = ?)`, dbName, dbName, dbName)
+		LEFT OUTER JOIN "%s_labels" lt%di1 ON o1.key = lt%di1.key
+		WHERE lt%di1.label = ?)`, dbName, dbName, dbName, index, index, index)
 		return clause, []any{labelName}, nil
 
 	case In:
@@ -695,7 +700,7 @@ func (l *ListOptionIndexer) getLabelFilter(filter Filter, dbName string) (string
 			target += strings.Repeat(", ?", len(filter.Matches)-1)
 		}
 		target += ")"
-		clause := fmt.Sprintf(`lt.label = ? AND lt.value IN %s`, target)
+		clause := fmt.Sprintf(`lt%d.label = ? AND lt%d.value IN %s`, index, index, target)
 		matches := make([]any, len(filter.Matches)+1)
 		matches[0] = labelName
 		for i, match := range filter.Matches {
@@ -713,11 +718,11 @@ func (l *ListOptionIndexer) getLabelFilter(filter Filter, dbName string) (string
 			Field: filter.Field,
 			Op:    NotExists,
 		}
-		existenceClause, subParams, err := l.getLabelFilter(subFilter, dbName)
+		existenceClause, subParams, err := l.getLabelFilter(index, subFilter, dbName)
 		if err != nil {
 			return "", nil, err
 		}
-		clause := fmt.Sprintf(`(%s) OR (lt.label = ? AND lt.value NOT IN %s)`, existenceClause, target)
+		clause := fmt.Sprintf(`(%s) OR (lt%d.label = ? AND lt%d.value NOT IN %s)`, existenceClause, index, index, target)
 		matches := append(subParams, labelName)
 		for _, match := range filter.Matches {
 			matches = append(matches, match)
