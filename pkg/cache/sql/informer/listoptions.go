@@ -55,11 +55,10 @@ type OrFilter struct {
 // The subfield to sort by is represented in a request query using . notation, e.g. 'metadata.name'.
 // The subfield is internally represented as a slice, e.g. [metadata, name].
 // The order is represented by prefixing the sort key by '-', e.g. sort=-metadata.name.
+// e.g. To sort internal clusters first followed by clusters in alpha order: sort=-spec.internal,spec.displayName
 type Sort struct {
-	PrimaryField   []string
-	SecondaryField []string
-	PrimaryOrder   SortOrder
-	SecondaryOrder SortOrder
+	Fields [][]string
+	Orders []SortOrder
 }
 
 // Pagination represents how to return paginated results.

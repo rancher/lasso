@@ -590,10 +590,11 @@ func TestListByOptions(t *testing.T) {
 	})
 
 	tests = append(tests, testCase{
-		description: "ListByOptions with Sort.PrimaryField set only should sort on that field only, in ascending order in prepared sql.Stmt",
+		description: "ListByOptions with only one Sort.Field set should sort on that field only, in ascending order in prepared sql.Stmt",
 		listOptions: ListOptions{
 			Sort: Sort{
-				PrimaryField: []string{"metadata", "somefield"},
+				Fields: [][]string{{"metadata", "somefield"}},
+				Orders: []SortOrder{ASC},
 			},
 		},
 		partitions: []partition.Partition{},
@@ -610,31 +611,36 @@ func TestListByOptions(t *testing.T) {
 		expectedContToken: "",
 		expectedErr:       nil,
 	})
+
 	tests = append(tests, testCase{
-		description: "ListByOptions with Sort.SecondaryField set only should sort on that field only, in ascending order in prepared sql.Stmt",
+		description: "sort one field descending",
 		listOptions: ListOptions{
 			Sort: Sort{
-				SecondaryField: []string{"metadata", "somefield"},
+				Fields: [][]string{{"metadata", "somefield"}},
+				Orders: []SortOrder{DESC},
 			},
 		},
 		partitions: []partition.Partition{},
-		ns:         "",
+		ns:         "test5a",
 		expectedStmt: `SELECT o.object, o.objectnonce, o.dekid FROM "something" o
   JOIN "something_fields" f ON o.key = f.key
   WHERE
+    (f."metadata.namespace" = ?) AND
     (FALSE)
-  ORDER BY f."metadata.somefield" ASC`,
+  ORDER BY f."metadata.somefield" DESC`,
+		expectedStmtArgs:  []any{"test5a"},
 		returnList:        []any{&unstructured.Unstructured{Object: unstrTestObjectMap}, &unstructured.Unstructured{Object: unstrTestObjectMap}},
 		expectedList:      &unstructured.UnstructuredList{Object: map[string]interface{}{"items": []map[string]interface{}{unstrTestObjectMap, unstrTestObjectMap}}, Items: []unstructured.Unstructured{{Object: unstrTestObjectMap}, {Object: unstrTestObjectMap}}},
 		expectedContToken: "",
 		expectedErr:       nil,
 	})
+
 	tests = append(tests, testCase{
-		description: "ListByOptions with Sort.PrimaryField and Sort.SecondaryField set should sort on PrimaryField in ascending order first and then sort on SecondaryField in ascending order in prepared sql.Stmt",
+		description: "ListByOptions sorting on two fields should sort on the first field in ascending order first and then sort on the second field in ascending order in prepared sql.Stmt",
 		listOptions: ListOptions{
 			Sort: Sort{
-				PrimaryField:   []string{"metadata", "somefield"},
-				SecondaryField: []string{"status", "someotherfield"},
+				Fields: [][]string{{"metadata", "somefield"}, {"status", "someotherfield"}},
+				Orders: []SortOrder{ASC, ASC},
 			},
 		},
 		partitions: []partition.Partition{},
@@ -649,13 +655,13 @@ func TestListByOptions(t *testing.T) {
 		expectedContToken: "",
 		expectedErr:       nil,
 	})
+
 	tests = append(tests, testCase{
-		description: "ListByOptions with Sort.PrimaryField and Sort.SecondaryField set and PrimaryOrder set to DESC should sort on PrimaryField in descending order first and then sort on SecondaryField in ascending order in prepared sql.Stmt",
+		description: "ListByOptions sorting on two fields should sort on the first field in descending order first and then sort on the second field in ascending order in prepared sql.Stmt",
 		listOptions: ListOptions{
 			Sort: Sort{
-				PrimaryField:   []string{"metadata", "somefield"},
-				SecondaryField: []string{"status", "someotherfield"},
-				PrimaryOrder:   DESC,
+				Fields: [][]string{{"metadata", "somefield"}, {"status", "someotherfield"}},
+				Orders: []SortOrder{DESC, ASC},
 			},
 		},
 		partitions: []partition.Partition{},
@@ -665,45 +671,6 @@ func TestListByOptions(t *testing.T) {
   WHERE
     (FALSE)
   ORDER BY f."metadata.somefield" DESC, f."status.someotherfield" ASC`,
-		returnList:        []any{&unstructured.Unstructured{Object: unstrTestObjectMap}, &unstructured.Unstructured{Object: unstrTestObjectMap}},
-		expectedList:      &unstructured.UnstructuredList{Object: map[string]interface{}{"items": []map[string]interface{}{unstrTestObjectMap, unstrTestObjectMap}}, Items: []unstructured.Unstructured{{Object: unstrTestObjectMap}, {Object: unstrTestObjectMap}}},
-		expectedContToken: "",
-		expectedErr:       nil,
-	})
-	tests = append(tests, testCase{
-		description: "ListByOptions with Sort.SecondaryField set and Sort.PrimaryOrder set to descending should sort on that SecondaryField in ascending order only and ignore PrimaryOrder in prepared sql.Stmt",
-		listOptions: ListOptions{
-			Sort: Sort{
-				SecondaryField: []string{"status", "someotherfield"},
-				PrimaryOrder:   DESC,
-			},
-		},
-		partitions: []partition.Partition{},
-		ns:         "",
-		expectedStmt: `SELECT o.object, o.objectnonce, o.dekid FROM "something" o
-  JOIN "something_fields" f ON o.key = f.key
-  WHERE
-    (FALSE)
-  ORDER BY f."status.someotherfield" ASC`,
-		returnList:        []any{&unstructured.Unstructured{Object: unstrTestObjectMap}, &unstructured.Unstructured{Object: unstrTestObjectMap}},
-		expectedList:      &unstructured.UnstructuredList{Object: map[string]interface{}{"items": []map[string]interface{}{unstrTestObjectMap, unstrTestObjectMap}}, Items: []unstructured.Unstructured{{Object: unstrTestObjectMap}, {Object: unstrTestObjectMap}}},
-		expectedContToken: "",
-		expectedErr:       nil,
-	})
-	tests = append(tests, testCase{
-		description: "ListByOptions with Sort.PrimaryOrder set only should sort on default primary and secondary fields in ascending order in prepared sql.Stmt",
-		listOptions: ListOptions{
-			Sort: Sort{
-				PrimaryOrder: DESC,
-			},
-		},
-		partitions: []partition.Partition{},
-		ns:         "",
-		expectedStmt: `SELECT o.object, o.objectnonce, o.dekid FROM "something" o
-  JOIN "something_fields" f ON o.key = f.key
-  WHERE
-    (FALSE)
-  ORDER BY f."metadata.name" ASC `,
 		returnList:        []any{&unstructured.Unstructured{Object: unstrTestObjectMap}, &unstructured.Unstructured{Object: unstrTestObjectMap}},
 		expectedList:      &unstructured.UnstructuredList{Object: map[string]interface{}{"items": []map[string]interface{}{unstrTestObjectMap, unstrTestObjectMap}}, Items: []unstructured.Unstructured{{Object: unstrTestObjectMap}, {Object: unstrTestObjectMap}}},
 		expectedContToken: "",
