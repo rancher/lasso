@@ -382,6 +382,9 @@ func (l *ListOptionIndexer) constructQuery(lo ListOptions, partitions []partitio
 	}
 
 	// 3- Sorting: ORDER BY clauses (from lo.Sort)
+	if len(lo.Sort.Fields) != len(lo.Sort.Orders) {
+		return nil, 0, "", fmt.Errorf("sort fields length %d != sort orders length %d", len(lo.Sort.Fields), len(lo.Sort.Orders))
+	}
 	if len(lo.Sort.Fields) > 0 {
 		orderByClauses := []string{}
 		for i, field := range lo.Sort.Fields {
