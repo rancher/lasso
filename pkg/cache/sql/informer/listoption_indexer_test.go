@@ -676,6 +676,28 @@ func TestListByOptions(t *testing.T) {
 		expectedContToken: "",
 		expectedErr:       nil,
 	})
+
+	tests = append(tests, testCase{
+		description: "ListByOptions sorting when # fields != # sort orders should return an error",
+		listOptions: ListOptions{
+			Sort: Sort{
+				Fields: [][]string{{"metadata", "somefield"}, {"status", "someotherfield"}},
+				Orders: []SortOrder{DESC, ASC, ASC},
+			},
+		},
+		partitions: []partition.Partition{},
+		ns:         "",
+		expectedStmt: `SELECT o.object, o.objectnonce, o.dekid FROM "something" o
+  JOIN "something_fields" f ON o.key = f.key
+  WHERE
+    (FALSE)
+  ORDER BY f."metadata.somefield" DESC, f."status.someotherfield" ASC`,
+		returnList:        []any{&unstructured.Unstructured{Object: unstrTestObjectMap}, &unstructured.Unstructured{Object: unstrTestObjectMap}},
+		expectedList:      &unstructured.UnstructuredList{Object: map[string]interface{}{"items": []map[string]interface{}{unstrTestObjectMap, unstrTestObjectMap}}, Items: []unstructured.Unstructured{{Object: unstrTestObjectMap}, {Object: unstrTestObjectMap}}},
+		expectedContToken: "",
+		expectedErr:       fmt.Errorf("sort fields length 2 != sort orders length 3"),
+	})
+
 	tests = append(tests, testCase{
 		description: "ListByOptions with Pagination.PageSize set should set limit to PageSize in prepared sql.Stmt",
 		listOptions: ListOptions{
@@ -1398,6 +1420,36 @@ func TestConstructQuery(t *testing.T) {
   ORDER BY f."metadata.name" ASC `,
 		expectedStmtArgs: []any{"nectar", "%stash%", "landlady", "lawn", "reba", "coil", float64(2)},
 		expectedErr:      nil,
+	})
+
+	tests = append(tests, testCase{
+		description: "ConstructQuery: sorting when # fields < # sort orders should return an error",
+		listOptions: ListOptions{
+			Sort: Sort{
+				Fields: [][]string{{"metadata", "somefield"}, {"status", "someotherfield"}},
+				Orders: []SortOrder{DESC, ASC, ASC},
+			},
+		},
+		partitions:       []partition.Partition{},
+		ns:               "",
+		expectedStmt:     "",
+		expectedStmtArgs: []any{},
+		expectedErr:      fmt.Errorf("sort fields length 2 != sort orders length 3"),
+	})
+
+	tests = append(tests, testCase{
+		description: "ConstructQuery: sorting when # fields > # sort orders should return an error",
+		listOptions: ListOptions{
+			Sort: Sort{
+				Fields: [][]string{{"metadata", "somefield"}, {"status", "someotherfield"}, {"metadata", "labels", "a1"}, {"metadata", "labels", "a2"}},
+				Orders: []SortOrder{DESC, ASC, ASC},
+			},
+		},
+		partitions:       []partition.Partition{},
+		ns:               "",
+		expectedStmt:     "",
+		expectedStmtArgs: []any{},
+		expectedErr:      fmt.Errorf("sort fields length 4 != sort orders length 3"),
 	})
 
 	t.Parallel()
