@@ -10,8 +10,10 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/tools/cache"
 
@@ -35,6 +37,8 @@ type ListOptionIndexer struct {
 	deleteFieldStmt  *sql.Stmt
 	upsertLabelsStmt *sql.Stmt
 	deleteLabelsStmt *sql.Stmt
+
+	resourceVersionCache *resourceVersionCache
 }
 
 var (
@@ -94,14 +98,17 @@ func NewListOptionIndexer(fields [][]string, s Store, namespaced bool) (*ListOpt
 	}
 
 	l := &ListOptionIndexer{
-		Indexer:       i,
-		namespaced:    namespaced,
-		indexedFields: indexedFields,
+		Indexer:              i,
+		namespaced:           namespaced,
+		indexedFields:        indexedFields,
+		resourceVersionCache: newResourceVersionCache(1000),
 	}
 	l.RegisterAfterUpsert(l.addIndexFields)
 	l.RegisterAfterUpsert(l.addLabels)
+	l.RegisterAfterUpsert(l.updateResourceVersionCache)
 	l.RegisterAfterDelete(l.deleteIndexFields)
 	l.RegisterAfterDelete(l.deleteLabels)
+	l.RegisterAfterDelete(l.updateResourceVersionCache)
 	columnDefs := make([]string, len(indexedFields))
 	for index, field := range indexedFields {
 		column := fmt.Sprintf(`"%s" TEXT`, field)
@@ -216,6 +223,16 @@ func (l *ListOptionIndexer) addIndexFields(key string, obj any, tx db.TXClient) 
 	return nil
 }
 
+func (l *ListOptionIndexer) updateResourceVersionCache(key string, obj any, tx db.TXClient) error {
+	objMeta, err := meta.Accessor(obj)
+	if err != nil {
+		return err
+	}
+	l.resourceVersionCache.add(objMeta.GetResourceVersion())
+	fmt.Println("Updated resource version cache with", objMeta.GetResourceVersion())
+	return nil
+}
+
 // labels are stored in tables that shadow the underlying object table for each GVK
 func (l *ListOptionIndexer) addLabels(key string, obj any, tx db.TXClient) error {
 	k8sObj, ok := obj.(*unstructured.Unstructured)
@@ -232,7 +249,7 @@ func (l *ListOptionIndexer) addLabels(key string, obj any, tx db.TXClient) error
 	return nil
 }
 
-func (l *ListOptionIndexer) deleteIndexFields(key string, tx db.TXClient) error {
+func (l *ListOptionIndexer) deleteIndexFields(key string, _ any, tx db.TXClient) error {
 	args := []any{key}
 
 	err := tx.StmtExec(tx.Stmt(l.deleteFieldStmt), args...)
@@ -242,7 +259,7 @@ func (l *ListOptionIndexer) deleteIndexFields(key string, tx db.TXClient) error 
 	return nil
 }
 
-func (l *ListOptionIndexer) deleteLabels(key string, tx db.TXClient) error {
+func (l *ListOptionIndexer) deleteLabels(key string, _ any, tx db.TXClient) error {
 	err := tx.StmtExec(tx.Stmt(l.deleteLabelsStmt), key)
 	if err != nil {
 		return &db.QueryError{QueryString: l.deleteLabelsQuery, Err: err}
@@ -850,4 +867,39 @@ func toUnstructuredList(items []any) *unstructured.UnstructuredList {
 		objectItems[i] = item.(*unstructured.Unstructured).Object
 	}
 	return result
+}
+
+type resourceVersionCache struct {
+	lock             sync.RWMutex
+	resourceVersions []string
+	items            map[string]struct{}
+	currentIndex     int
+}
+
+func newResourceVersionCache(size int) *resourceVersionCache {
+	return &resourceVersionCache{
+		resourceVersions: make([]string, size),
+		currentIndex:     0,
+		items:            make(map[string]struct{}),
+	}
+}
+
+func (c *resourceVersionCache) add(resourceVersion string) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	oldResourceVersion := c.resourceVersions[c.currentIndex]
+	delete(c.items, oldResourceVersion)
+
+	c.resourceVersions[c.currentIndex] = resourceVersion
+	c.items[resourceVersion] = struct{}{}
+	c.currentIndex = (c.currentIndex + 1) % len(c.resourceVersions)
+}
+
+func (c *resourceVersionCache) contains(target string) bool {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	_, found := c.items[target]
+	return found
 }

@@ -8,10 +8,12 @@ import (
 	"database/sql"
 	"fmt"
 	"reflect"
+	"sync"
 
 	"github.com/rancher/lasso/pkg/cache/sql/db"
 	"github.com/rancher/lasso/pkg/cache/sql/db/transaction"
 	"github.com/rancher/lasso/pkg/log"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/tools/cache"
 	_ "modernc.org/sqlite"
 )
@@ -186,6 +188,7 @@ func (s *Store) Add(obj any) error {
 		log.Errorf("Error in Store.Add for type %v: %v", s.name, err)
 		return err
 	}
+
 	return nil
 }
 
