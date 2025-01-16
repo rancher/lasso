@@ -196,26 +196,6 @@ func main() {
 
 ```
 
-# Developing
-
-## Running Tests
-
-Some of lasso's tests make use of [envtest](https://book.kubebuilder.io/reference/envtest) to run. Envtest allows tests to run against a "fake" kubernetes server with little/no overhead. 
-
-To install the required `setup-envtest` binary, use the following command:
-
-```bash
-go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
-```
-
-Before running the tests, you must run the following command to setup the fake server:
-
-```bash
-# note that this will use a new/latest version of k8s. Our CI will run against the version of k8s that corresponds to lasso's
-# current client-go version, as seen in scripts/test.sh
-export KUBEBUILDER_ASSETS=$(setup-envtest use -p path)
-```
-
 # Credits and Resources
 The following resources were helpful in writing these docs. They are highly recommended for learning more than what is presented here:
 1. [the Kubernetes Documentation](https://kubernetes.io/docs/reference/command-line-tools-reference/kube-controller-manager/)
