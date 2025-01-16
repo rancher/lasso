@@ -15,14 +15,14 @@ func newlisteners() *listeners {
 	}
 }
 
-func (w *listeners) Notify(obj any) {
+func (w *listeners) Notify(revision string) {
 	w.lock.Lock()
 	defer w.lock.Unlock()
 
 	w.count += 1
 
 	for listener := range w.listeners {
-		listener.Notify()
+		listener.Notify(revision)
 	}
 }
 
@@ -49,5 +49,5 @@ func (w *listeners) Count() int {
 }
 
 type Listener interface {
-	Notify()
+	Notify(revision string)
 }

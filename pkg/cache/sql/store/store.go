@@ -8,12 +8,10 @@ import (
 	"database/sql"
 	"fmt"
 	"reflect"
-	"sync"
 
 	"github.com/rancher/lasso/pkg/cache/sql/db"
 	"github.com/rancher/lasso/pkg/cache/sql/db/transaction"
 	"github.com/rancher/lasso/pkg/log"
-	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/tools/cache"
 	_ "modernc.org/sqlite"
 )
@@ -54,7 +52,7 @@ type Store struct {
 	listKeysStmt *sql.Stmt
 
 	afterUpsert []func(key string, obj any, tx db.TXClient) error
-	afterDelete []func(key string, tx db.TXClient) error
+	afterDelete []func(key string, obj any, tx db.TXClient) error
 }
 
 // Test that Store implements cache.Indexer
@@ -80,7 +78,7 @@ func NewStore(example any, keyFunc cache.KeyFunc, c DBClient, shouldEncrypt bool
 		keyFunc:       keyFunc,
 		shouldEncrypt: shouldEncrypt,
 		afterUpsert:   []func(key string, obj any, tx db.TXClient) error{},
-		afterDelete:   []func(key string, tx db.TXClient) error{},
+		afterDelete:   []func(key string, obj any, tx db.TXClient) error{},
 	}
 
 	// once multiple informerfactories are needed, this can accept the case where table already exists error is received
@@ -137,7 +135,7 @@ func (s *Store) upsert(key string, obj any) error {
 }
 
 // deleteByKey deletes the object associated with key, if it exists in this Store
-func (s *Store) deleteByKey(key string) error {
+func (s *Store) deleteByKey(key string, obj any) error {
 	tx, err := s.BeginTx(context.Background(), true)
 	if err != nil {
 		return err
@@ -148,7 +146,7 @@ func (s *Store) deleteByKey(key string) error {
 		return &db.QueryError{QueryString: s.deleteQuery, Err: err}
 	}
 
-	err = s.runAfterDelete(key, tx)
+	err = s.runAfterDelete(key, obj, tx)
 	if err != nil {
 		return err
 	}
@@ -203,7 +201,7 @@ func (s *Store) Delete(obj any) error {
 	if err != nil {
 		return err
 	}
-	err = s.deleteByKey(key)
+	err = s.deleteByKey(key, obj)
 	if err != nil {
 		log.Errorf("Error in Store.Delete for type %v: %v", s.name, err)
 		return err
@@ -289,7 +287,7 @@ func (s *Store) replaceByKey(objects map[string]any) error {
 		if err != nil {
 			return err
 		}
-		err = s.runAfterDelete(key, txC)
+		err = s.runAfterDelete(key, nil, txC)
 		if err != nil {
 			return err
 		}
@@ -346,15 +344,15 @@ func (s *Store) runAfterUpsert(key string, obj any, txC db.TXClient) error {
 }
 
 // RegisterAfterDelete registers a func to be called after each deletion
-func (s *Store) RegisterAfterDelete(f func(key string, txC db.TXClient) error) {
+func (s *Store) RegisterAfterDelete(f func(key string, obj any, txC db.TXClient) error) {
 	s.afterDelete = append(s.afterDelete, f)
 }
 
 // keep
 // runAfterDelete executes functions registered to run after upsert
-func (s *Store) runAfterDelete(key string, txC db.TXClient) error {
+func (s *Store) runAfterDelete(key string, obj any, txC db.TXClient) error {
 	for _, f := range s.afterDelete {
-		err := f(key, txC)
+		err := f(key, obj, txC)
 		if err != nil {
 			return err
 		}

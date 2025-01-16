@@ -103,6 +103,7 @@ func NewListOptionIndexer(fields [][]string, s Store, namespaced bool) (*ListOpt
 		indexedFields:        indexedFields,
 		resourceVersionCache: newResourceVersionCache(1000),
 	}
+	fmt.Println("HITHERE creating list option indexer")
 	l.RegisterAfterUpsert(l.addIndexFields)
 	l.RegisterAfterUpsert(l.addLabels)
 	l.RegisterAfterUpsert(l.updateResourceVersionCache)
@@ -229,7 +230,7 @@ func (l *ListOptionIndexer) updateResourceVersionCache(key string, obj any, tx d
 		return err
 	}
 	l.resourceVersionCache.add(objMeta.GetResourceVersion())
-	fmt.Println("Updated resource version cache with", objMeta.GetResourceVersion())
+	fmt.Println("Updated resource version cache with", l.GetType(), objMeta.GetResourceVersion())
 	return nil
 }
 
@@ -267,6 +268,10 @@ func (l *ListOptionIndexer) deleteLabels(key string, _ any, tx db.TXClient) erro
 	return nil
 }
 
+func (l *ListOptionIndexer) GetLastResourceVersion() string {
+	return l.resourceVersionCache.getLatest()
+}
+
 // ListByOptions returns objects according to the specified list options and partitions.
 // Specifically:
 //   - an unstructured list of resources belonging to any of the specified partitions
@@ -274,6 +279,12 @@ func (l *ListOptionIndexer) deleteLabels(key string, _ any, tx db.TXClient) erro
 //   - a continue token, if there are more pages after the returned one
 //   - an error instead of all of the above if anything went wrong
 func (l *ListOptionIndexer) ListByOptions(ctx context.Context, lo ListOptions, partitions []partition.Partition, namespace string) (*unstructured.UnstructuredList, int, string, error) {
+	isMaybeStale := lo.Revision != "" && !l.resourceVersionCache.contains(lo.Revision)
+	if isMaybeStale {
+		// TODO: The meat of the logic would be here
+		return nil, 0, "", fmt.Errorf("might be stale, try again maybe")
+	}
+
 	queryInfo, err := l.constructQuery(lo, partitions, namespace, db.Sanitize(l.GetName()))
 	if err != nil {
 		return nil, 0, "", err
@@ -873,13 +884,13 @@ type resourceVersionCache struct {
 	lock             sync.RWMutex
 	resourceVersions []string
 	items            map[string]struct{}
-	currentIndex     int
+	nextIndex        int
 }
 
 func newResourceVersionCache(size int) *resourceVersionCache {
 	return &resourceVersionCache{
 		resourceVersions: make([]string, size),
-		currentIndex:     0,
+		nextIndex:        0,
 		items:            make(map[string]struct{}),
 	}
 }
@@ -888,12 +899,14 @@ func (c *resourceVersionCache) add(resourceVersion string) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	oldResourceVersion := c.resourceVersions[c.currentIndex]
+	oldResourceVersion := c.resourceVersions[c.nextIndex]
 	delete(c.items, oldResourceVersion)
 
-	c.resourceVersions[c.currentIndex] = resourceVersion
+	fmt.Println("Adding resourceVersion", c.nextIndex, resourceVersion)
+
+	c.resourceVersions[c.nextIndex] = resourceVersion
 	c.items[resourceVersion] = struct{}{}
-	c.currentIndex = (c.currentIndex + 1) % len(c.resourceVersions)
+	c.nextIndex = (c.nextIndex + 1) % len(c.resourceVersions)
 }
 
 func (c *resourceVersionCache) contains(target string) bool {
@@ -902,4 +915,11 @@ func (c *resourceVersionCache) contains(target string) bool {
 
 	_, found := c.items[target]
 	return found
+}
+
+func (c *resourceVersionCache) getLatest() string {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	return c.resourceVersions[c.nextIndex-1]
 }
