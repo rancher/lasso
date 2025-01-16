@@ -381,39 +381,29 @@ func (l *ListOptionIndexer) constructQuery(lo ListOptions, partitions []partitio
 		}
 	}
 
-	// 3- Sorting: ORDER BY clauses (from lo.Sort)
-	orderByClauses := []string{}
-	if len(lo.Sort.PrimaryField) > 0 {
-		columnName := toColumnName(lo.Sort.PrimaryField)
-		if err := l.validateColumn(columnName); err != nil {
-			return queryInfo, err
-		}
-
-		direction := "ASC"
-		if lo.Sort.PrimaryOrder == DESC {
-			direction = "DESC"
-		}
-		orderByClauses = append(orderByClauses, fmt.Sprintf(`f."%s" %s`, columnName, direction))
-	}
-	if len(lo.Sort.SecondaryField) > 0 {
-		columnName := toColumnName(lo.Sort.SecondaryField)
-		if err := l.validateColumn(columnName); err != nil {
-			return queryInfo, err
-		}
-
-		direction := "ASC"
-		if lo.Sort.SecondaryOrder == DESC {
-			direction = "DESC"
-		}
-		orderByClauses = append(orderByClauses, fmt.Sprintf(`f."%s" %s`, columnName, direction))
-	}
-
 	// before proceeding, save a copy of the query and params without LIMIT/OFFSET/ORDER info
 	// for COUNTing all results later
 	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM (%s)", query)
 	countParams := params[:]
 
-	if len(orderByClauses) > 0 {
+	// 3- Sorting: ORDER BY clauses (from lo.Sort)
+	if len(lo.Sort.Fields) != len(lo.Sort.Orders) {
+		return nil, fmt.Errorf("sort fields length %d != sort orders length %d", len(lo.Sort.Fields), len(lo.Sort.Orders))
+	}
+	if len(lo.Sort.Fields) > 0 {
+		orderByClauses := []string{}
+		for i, field := range lo.Sort.Fields {
+			columnName := toColumnName(field)
+			if err := l.validateColumn(columnName); err != nil {
+				return queryInfo, err
+			}
+
+			direction := "ASC"
+			if lo.Sort.Orders[i] == DESC {
+				direction = "DESC"
+			}
+			orderByClauses = append(orderByClauses, fmt.Sprintf(`f."%s" %s`, columnName, direction))
+		}
 		query += "\n  ORDER BY "
 		query += strings.Join(orderByClauses, ", ")
 	} else {
