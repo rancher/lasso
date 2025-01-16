@@ -24,9 +24,6 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-const ()
-const TEST_DB_LOCATION = "./sqlstore.sqlite"
-
 func testStoreKeyFunc(obj interface{}) (string, error) {
 	return obj.(testStoreObject).Id, nil
 }
@@ -518,15 +515,15 @@ func TestReplace(t *testing.T) {
 	},
 	})
 	tests = append(tests, testCase{description: "Replace with no DB Client errors and no items", test: func(t *testing.T, shouldEncrypt bool) {
-		c, tx := SetupMockDB(t)
+		c, txC := SetupMockDB(t)
 		store := SetupStore(t, c, shouldEncrypt)
 		r := &sql.Rows{}
-		c.EXPECT().BeginTx(gomock.Any(), true).Return(tx, nil)
-		tx.EXPECT().Stmt(store.listKeysStmt).Return(store.listKeysStmt)
+		c.EXPECT().BeginTx(gomock.Any(), true).Return(txC, nil)
+		txC.EXPECT().Stmt(store.listKeysStmt).Return(store.listKeysStmt)
 		c.EXPECT().QueryForRows(context.TODO(), store.listKeysStmt).Return(r, nil)
 		c.EXPECT().ReadStrings(r).Return([]string{}, nil)
-		c.EXPECT().Upsert(tx, store.upsertStmt, testObject.Id, testObject, store.shouldEncrypt)
-		tx.EXPECT().Commit()
+		c.EXPECT().Upsert(txC, store.upsertStmt, testObject.Id, testObject, store.shouldEncrypt)
+		txC.EXPECT().Commit()
 		err := store.Replace([]any{testObject}, testObject.Id)
 		assert.Nil(t, err)
 	},
@@ -540,11 +537,11 @@ func TestReplace(t *testing.T) {
 	},
 	})
 	tests = append(tests, testCase{description: "Replace with no DB Client ReadStrings() error", test: func(t *testing.T, shouldEncrypt bool) {
-		c, tx := SetupMockDB(t)
+		c, txC := SetupMockDB(t)
 		store := SetupStore(t, c, shouldEncrypt)
 		r := &sql.Rows{}
-		c.EXPECT().BeginTx(gomock.Any(), true).Return(tx, nil)
-		tx.EXPECT().Stmt(store.listKeysStmt).Return(store.listKeysStmt)
+		c.EXPECT().BeginTx(gomock.Any(), true).Return(txC, nil)
+		txC.EXPECT().Stmt(store.listKeysStmt).Return(store.listKeysStmt)
 		c.EXPECT().QueryForRows(context.TODO(), store.listKeysStmt).Return(r, nil)
 		c.EXPECT().ReadStrings(r).Return(nil, fmt.Errorf("error"))
 		err := store.Replace([]any{testObject}, testObject.Id)
@@ -552,11 +549,11 @@ func TestReplace(t *testing.T) {
 	},
 	})
 	tests = append(tests, testCase{description: "Replace with ReadStrings() error", test: func(t *testing.T, shouldEncrypt bool) {
-		c, tx := SetupMockDB(t)
+		c, txC := SetupMockDB(t)
 		store := SetupStore(t, c, shouldEncrypt)
 		r := &sql.Rows{}
-		c.EXPECT().BeginTx(gomock.Any(), true).Return(tx, nil)
-		tx.EXPECT().Stmt(store.listKeysStmt).Return(store.listKeysStmt)
+		c.EXPECT().BeginTx(gomock.Any(), true).Return(txC, nil)
+		txC.EXPECT().Stmt(store.listKeysStmt).Return(store.listKeysStmt)
 		c.EXPECT().QueryForRows(context.TODO(), store.listKeysStmt).Return(r, nil)
 		c.EXPECT().ReadStrings(r).Return(nil, fmt.Errorf("error"))
 		err := store.Replace([]any{testObject}, testObject.Id)
