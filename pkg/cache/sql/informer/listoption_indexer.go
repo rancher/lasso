@@ -381,9 +381,14 @@ func (l *ListOptionIndexer) constructQuery(lo ListOptions, partitions []partitio
 		}
 	}
 
+	// before proceeding, save a copy of the query and params without LIMIT/OFFSET/ORDER info
+	// for COUNTing all results later
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM (%s)", query)
+	countParams := params[:]
+
 	// 3- Sorting: ORDER BY clauses (from lo.Sort)
 	if len(lo.Sort.Fields) != len(lo.Sort.Orders) {
-		return nil, 0, "", fmt.Errorf("sort fields length %d != sort orders length %d", len(lo.Sort.Fields), len(lo.Sort.Orders))
+		return nil, fmt.Errorf("sort fields length %d != sort orders length %d", len(lo.Sort.Fields), len(lo.Sort.Orders))
 	}
 	if len(lo.Sort.Fields) > 0 {
 		orderByClauses := []string{}
