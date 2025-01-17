@@ -103,7 +103,6 @@ func NewListOptionIndexer(fields [][]string, s Store, namespaced bool) (*ListOpt
 		indexedFields:        indexedFields,
 		resourceVersionCache: newResourceVersionCache(1000),
 	}
-	fmt.Println("HITHERE creating list option indexer")
 	l.RegisterAfterUpsert(l.addIndexFields)
 	l.RegisterAfterUpsert(l.addLabels)
 	l.RegisterAfterUpsert(l.updateResourceVersionCache)
@@ -230,7 +229,6 @@ func (l *ListOptionIndexer) updateResourceVersionCache(key string, obj any, tx d
 		return err
 	}
 	l.resourceVersionCache.add(objMeta.GetResourceVersion())
-	fmt.Println("Updated resource version cache with", l.GetType(), objMeta.GetResourceVersion())
 	return nil
 }
 
@@ -901,8 +899,6 @@ func (c *resourceVersionCache) add(resourceVersion string) {
 
 	oldResourceVersion := c.resourceVersions[c.nextIndex]
 	delete(c.items, oldResourceVersion)
-
-	fmt.Println("Adding resourceVersion", c.nextIndex, resourceVersion)
 
 	c.resourceVersions[c.nextIndex] = resourceVersion
 	c.items[resourceVersion] = struct{}{}

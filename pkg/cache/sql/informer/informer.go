@@ -6,7 +6,6 @@ package informer
 
 import (
 	"context"
-	"strconv"
 	"time"
 
 	"github.com/rancher/lasso/pkg/cache/sql/partition"
@@ -108,8 +107,6 @@ func NewInformer(client dynamic.ResourceInterface, fields [][]string, transform 
 //   - an error instead of all of the above if anything went wrong
 func (i *Informer) ListByOptions(ctx context.Context, lo ListOptions, partitions []partition.Partition, namespace string) (*unstructured.UnstructuredList, int, string, error) {
 	list, total, continueToken, err := i.ByOptionsLister.ListByOptions(ctx, lo, partitions, namespace)
-	count := i.listeners.Count()
-	list.SetResourceVersion(strconv.Itoa(count))
 	return list, total, continueToken, err
 }
 
