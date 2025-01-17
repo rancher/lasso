@@ -1,5 +1,5 @@
 /*
-Package factory provides a cache factory for the sql-based cache.
+Package factory provides an cache factory for the sql-based cache.
 */
 package factory
 
@@ -30,7 +30,7 @@ type CacheFactory struct {
 	wg         wait.Group
 	dbClient   DBClient
 	stopCh     chan struct{}
-	mutex      sync.RWMutex
+	mutex              sync.RWMutex
 	encryptAll bool
 
 	newInformer newInformer
@@ -54,6 +54,7 @@ type DBClient interface {
 
 type Cache struct {
 	informer.ByOptionsLister
+	informer.Watcher
 }
 
 type connector interface {
@@ -152,7 +153,7 @@ func (f *CacheFactory) CacheFor(fields [][]string, transform cache.TransformFunc
 	}
 
 	// At this point the informer is ready, return it
-	return Cache{ByOptionsLister: gi.informer}, nil
+	return Cache{ByOptionsLister: gi.informer, Watcher: gi.informer}, nil
 }
 
 // Reset closes the stopCh which stops any running informers, assigns a new stopCh, resets the GVK-informer cache, and resets
