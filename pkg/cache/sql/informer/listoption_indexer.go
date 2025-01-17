@@ -917,5 +917,10 @@ func (c *resourceVersionCache) getLatest() string {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
-	return c.resourceVersions[c.nextIndex-1]
+	index := c.nextIndex - 1
+	if index < 0 {
+		index = len(c.resourceVersions) - 1
+	}
+
+	return c.resourceVersions[index]
 }
