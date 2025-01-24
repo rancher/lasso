@@ -61,7 +61,7 @@ func applyDefaultCacheOptions(opts *Options) *Options {
 		newOpts = *opts
 	}
 	if newOpts.Resync == 0 {
-		newOpts.Resync = getDefaultResyncInterval()
+		newOpts.Resync = GetDefaultResyncInterval()
 	}
 	if newOpts.TweakList == nil {
 		newOpts.TweakList = func(*metav1.ListOptions) {}
@@ -69,7 +69,8 @@ func applyDefaultCacheOptions(opts *Options) *Options {
 	return &newOpts
 }
 
-func getDefaultResyncInterval() time.Duration {
+// GetDefaultResyncInterval returns the default resync interval used by Lasso informers as a time.Duration
+func GetDefaultResyncInterval() time.Duration {
 	cattleResyncDefaultFromEnv := os.Getenv("CATTLE_RESYNC_DEFAULT")
 	if cattleResyncDefaultFromEnv == "" {
 		return resyncDefault * time.Minute
