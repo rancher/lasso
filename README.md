@@ -202,3 +202,7 @@ The following resources were helpful in writing these docs. They are highly reco
 2. https://docs.bitnami.com/tutorials/a-deep-dive-into-kubernetes-controllers/
 3. https://aly.arriqaaq.com/kubernetes-informers/
 4. https://github.com/kubernetes/sample-controller/blob/master/docs/controller-client-go.md
+
+
+# Versioning
+See [VERSION.md](VERSION.md).
