@@ -15,7 +15,7 @@ Lasso
 	- [Lasso Shared Cache Factory](#lasso-shared-cache-factory)
 	- [Lasso Shared Client Factory](#lasso-shared-client-factory)
 	- [Lasso Shared Controller Factory](#lasso-shared-controller-factory)
-	- [Deferred Controller Function](#deferred-controller-function)
+	- [Deferred Controller Function](#deferred-controller-function)a
 - [How to use Lasso](#how-to-use-lasso)
 - [Developing](#developing)
     - [Running Tests](#running-tests)
