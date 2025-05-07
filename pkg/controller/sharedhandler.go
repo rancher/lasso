@@ -78,7 +78,7 @@ func (h *SharedHandler) OnChange(key string, obj runtime.Object) error {
 	// modifications performed by early chained handlers also cause a new enqueue of the processed key, while later late handlers modifications
 	// could cause the definitive deletion of the object (by removing a finalizer). If this happens fast enough, it creates a race condition where handlers receive an out-of-date version of the object.
 	// See https://github.com/rancher/rancher/issues/49328 for more details.
-	if obj != nil && h.wasRecentlyDeleted(obj) {
+	if obj != nil && h.deletedInPreviousExecution(obj) {
 		return &retryAfterError{duration: retryPeriodForRecentlyDeletedObject}
 	}
 
@@ -141,12 +141,18 @@ func (h *SharedHandler) observeDeletedObjectAfterFinalize(obj runtime.Object) {
 	h.recentDeletions.Set(meta.GetUID(), struct{}{}, recentDeletionCacheExpiration)
 }
 
-// wasRecentlyDeleted returns whether an object has been deleted in earlier executions of the controller.
-func (h *SharedHandler) wasRecentlyDeleted(obj runtime.Object) bool {
+// deletedInPreviousExecution returns whether an object has been deleted in earlier executions of the controller.
+func (h *SharedHandler) deletedInPreviousExecution(obj runtime.Object) bool {
 	meta, err := meta.Accessor(obj)
 	if err != nil {
 		return false
 	}
+
+	// avoid checking the cache for objects not marked for deletion
+	if meta.GetDeletionTimestamp() == nil {
+		return false
+	}
+
 	_, ok := h.recentDeletions.Get(meta.GetUID())
 	return ok
 }
