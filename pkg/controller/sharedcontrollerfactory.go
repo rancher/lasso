@@ -25,10 +25,10 @@ type SharedControllerFactory interface {
 type SharedControllerFactoryOptions struct {
 	CacheOptions *cache.SharedCacheFactoryOptions
 
-	DefaultRateLimiter workqueue.RateLimiter
+	DefaultRateLimiter workqueue.TypedRateLimiter[string]
 	DefaultWorkers     int
 
-	KindRateLimiter map[schema.GroupVersionKind]workqueue.RateLimiter
+	KindRateLimiter map[schema.GroupVersionKind]workqueue.TypedRateLimiter[string]
 	KindWorkers     map[schema.GroupVersionKind]int
 
 	// SyncOnlyChangedObjects causes the handle function to only proceed if the object was actually updated.
@@ -49,9 +49,9 @@ type sharedControllerFactory struct {
 	sharedCacheFactory cache.SharedCacheFactory
 	controllers        map[schema.GroupVersionResource]*sharedController
 
-	rateLimiter     workqueue.RateLimiter
+	rateLimiter     workqueue.TypedRateLimiter[workqueueKey]
 	workers         int
-	kindRateLimiter map[schema.GroupVersionKind]workqueue.RateLimiter
+	kindRateLimiter map[schema.GroupVersionKind]workqueue.TypedRateLimiter[workqueueKey]
 	kindWorkers     map[schema.GroupVersionKind]int
 
 	syncOnlyChangedObjects bool
