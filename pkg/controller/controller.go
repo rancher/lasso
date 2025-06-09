@@ -52,12 +52,14 @@ type Controller interface {
 	Start(ctx context.Context, workers int) error
 }
 
+type workqueueKey = string
+
 type controller struct {
 	startLock sync.Mutex
 
 	name        string
-	workqueue   workqueue.RateLimitingInterface
-	rateLimiter workqueue.RateLimiter
+	workqueue   workqueue.TypedRateLimitingInterface[workqueueKey]
+	rateLimiter workqueue.TypedRateLimiter[workqueueKey]
 	informer    cache.SharedIndexInformer
 	handler     Handler
 	gvk         schema.GroupVersionKind
@@ -72,7 +74,7 @@ type startKey struct {
 }
 
 type Options struct {
-	RateLimiter            workqueue.RateLimiter
+	RateLimiter            workqueue.TypedRateLimiter[string]
 	SyncOnlyChangedObjects bool
 }
 
@@ -112,9 +114,9 @@ func applyDefaultOptions(opts *Options) *Options {
 	// from failure 13 to 30: 30s delay
 	// from failure 31 on: 120s delay (2 minutes)
 	if newOpts.RateLimiter == nil {
-		newOpts.RateLimiter = workqueue.NewMaxOfRateLimiter(
-			workqueue.NewItemFastSlowRateLimiter(time.Millisecond, maxTimeout2min, 30),
-			workqueue.NewItemExponentialFailureRateLimiter(5*time.Millisecond, 30*time.Second),
+		newOpts.RateLimiter = workqueue.NewTypedMaxOfRateLimiter[workqueueKey](
+			workqueue.NewTypedItemFastSlowRateLimiter[workqueueKey](time.Millisecond, maxTimeout2min, 30),
+			workqueue.NewTypedItemExponentialFailureRateLimiter[workqueueKey](5*time.Millisecond, 30*time.Second),
 		)
 	}
 	return &newOpts
@@ -134,7 +136,9 @@ func (c *controller) run(workers int, stopCh <-chan struct{}) {
 	// will create a goroutine under the hood.  It we instantiate a workqueue we must have
 	// a mechanism to Shutdown it down.  Without the stopCh we don't know when to shutdown
 	// the queue and release the goroutine
-	c.workqueue = workqueue.NewNamedRateLimitingQueue(c.rateLimiter, c.name)
+	c.workqueue = workqueue.NewTypedRateLimitingQueueWithConfig[workqueueKey](c.rateLimiter, workqueue.TypedRateLimitingQueueConfig[workqueueKey]{
+		Name: c.name,
+	})
 	for _, start := range c.startKeys {
 		if start.after == 0 {
 			c.workqueue.Add(start.key)
@@ -207,19 +211,9 @@ func (c *controller) processNextWorkItem() bool {
 	return true
 }
 
-func (c *controller) processSingleItem(obj interface{}) error {
-	var (
-		key string
-		ok  bool
-	)
+func (c *controller) processSingleItem(key string) error {
+	defer c.workqueue.Done(key)
 
-	defer c.workqueue.Done(obj)
-
-	if key, ok = obj.(string); !ok {
-		c.workqueue.Forget(obj)
-		log.Errorf("expected string in workqueue but got %#v", obj)
-		return nil
-	}
 	if err := c.syncHandler(key); err != nil {
 		var retryAfter *retryAfterError
 		if errors.As(err, &retryAfter) {
@@ -230,7 +224,7 @@ func (c *controller) processSingleItem(obj interface{}) error {
 		return fmt.Errorf("error syncing '%s': %s, requeuing", key, err.Error())
 	}
 
-	c.workqueue.Forget(obj)
+	c.workqueue.Forget(key)
 	return nil
 }
 
