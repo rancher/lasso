@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,6 +19,8 @@ import (
 //go:generate mockgen --build_flags=--mod=mod -package controller -destination ./mock_shared_index_informer_test.go k8s.io/client-go/tools/cache SharedIndexInformer
 
 func TestController_multiple_finalizers_race(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -93,4 +96,46 @@ func TestController_multiple_finalizers_race(t *testing.T) {
 	if got, want := count, 2; got != want {
 		t.Errorf("unexpected number of handler executions, got %d, want %d", got, want)
 	}
+}
+
+func TestController_no_registered_handlers(t *testing.T) {
+	t.Parallel()
+
+	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+	defer queue.ShutDown()
+	store := cache.NewStore(cache.MetaNamespaceKeyFunc)
+
+	ctrl := gomock.NewController(t)
+	informer := NewMockSharedIndexInformer(ctrl)
+	informer.EXPECT().GetStore().Return(store).AnyTimes()
+	handler := &SharedHandler{controllerGVR: corev1.SchemeGroupVersion.WithResource("ConfigMap").String()}
+	c := &controller{
+		informer:  informer,
+		workqueue: queue,
+		handler:   handler,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	assert.NotPanics(t, func() {
+		go c.runWorker()
+
+		cm := &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace:         "test-ns",
+				Name:              "test-cm",
+				Finalizers:        []string{"test-finalizer-1", "test-finalizer-2"},
+				DeletionTimestamp: ptr.To(metav1.Now()),
+				UID:               uuid.NewUUID(),
+			},
+		}
+		key := "test-ns/test-cm"
+
+		if err := store.Add(cm); err != nil {
+			t.Fatal(err)
+		}
+		queue.Add(key)
+
+		<-ctx.Done()
+	})
 }
