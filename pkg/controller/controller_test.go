@@ -136,6 +136,13 @@ func TestController_no_registered_handlers(t *testing.T) {
 		}
 		queue.Add(key)
 
+		// simulate object being "finalized"
+		cm.Finalizers = []string{}
+		if err := store.Update(cm); err != nil {
+			t.Fatal(err)
+		}
+		queue.Add(key)
+
 		<-ctx.Done()
 	})
 }
