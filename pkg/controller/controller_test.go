@@ -31,7 +31,7 @@ func TestController_multiple_finalizers_race(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	informer := NewMockSharedIndexInformer(ctrl)
 	informer.EXPECT().GetStore().Return(store).AnyTimes()
-	handler := &SharedHandler{controllerGVR: corev1.SchemeGroupVersion.WithResource("ConfigMap").String()}
+	handler := &SharedHandler{ControllerName: corev1.SchemeGroupVersion.WithResource("ConfigMap").String()}
 	c := &controller{
 		informer:  informer,
 		workqueue: queue,
@@ -108,7 +108,7 @@ func TestController_no_registered_handlers(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	informer := NewMockSharedIndexInformer(ctrl)
 	informer.EXPECT().GetStore().Return(store).AnyTimes()
-	handler := &SharedHandler{controllerGVR: corev1.SchemeGroupVersion.WithResource("ConfigMap").String()}
+	handler := &SharedHandler{ControllerName: corev1.SchemeGroupVersion.WithResource("ConfigMap").String()}
 	c := &controller{
 		informer:  informer,
 		workqueue: queue,
