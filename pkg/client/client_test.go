@@ -20,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/rest/fake"
 )
@@ -532,6 +533,28 @@ func TestClient_Watch(t *testing.T) {
 			}
 			require.NoError(t, err)
 		})
+	}
+}
+
+func TestClient_Watch_Stop(t *testing.T) {
+	t.Parallel()
+	client := &Client{kind: "testkind"}
+	mockWatcher := watch.NewFake()
+	w, err := client.injectKind(mockWatcher, nil)
+	require.NoError(t, err)
+
+	resultChan := w.ResultChan()
+	mockWatcher.Add(nil)
+	w.Stop()
+
+	// Check that ResultChan is properly closed when Stop() is called
+	select {
+	case _, ok := <-resultChan:
+		if ok {
+			t.Error("expected result channel to be closed")
+		}
+	default:
+		t.Error("expected result channel to be closed")
 	}
 }
 
