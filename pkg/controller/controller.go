@@ -88,7 +88,7 @@ func New(name string, informer cache.SharedIndexInformer, startCache func(contex
 		startCache:  startCache,
 	}
 
-	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err := informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: controller.handleObject,
 		UpdateFunc: func(old, new interface{}) {
 			if !opts.SyncOnlyChangedObjects || old.(ResourceVersionGetter).GetResourceVersion() != new.(ResourceVersionGetter).GetResourceVersion() {
@@ -99,6 +99,9 @@ func New(name string, informer cache.SharedIndexInformer, startCache func(contex
 		},
 		DeleteFunc: controller.handleObject,
 	})
+	if err != nil {
+		log.Errorf("error adding event handler: %v", err)
+	}
 
 	return controller
 }
