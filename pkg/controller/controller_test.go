@@ -68,7 +68,7 @@ func TestController_multiple_finalizers_race(t *testing.T) {
 		cm.Finalizers = nil
 		go func() {
 			<-time.After(200 * time.Millisecond)
-			store.Delete(cm)
+			_ = store.Delete(cm)
 			queue.Add(key)
 		}()
 
