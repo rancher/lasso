@@ -138,7 +138,7 @@ func (c *controller) run(workers int, stopCh <-chan struct{}) {
 	// will create a goroutine under the hood.  It we instantiate a workqueue we must have
 	// a mechanism to Shutdown it down.  Without the stopCh we don't know when to shutdown
 	// the queue and release the goroutine
-	c.workqueue = workqueue.NewNamedRateLimitingQueue(c.rateLimiter, c.name)
+	c.workqueue = workqueue.NewTypedRateLimitingQueueWithConfig(c.rateLimiter, workqueue.TypedRateLimitingQueueConfig[any]{Name: c.name})
 	for _, start := range c.startKeys {
 		if start.after == 0 {
 			c.workqueue.Add(start.key)
