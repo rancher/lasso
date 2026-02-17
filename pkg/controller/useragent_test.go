@@ -37,7 +37,7 @@ func TestNewSharedControllerFactoryWithAgent(t *testing.T) {
 
 	testSharedControllerWithAgent := NewSharedControllerWithAgent(testUserAgent, testSharedController)
 	testClientWithAgent := testSharedControllerWithAgent.Client().RESTClient.(*rest.RESTClient)
-	testClientWithAgent.Client.Transport.RoundTrip(&http.Request{})
+	_, _ = testClientWithAgent.Client.Transport.RoundTrip(&http.Request{})
 
 	testErrSharedController := NewMockSharedController(gomock.NewController(t))
 	testErrSharedController.EXPECT().Client().DoAndReturn(func() *client.Client {
