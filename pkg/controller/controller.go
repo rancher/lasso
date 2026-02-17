@@ -57,8 +57,8 @@ type controller struct {
 
 	name        string
 	ctxID       string
-	workqueue   workqueue.RateLimitingInterface
-	rateLimiter workqueue.RateLimiter
+	workqueue   workqueue.TypedRateLimitingInterface[any]
+	rateLimiter workqueue.TypedRateLimiter[any]
 	informer    cache.SharedIndexInformer
 	handler     Handler
 	gvk         schema.GroupVersionKind
@@ -73,7 +73,7 @@ type startKey struct {
 }
 
 type Options struct {
-	RateLimiter            workqueue.RateLimiter
+	RateLimiter            workqueue.TypedRateLimiter[any]
 	SyncOnlyChangedObjects bool
 }
 
@@ -116,9 +116,9 @@ func applyDefaultOptions(opts *Options) *Options {
 	// from failure 13 to 30: 30s delay
 	// from failure 31 on: 120s delay (2 minutes)
 	if newOpts.RateLimiter == nil {
-		newOpts.RateLimiter = workqueue.NewMaxOfRateLimiter(
-			workqueue.NewItemFastSlowRateLimiter(time.Millisecond, maxTimeout2min, 30),
-			workqueue.NewItemExponentialFailureRateLimiter(5*time.Millisecond, 30*time.Second),
+		newOpts.RateLimiter = workqueue.NewTypedMaxOfRateLimiter[any](
+			workqueue.NewTypedItemFastSlowRateLimiter[any](time.Millisecond, maxTimeout2min, 30),
+			workqueue.NewTypedItemExponentialFailureRateLimiter[any](5*time.Millisecond, 30*time.Second),
 		)
 	}
 	return &newOpts
