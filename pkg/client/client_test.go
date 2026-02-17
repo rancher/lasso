@@ -31,8 +31,8 @@ var negotiatedSerializer = serializer.NewCodecFactory(testSchema)
 
 func TestMain(m *testing.M) {
 	// Setup Schemas for serializer before we run our test
-	metav1.AddMetaToScheme(testSchema)
-	v1.SchemeBuilder.AddToScheme(testSchema)
+	_ = metav1.AddMetaToScheme(testSchema)
+	_ = v1.SchemeBuilder.AddToScheme(testSchema)
 	m.Run()
 }
 
