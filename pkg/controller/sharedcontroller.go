@@ -14,7 +14,7 @@ import (
 )
 
 type SharedControllerHandler interface {
-	OnChange(key string, obj runtime.Object) (runtime.Object, error)
+	OnChange(ctx context.Context, key string, obj runtime.Object) (runtime.Object, error)
 }
 
 type SharedController interface {
@@ -24,10 +24,10 @@ type SharedController interface {
 	Client() *client.Client
 }
 
-type SharedControllerHandlerFunc func(key string, obj runtime.Object) (runtime.Object, error)
+type SharedControllerHandlerFunc func(ctx context.Context, key string, obj runtime.Object) (runtime.Object, error)
 
-func (s SharedControllerHandlerFunc) OnChange(key string, obj runtime.Object) (runtime.Object, error) {
-	return s(key, obj)
+func (s SharedControllerHandlerFunc) OnChange(ctx context.Context, key string, obj runtime.Object) (runtime.Object, error) {
+	return s(ctx, key, obj)
 }
 
 type sharedController struct {

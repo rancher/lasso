@@ -26,17 +26,17 @@ import (
 const maxTimeout2min = 2 * time.Minute
 
 type Handler interface {
-	OnChange(key string, obj runtime.Object) error
+	OnChange(ctx context.Context, key string, obj runtime.Object) error
 }
 
 type ResourceVersionGetter interface {
 	GetResourceVersion() string
 }
 
-type HandlerFunc func(key string, obj runtime.Object) error
+type HandlerFunc func(ctx context.Context, key string, obj runtime.Object) error
 
-func (h HandlerFunc) OnChange(key string, obj runtime.Object) error {
-	return h(key, obj)
+func (h HandlerFunc) OnChange(ctx context.Context, key string, obj runtime.Object) error {
+	return h(ctx, key, obj)
 }
 
 type retryAfterError struct {
@@ -199,7 +199,7 @@ func (c *controller) processNextWorkItem() bool {
 		return false
 	}
 
-	if err := c.processSingleItem(obj); err != nil {
+	if err := c.processSingleItem(context.TODO(), obj); err != nil {
 		if !strings.Contains(err.Error(), "please apply your changes to the latest version and try again") {
 			log.Errorf("%v", err)
 		}
@@ -209,7 +209,7 @@ func (c *controller) processNextWorkItem() bool {
 	return true
 }
 
-func (c *controller) processSingleItem(obj interface{}) error {
+func (c *controller) processSingleItem(ctx context.Context, obj interface{}) error {
 	var (
 		key string
 		ok  bool
@@ -222,7 +222,7 @@ func (c *controller) processSingleItem(obj interface{}) error {
 		log.Errorf("expected string in workqueue but got %#v", obj)
 		return nil
 	}
-	if err := c.syncHandler(key); err != nil {
+	if err := c.syncHandler(ctx, key); err != nil {
 		var retryAfter *retryAfterError
 		if errors.As(err, &retryAfter) {
 			c.workqueue.AddAfter(key, retryAfter.duration)
@@ -236,17 +236,17 @@ func (c *controller) processSingleItem(obj interface{}) error {
 	return nil
 }
 
-func (c *controller) syncHandler(key string) error {
+func (c *controller) syncHandler(ctx context.Context, key string) error {
 	obj, exists, err := c.informer.GetStore().GetByKey(key)
 	if err != nil {
 		metrics.IncTotalHandlerExecutions(c.ctxID, c.name, "", true)
 		return err
 	}
 	if !exists {
-		return c.handler.OnChange(key, nil)
+		return c.handler.OnChange(ctx, key, nil)
 	}
 
-	return c.handler.OnChange(key, obj.(runtime.Object))
+	return c.handler.OnChange(ctx, key, obj.(runtime.Object))
 }
 
 func (c *controller) EnqueueKey(key string) {
