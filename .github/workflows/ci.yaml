@@ -19,7 +19,8 @@ jobs:
       with:
         go-version-file: 'go.mod'
     - name: Install env-test
-      run: go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+      run: go install sigs.k8s.io/controller-runtime/tools/setup-envtest@8122a6266696b980fc9219c2fbb48bb4ce60d12b #v0.23.2
+      # This version is the latest that uses go 1.25
     - name : Validate
       run: make validate
     - name : Run tests
