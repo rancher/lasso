@@ -24,7 +24,7 @@ func TestController_multiple_finalizers_race(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+	queue := workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any]())
 	defer queue.ShutDown()
 	store := cache.NewStore(cache.MetaNamespaceKeyFunc)
 
@@ -68,7 +68,7 @@ func TestController_multiple_finalizers_race(t *testing.T) {
 		cm.Finalizers = nil
 		go func() {
 			<-time.After(200 * time.Millisecond)
-			store.Delete(cm)
+			_ = store.Delete(cm)
 			queue.Add(key)
 		}()
 
@@ -101,7 +101,7 @@ func TestController_multiple_finalizers_race(t *testing.T) {
 func TestController_no_registered_handlers(t *testing.T) {
 	t.Parallel()
 
-	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+	queue := workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any]())
 	defer queue.ShutDown()
 	store := cache.NewStore(cache.MetaNamespaceKeyFunc)
 

@@ -9,6 +9,8 @@ on:
 jobs:
   ci:
     runs-on : ubuntu-latest
+    env:
+      GOLANG_CI_LINT_VERSION: v2.7.2
     steps:
     - name : Checkout repository
       # https://github.com/actions/checkout/releases/tag/v4.1.1
@@ -18,6 +20,11 @@ jobs:
       uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
       with:
         go-version-file: 'go.mod'
+    - name: Run golangci-lint
+      uses: golangci/golangci-lint-action@1e7e51e771db61008b38414a730f564565cf7c20 # v9.2.0
+      with:
+        version: ${{ env.GOLANG_CI_LINT_VERSION }}
+        args: -v
     - name : Validate
       run: make validate
     - name : Run tests
