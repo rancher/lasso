@@ -23,6 +23,7 @@ import (
 type MockSharedClientFactory struct {
 	ctrl     *gomock.Controller
 	recorder *MockSharedClientFactoryMockRecorder
+	isgomock struct{}
 }
 
 // MockSharedClientFactoryMockRecorder is the mock recorder for MockSharedClientFactory.
@@ -43,112 +44,112 @@ func (m *MockSharedClientFactory) EXPECT() *MockSharedClientFactoryMockRecorder 
 }
 
 // ForKind mocks base method.
-func (m *MockSharedClientFactory) ForKind(arg0 schema.GroupVersionKind) (*client.Client, error) {
+func (m *MockSharedClientFactory) ForKind(gvk schema.GroupVersionKind) (*client.Client, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ForKind", arg0)
+	ret := m.ctrl.Call(m, "ForKind", gvk)
 	ret0, _ := ret[0].(*client.Client)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ForKind indicates an expected call of ForKind.
-func (mr *MockSharedClientFactoryMockRecorder) ForKind(arg0 any) *gomock.Call {
+func (mr *MockSharedClientFactoryMockRecorder) ForKind(gvk any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ForKind", reflect.TypeOf((*MockSharedClientFactory)(nil).ForKind), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ForKind", reflect.TypeOf((*MockSharedClientFactory)(nil).ForKind), gvk)
 }
 
 // ForResource mocks base method.
-func (m *MockSharedClientFactory) ForResource(arg0 schema.GroupVersionResource, arg1 bool) (*client.Client, error) {
+func (m *MockSharedClientFactory) ForResource(gvr schema.GroupVersionResource, namespaced bool) (*client.Client, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ForResource", arg0, arg1)
+	ret := m.ctrl.Call(m, "ForResource", gvr, namespaced)
 	ret0, _ := ret[0].(*client.Client)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ForResource indicates an expected call of ForResource.
-func (mr *MockSharedClientFactoryMockRecorder) ForResource(arg0, arg1 any) *gomock.Call {
+func (mr *MockSharedClientFactoryMockRecorder) ForResource(gvr, namespaced any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ForResource", reflect.TypeOf((*MockSharedClientFactory)(nil).ForResource), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ForResource", reflect.TypeOf((*MockSharedClientFactory)(nil).ForResource), gvr, namespaced)
 }
 
 // ForResourceKind mocks base method.
-func (m *MockSharedClientFactory) ForResourceKind(arg0 schema.GroupVersionResource, arg1 string, arg2 bool) *client.Client {
+func (m *MockSharedClientFactory) ForResourceKind(gvr schema.GroupVersionResource, kind string, namespaced bool) *client.Client {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ForResourceKind", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "ForResourceKind", gvr, kind, namespaced)
 	ret0, _ := ret[0].(*client.Client)
 	return ret0
 }
 
 // ForResourceKind indicates an expected call of ForResourceKind.
-func (mr *MockSharedClientFactoryMockRecorder) ForResourceKind(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockSharedClientFactoryMockRecorder) ForResourceKind(gvr, kind, namespaced any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ForResourceKind", reflect.TypeOf((*MockSharedClientFactory)(nil).ForResourceKind), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ForResourceKind", reflect.TypeOf((*MockSharedClientFactory)(nil).ForResourceKind), gvr, kind, namespaced)
 }
 
 // GVKForObject mocks base method.
-func (m *MockSharedClientFactory) GVKForObject(arg0 runtime.Object) (schema.GroupVersionKind, error) {
+func (m *MockSharedClientFactory) GVKForObject(obj runtime.Object) (schema.GroupVersionKind, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GVKForObject", arg0)
+	ret := m.ctrl.Call(m, "GVKForObject", obj)
 	ret0, _ := ret[0].(schema.GroupVersionKind)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GVKForObject indicates an expected call of GVKForObject.
-func (mr *MockSharedClientFactoryMockRecorder) GVKForObject(arg0 any) *gomock.Call {
+func (mr *MockSharedClientFactoryMockRecorder) GVKForObject(obj any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GVKForObject", reflect.TypeOf((*MockSharedClientFactory)(nil).GVKForObject), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GVKForObject", reflect.TypeOf((*MockSharedClientFactory)(nil).GVKForObject), obj)
 }
 
 // GVKForResource mocks base method.
-func (m *MockSharedClientFactory) GVKForResource(arg0 schema.GroupVersionResource) (schema.GroupVersionKind, error) {
+func (m *MockSharedClientFactory) GVKForResource(gvr schema.GroupVersionResource) (schema.GroupVersionKind, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GVKForResource", arg0)
+	ret := m.ctrl.Call(m, "GVKForResource", gvr)
 	ret0, _ := ret[0].(schema.GroupVersionKind)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GVKForResource indicates an expected call of GVKForResource.
-func (mr *MockSharedClientFactoryMockRecorder) GVKForResource(arg0 any) *gomock.Call {
+func (mr *MockSharedClientFactoryMockRecorder) GVKForResource(gvr any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GVKForResource", reflect.TypeOf((*MockSharedClientFactory)(nil).GVKForResource), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GVKForResource", reflect.TypeOf((*MockSharedClientFactory)(nil).GVKForResource), gvr)
 }
 
 // IsHealthy mocks base method.
-func (m *MockSharedClientFactory) IsHealthy(arg0 context.Context) bool {
+func (m *MockSharedClientFactory) IsHealthy(ctx context.Context) bool {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsHealthy", arg0)
+	ret := m.ctrl.Call(m, "IsHealthy", ctx)
 	ret0, _ := ret[0].(bool)
 	return ret0
 }
 
 // IsHealthy indicates an expected call of IsHealthy.
-func (mr *MockSharedClientFactoryMockRecorder) IsHealthy(arg0 any) *gomock.Call {
+func (mr *MockSharedClientFactoryMockRecorder) IsHealthy(ctx any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsHealthy", reflect.TypeOf((*MockSharedClientFactory)(nil).IsHealthy), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsHealthy", reflect.TypeOf((*MockSharedClientFactory)(nil).IsHealthy), ctx)
 }
 
 // IsNamespaced mocks base method.
-func (m *MockSharedClientFactory) IsNamespaced(arg0 schema.GroupVersionKind) (bool, error) {
+func (m *MockSharedClientFactory) IsNamespaced(gvk schema.GroupVersionKind) (bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsNamespaced", arg0)
+	ret := m.ctrl.Call(m, "IsNamespaced", gvk)
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // IsNamespaced indicates an expected call of IsNamespaced.
-func (mr *MockSharedClientFactoryMockRecorder) IsNamespaced(arg0 any) *gomock.Call {
+func (mr *MockSharedClientFactoryMockRecorder) IsNamespaced(gvk any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsNamespaced", reflect.TypeOf((*MockSharedClientFactory)(nil).IsNamespaced), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsNamespaced", reflect.TypeOf((*MockSharedClientFactory)(nil).IsNamespaced), gvk)
 }
 
 // NewObjects mocks base method.
-func (m *MockSharedClientFactory) NewObjects(arg0 schema.GroupVersionKind) (runtime.Object, runtime.Object, error) {
+func (m *MockSharedClientFactory) NewObjects(gvk schema.GroupVersionKind) (runtime.Object, runtime.Object, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewObjects", arg0)
+	ret := m.ctrl.Call(m, "NewObjects", gvk)
 	ret0, _ := ret[0].(runtime.Object)
 	ret1, _ := ret[1].(runtime.Object)
 	ret2, _ := ret[2].(error)
@@ -156,15 +157,15 @@ func (m *MockSharedClientFactory) NewObjects(arg0 schema.GroupVersionKind) (runt
 }
 
 // NewObjects indicates an expected call of NewObjects.
-func (mr *MockSharedClientFactoryMockRecorder) NewObjects(arg0 any) *gomock.Call {
+func (mr *MockSharedClientFactoryMockRecorder) NewObjects(gvk any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewObjects", reflect.TypeOf((*MockSharedClientFactory)(nil).NewObjects), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewObjects", reflect.TypeOf((*MockSharedClientFactory)(nil).NewObjects), gvk)
 }
 
 // ResourceForGVK mocks base method.
-func (m *MockSharedClientFactory) ResourceForGVK(arg0 schema.GroupVersionKind) (schema.GroupVersionResource, bool, error) {
+func (m *MockSharedClientFactory) ResourceForGVK(gvk schema.GroupVersionKind) (schema.GroupVersionResource, bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ResourceForGVK", arg0)
+	ret := m.ctrl.Call(m, "ResourceForGVK", gvk)
 	ret0, _ := ret[0].(schema.GroupVersionResource)
 	ret1, _ := ret[1].(bool)
 	ret2, _ := ret[2].(error)
@@ -172,7 +173,7 @@ func (m *MockSharedClientFactory) ResourceForGVK(arg0 schema.GroupVersionKind) (
 }
 
 // ResourceForGVK indicates an expected call of ResourceForGVK.
-func (mr *MockSharedClientFactoryMockRecorder) ResourceForGVK(arg0 any) *gomock.Call {
+func (mr *MockSharedClientFactoryMockRecorder) ResourceForGVK(gvk any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResourceForGVK", reflect.TypeOf((*MockSharedClientFactory)(nil).ResourceForGVK), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResourceForGVK", reflect.TypeOf((*MockSharedClientFactory)(nil).ResourceForGVK), gvk)
 }

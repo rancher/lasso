@@ -23,6 +23,7 @@ import (
 type MockSharedController struct {
 	ctrl     *gomock.Controller
 	recorder *MockSharedControllerMockRecorder
+	isgomock struct{}
 }
 
 // MockSharedControllerMockRecorder is the mock recorder for MockSharedController.
@@ -57,39 +58,39 @@ func (mr *MockSharedControllerMockRecorder) Client() *gomock.Call {
 }
 
 // Enqueue mocks base method.
-func (m *MockSharedController) Enqueue(arg0, arg1 string) {
+func (m *MockSharedController) Enqueue(namespace, name string) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Enqueue", arg0, arg1)
+	m.ctrl.Call(m, "Enqueue", namespace, name)
 }
 
 // Enqueue indicates an expected call of Enqueue.
-func (mr *MockSharedControllerMockRecorder) Enqueue(arg0, arg1 any) *gomock.Call {
+func (mr *MockSharedControllerMockRecorder) Enqueue(namespace, name any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Enqueue", reflect.TypeOf((*MockSharedController)(nil).Enqueue), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Enqueue", reflect.TypeOf((*MockSharedController)(nil).Enqueue), namespace, name)
 }
 
 // EnqueueAfter mocks base method.
-func (m *MockSharedController) EnqueueAfter(arg0, arg1 string, arg2 time.Duration) {
+func (m *MockSharedController) EnqueueAfter(namespace, name string, delay time.Duration) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "EnqueueAfter", arg0, arg1, arg2)
+	m.ctrl.Call(m, "EnqueueAfter", namespace, name, delay)
 }
 
 // EnqueueAfter indicates an expected call of EnqueueAfter.
-func (mr *MockSharedControllerMockRecorder) EnqueueAfter(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockSharedControllerMockRecorder) EnqueueAfter(namespace, name, delay any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnqueueAfter", reflect.TypeOf((*MockSharedController)(nil).EnqueueAfter), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnqueueAfter", reflect.TypeOf((*MockSharedController)(nil).EnqueueAfter), namespace, name, delay)
 }
 
 // EnqueueKey mocks base method.
-func (m *MockSharedController) EnqueueKey(arg0 string) {
+func (m *MockSharedController) EnqueueKey(key string) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "EnqueueKey", arg0)
+	m.ctrl.Call(m, "EnqueueKey", key)
 }
 
 // EnqueueKey indicates an expected call of EnqueueKey.
-func (mr *MockSharedControllerMockRecorder) EnqueueKey(arg0 any) *gomock.Call {
+func (mr *MockSharedControllerMockRecorder) EnqueueKey(key any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnqueueKey", reflect.TypeOf((*MockSharedController)(nil).EnqueueKey), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnqueueKey", reflect.TypeOf((*MockSharedController)(nil).EnqueueKey), key)
 }
 
 // Informer mocks base method.
@@ -107,27 +108,27 @@ func (mr *MockSharedControllerMockRecorder) Informer() *gomock.Call {
 }
 
 // RegisterHandler mocks base method.
-func (m *MockSharedController) RegisterHandler(arg0 context.Context, arg1 string, arg2 SharedControllerHandler) {
+func (m *MockSharedController) RegisterHandler(ctx context.Context, name string, handler SharedControllerHandler) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "RegisterHandler", arg0, arg1, arg2)
+	m.ctrl.Call(m, "RegisterHandler", ctx, name, handler)
 }
 
 // RegisterHandler indicates an expected call of RegisterHandler.
-func (mr *MockSharedControllerMockRecorder) RegisterHandler(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockSharedControllerMockRecorder) RegisterHandler(ctx, name, handler any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterHandler", reflect.TypeOf((*MockSharedController)(nil).RegisterHandler), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterHandler", reflect.TypeOf((*MockSharedController)(nil).RegisterHandler), ctx, name, handler)
 }
 
 // Start mocks base method.
-func (m *MockSharedController) Start(arg0 context.Context, arg1 int) error {
+func (m *MockSharedController) Start(ctx context.Context, workers int) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Start", arg0, arg1)
+	ret := m.ctrl.Call(m, "Start", ctx, workers)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Start indicates an expected call of Start.
-func (mr *MockSharedControllerMockRecorder) Start(arg0, arg1 any) *gomock.Call {
+func (mr *MockSharedControllerMockRecorder) Start(ctx, workers any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockSharedController)(nil).Start), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockSharedController)(nil).Start), ctx, workers)
 }
