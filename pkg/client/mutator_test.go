@@ -87,21 +87,21 @@ func TestNewSharedClientFactoryWithAgent(t *testing.T) {
 	assert.Nil(t, err)
 
 	restClient := clientWithAgent.RESTClient.(*rest.RESTClient)
-	restClient.Client.Transport.RoundTrip(&http.Request{})
+	_, _ = restClient.Client.Transport.RoundTrip(&http.Request{})
 
 	// for resource
 	clientWithAgent, err = testSharedClientFactoryWithAgent.ForResource(schema.GroupVersionResource{}, false)
 	assert.Nil(t, err)
 
 	restClient = clientWithAgent.RESTClient.(*rest.RESTClient)
-	restClient.Client.Transport.RoundTrip(&http.Request{})
+	_, _ = restClient.Client.Transport.RoundTrip(&http.Request{})
 
 	// for resource kind
 	clientWithAgent = testSharedClientFactoryWithAgent.ForResourceKind(schema.GroupVersionResource{}, "", false)
 	assert.Nil(t, err)
 
 	restClient = clientWithAgent.RESTClient.(*rest.RESTClient)
-	restClient.Client.Transport.RoundTrip(&http.Request{})
+	_, _ = restClient.Client.Transport.RoundTrip(&http.Request{})
 
 	// test with errors
 	mockSharedClientErrFactory := NewMockSharedClientFactory(gomock.NewController(t))
