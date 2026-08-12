@@ -3,8 +3,7 @@
     "github>rancher/renovate-config#release"
   ],
   "baseBranchPatterns": [
-    "main",
-    "release/v0.1"
+    "main"
   ],
   "prHourlyLimit": 2,
   "enabledManagers": [
@@ -14,38 +13,14 @@
   ],
   "packageRules": [
     {
+      "matchBaseBranches": ["main"],
+      "extends": ["github>rancher/renovate-config:rancher-main#main"]
+    },
+    {
       "enabled": false,
       "matchPackageNames": [
-        "/k8s.io/*/",
-        "/sigs.k8s.io/*/",
         "/github.com/prometheus/*/"
       ]
-    },
-    {
-      "description": "Disable major updates on release branches",
-      "matchUpdateTypes": ["major"],
-      "matchBaseBranches": ["/^release\\//"],
-      "enabled": false
-    },
-    {
-      "description": "Do not bump golang.org/x/tools minor/major on release branches - it tracks Go language releases and bumping it forces a go directive minor bump",
-      "matchPackageNames": ["golang.org/x/tools"],
-      "matchUpdateTypes": ["major", "minor"],
-      "matchBaseBranches": ["/^release\\//"],
-      "enabled": false
-    },
-    {
-      "description": "Do not bump the Go minor/major version on release branches",
-      "matchDepNames": ["go"],
-      "matchUpdateTypes": ["major", "minor"],
-      "matchBaseBranches": ["/^release\\//"],
-      "enabled": false
-    },
-    {
-      "description": "Do not update the rancher/renovate-config digest on release branches - only main's renovate.json is ever used, so keeping release branch copies in sync is unnecessary",
-      "matchDepNames": ["rancher/renovate-config"],
-      "matchBaseBranches": ["/^release\\//"],
-      "enabled": false
     },
     {
       "description": "Group all GitHub Actions updates into a single PR per branch",
