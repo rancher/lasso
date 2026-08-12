@@ -14,10 +14,21 @@
   ],
   "packageRules": [
     {
+      "matchBaseBranches": ["main"],
+      "extends": ["github>rancher/renovate-config:rancher-main#main"]
+    },
+    {
+      "description": "release/v0.1 predates every per-release-line preset and has no active consumer - every currently supported rancher branch pins lasso to a v0.2.x tag cut from main - so keep it fully disabled for k8s.io/sigs.k8s.io rather than adopting a ceiling that doesn't apply to it",
       "enabled": false,
+      "matchBaseBranches": ["release/v0.1"],
       "matchPackageNames": [
         "/k8s.io/*/",
-        "/sigs.k8s.io/*/",
+        "/sigs.k8s.io/*/"
+      ]
+    },
+    {
+      "enabled": false,
+      "matchPackageNames": [
         "/github.com/prometheus/*/"
       ]
     },
