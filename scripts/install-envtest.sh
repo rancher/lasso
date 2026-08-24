@@ -1,13 +1,14 @@
 #!/bin/sh
 set -e
 
-# The envtest version and SHAs can be found here: https://raw.githubusercontent.com/kubernetes-sigs/controller-tools/HEAD/envtest-releases.yaml
+# The envtest version and SHAs below are updated by scripts/bump-envtest.sh.
+# They come from https://raw.githubusercontent.com/kubernetes-sigs/controller-tools/HEAD/envtest-releases.yaml
 
-ENVTEST_VERSION=v1.36.0
-ENVTEST_SUM_linux_amd64=302d6a4c3b7d79b8a6168cd9fd5f18e718048211d25012d969d320e06b39672d17338bcd008c29adf98b41048a6f7d80c90ab0165b4b861497ef74c7bc6c1531
-ENVTEST_SUM_linux_arm64=16b416776b6f5e6a13be33b7e9f248cbffb71b40bc286436c93b83239b965d07b902ce0da75b721aea9356a764ca896154bc420618bc7fb9d1dc4a6b2fa49405
-ENVTEST_SUM_darwin_amd64=2f73d7c2c1408c3334f978c2c7f8a64bc691277d1b482930ae516b425882464f8970b0e47010520cdd29f1e756adfab2721a53857a976a462c16edcef9604644
-ENVTEST_SUM_darwin_arm64=4b3542f707ffaa4bc0d5a07d25290323ff0ad1efd90560571705daf958db772fd8e78b5d6ae878df1840d8d39c1250ebfaf8518bfd02b10757ae445ec0cafe9e
+ENVTEST_VERSION=v1.36.2
+ENVTEST_SUM_linux_amd64=ea743186c8a799f5cf8faf16969f86189d003cb7d130e0ac4b58789f1e5748dcf30ebe91c837a10d5ac415383da3e10b9e64d65785c938c23e739781cfb76f08
+ENVTEST_SUM_linux_arm64=2d72ee985a8e262a3c57dc9f7f0fd891f6a8c7bf7ebaa2db6dc6d8eac8ae28181afe51c1f368b67756cdb40b10de9b205609e1726e5f27f7c6d824dd9c6649ac
+ENVTEST_SUM_darwin_amd64=b4fe9f973cd1992e3880f8b230ed32c0c243b83371591e3e3315f4404df2cdbef8ee94eeb9bb245b7e5feb987d5c4a76c43e0877654ab73f00d7bbc2b9984514
+ENVTEST_SUM_darwin_arm64=9278f9e5af556b2f1f2d139769c1f0d717c7b4426917fdebdba898bcb725a916e4910d6160886194ff9be9589ea7c5c32c2b8ae0754703874b7c8ba8ddfc41ce
 
 CLIENT_GO_MINOR=$(go mod graph | grep ' k8s.io/client-go@' | head -n1 | cut -d@ -f2 | cut -d '.' -f 2)
 ENVTEST_MINOR=$(echo "$ENVTEST_VERSION" | cut -d '.' -f 2)
