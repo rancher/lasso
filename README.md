@@ -196,6 +196,29 @@ func main() {
 
 ```
 
+# Developing
+
+### Running Tests
+
+Unit tests cover `./pkg/...` and need no setup:
+
+```sh
+make test
+```
+
+Integration tests run against a real API server provided by
+[envtest](https://book.kubebuilder.io/reference/envtest):
+
+```sh
+make test-integration
+```
+
+The envtest control plane binaries and the `setup-envtest` tool are both pinned
+and checksummed, and are installed automatically by the above target. See
+[tests/integration/README.md](tests/integration/README.md) for how that works,
+why it is pinned, and how to bump the version when `k8s.io/client-go` moves to a
+new minor release.
+
 # Credits and Resources
 The following resources were helpful in writing these docs. They are highly recommended for learning more than what is presented here:
 1. [the Kubernetes Documentation](https://kubernetes.io/docs/reference/command-line-tools-reference/kube-controller-manager/)
