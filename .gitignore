@@ -31,3 +31,4 @@ tests/validation/.idea
 all.yaml
 kustomization.yaml
 pkg/.idea/
+/coverage-integration.out

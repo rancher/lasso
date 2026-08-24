@@ -2,13 +2,12 @@
 
 set -euo pipefail
 
-go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+./scripts/install-envtest.sh
 
-export PATH=$PATH:$(go env GOPATH)/bin
+ENVTEST_VERSION=$(grep '^ENVTEST_VERSION=' scripts/install-envtest.sh | cut -d= -f2)
+SEMVER=${ENVTEST_VERSION#v}
 
-if [ -z "${KUBEBUILDER_ASSETS:-}" ]; then
-    KUBEBUILDER_ASSETS=$(setup-envtest use -p path --bin-dir $(pwd)/testbin 1.35.0)
-fi
+KUBEBUILDER_ASSETS=$(go tool -modfile gotools/setup-envtest/go.mod setup-envtest use -p path -i "${SEMVER}")
 export KUBEBUILDER_ASSETS
 
 go test -coverpkg ./pkg/... -coverprofile coverage-integration.out ./tests/integration/... "$@"
