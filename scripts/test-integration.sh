@@ -10,4 +10,4 @@ SEMVER=${ENVTEST_VERSION#v}
 KUBEBUILDER_ASSETS=$(go tool -modfile gotools/setup-envtest/go.mod setup-envtest use -p path -i "${SEMVER}")
 export KUBEBUILDER_ASSETS
 
-go test -coverpkg ./pkg/... -coverprofile coverage-integration.out ./tests/integration/... "$@"
+go test -race -coverpkg ./pkg/... -coverprofile coverage-integration.out ./tests/integration/... "$@"

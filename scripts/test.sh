@@ -2,4 +2,4 @@
 
 set -euo pipefail
 
-go test ./pkg/... "$@"
+go test -race ./pkg/... "$@"
