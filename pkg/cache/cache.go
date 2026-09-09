@@ -129,7 +129,7 @@ func (d *deferredListWatcher) run(stopCh <-chan struct{}) {
 	}()
 
 	d.lw = &cache.ListWatch{
-		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+		ListWithContextFunc: func(_ context.Context, options metav1.ListOptions) (runtime.Object, error) {
 			d.tweakList(&options)
 			// If ResourceVersion is set to 0 then the Limit is ignored on the API side. Usually
 			// that's not a problem, but with very large counts of a single object type the client will
@@ -144,7 +144,7 @@ func (d *deferredListWatcher) run(stopCh <-chan struct{}) {
 			}
 			return listObj, err
 		},
-		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+		WatchFuncWithContext: func(_ context.Context, options metav1.ListOptions) (watch.Interface, error) {
 			d.tweakList(&options)
 			return d.client.Watch(ctx, d.namespace, options)
 		},
