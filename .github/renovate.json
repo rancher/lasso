@@ -14,7 +14,7 @@
   "packageRules": [
     {
       "matchBaseBranches": ["main"],
-      "extends": ["github>rancher/renovate-config:rancher-main#main"]
+      "extends": ["github>rancher/renovate-config:rancher-main#release"]
     },
     {
       "enabled": false,
