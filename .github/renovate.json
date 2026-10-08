@@ -34,6 +34,13 @@
         "/^golang\\.org\\/x\\//"
       ],
       "groupName": "golang.org/x packages"
+    },
+    {
+      "description": "Activate automerge for eligible updates",
+      "matchBaseBranches": [
+        "main"
+      ],
+      "extends": ["github>rancher/renovate-config:automerge#release"]
     }
   ]
 }
