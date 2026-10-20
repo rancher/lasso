@@ -1,6 +1,6 @@
 package controller
 
-//go:generate mockgen --build_flags=--mod=mod -package controller -destination ./mocks_test.go github.com/rancher/lasso/pkg/controller SharedController
+//go:generate go tool -modfile=../../gotools/mockgen/go.mod mockgen --build_flags=--mod=mod -package controller -destination ./mocks_test.go github.com/rancher/lasso/pkg/controller SharedController
 
 import (
 	"net/http"
