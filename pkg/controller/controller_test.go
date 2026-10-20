@@ -16,7 +16,7 @@ import (
 	"k8s.io/utils/ptr"
 )
 
-//go:generate mockgen --build_flags=--mod=mod -package controller -destination ./mock_shared_index_informer_test.go k8s.io/client-go/tools/cache SharedIndexInformer
+//go:generate go tool -modfile=../../gotools/mockgen/go.mod mockgen --build_flags=--mod=mod -package controller -destination ./mock_shared_index_informer_test.go k8s.io/client-go/tools/cache SharedIndexInformer
 
 func TestController_multiple_finalizers_race(t *testing.T) {
 	t.Parallel()

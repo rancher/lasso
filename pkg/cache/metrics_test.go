@@ -1,4 +1,4 @@
-//go:generate mockgen --build_flags=--mod=mod -package cache -destination ./mocks_test.go github.com/rancher/lasso/pkg/client SharedClientFactory
+//go:generate go tool -modfile=../../gotools/mockgen/go.mod mockgen --build_flags=--mod=mod -package cache -destination ./mocks_test.go github.com/rancher/lasso/pkg/client SharedClientFactory
 package cache
 
 import (
