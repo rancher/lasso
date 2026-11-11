@@ -77,7 +77,7 @@ func (h *SharedHandler) Register(ctx context.Context, name string, handler Share
 	}()
 }
 
-func (h *SharedHandler) OnChange(key string, obj runtime.Object) error {
+func (h *SharedHandler) OnChange(ctx context.Context, key string, obj runtime.Object) error {
 	// early skip for a special case: objects that were just deleted but still not updated in the informer cache.
 	// modifications performed by early chained handlers also cause a new enqueue of the processed key, while later late handlers modifications
 	// could cause the definitive deletion of the object (by removing a finalizer). If this happens fast enough, it creates a race condition where handlers receive an out-of-date version of the object.
@@ -95,7 +95,7 @@ func (h *SharedHandler) OnChange(key string, obj runtime.Object) error {
 		var hasError bool
 		reconcileStartTS := time.Now()
 
-		newObj, err := handler.handler.OnChange(key, obj)
+		newObj, err := handler.handler.OnChange(ctx, key, obj)
 		if err != nil && !errors.Is(err, ErrIgnore) {
 			errs = append(errs, &handlerError{
 				HandlerName: handler.name,
