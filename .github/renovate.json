@@ -21,6 +21,12 @@
       ]
     },
     {
+      "description": "Pin Go minor on main to the Go version of the highest supported k8s (k8s 0.37 -> go 1.26); patch bumps still allowed",
+      "matchDepNames": ["go", "golang"],
+      "matchBaseBranches": ["main"],
+      "allowedVersions": "<1.27"
+    },
+    {
       "description": "Group all GitHub Actions updates into a single PR per branch",
       "matchManagers": ["github-actions"],
       "groupName": "GitHub Actions",
